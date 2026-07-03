@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="bn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Super Admin — Horticulture Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+Bengali:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"
+    />
+    <link rel="stylesheet" href="/css/superadmin.css" />
+  </head>
+  <body>
+    <!-- LOGIN -->
+    <div class="login-wrap" id="loginWrap">
+      <div class="login-box">
+        <div class="login-logo">🌿</div>
+        <h1>Super Admin Panel</h1>
+        <p>Horticulture Management System — DAE</p>
+        <div class="field">
+          <label>ইমেইল</label
+          ><input
+            type="email"
+            id="saEmail"
+            placeholder="director@horticulture.bd"
+          />
+        </div>
+        <div class="field">
+          <label>পাসওয়ার্ড</label
+          ><input
+            type="password"
+            id="saPass"
+            placeholder="••••••••"
+            onkeydown="if (event.key === 'Enter') saLogin();"
+          />
+        </div>
+        <button class="btn-login" onclick="saLogin()">লগইন করুন</button>
+        <div class="err" id="saErr"></div>
+      </div>
+    </div>
+
+    <!-- APP -->
+    <div
+      class="sidebar-overlay"
+      id="sidebarOverlay"
+      onclick="toggleSidebar()"
+    ></div>
+    <div class="app" id="saApp">
+      <div class="app-layout">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+          <div class="sidebar-header">
+            <div class="sidebar-logo">
+              <div class="sidebar-logo-icon">🌿</div>
+              <div>
+                <div class="sidebar-logo-text">HortNet-BD</div>
+                <div class="sidebar-logo-sub">Super Admin</div>
+              </div>
+            </div>
+            <div class="admin-card">
+              <div class="admin-av" id="adminAv">A</div>
+              <div>
+                <div class="admin-name" id="adminName">—</div>
+                <div class="admin-role" id="adminRole">—</div>
+              </div>
+            </div>
+          </div>
+
+          <nav class="sidebar-nav">
+            <div class="nav-section-label">মূল মেনু</div>
+            <button
+              class="nav-item active"
+              onclick="navTo('overview', this)"
+              id="nav-overview"
+            >
+              <i class="ti ti-layout-dashboard"></i> Overview
+              <span class="badge" id="badge-overview">—</span>
+            </button>
+
+            <div class="nav-divider"></div>
+            <div class="nav-section-label">Center Category</div>
+
+            <button
+              class="nav-item nav-catA"
+              onclick="navTo('catA', this)"
+              id="nav-catA"
+            >
+              <i class="ti ti-building-skyscraper"></i> A — উপপরিচালক
+              <span class="badge" id="badge-catA">0</span>
+            </button>
+            <button
+              class="nav-item nav-catB"
+              onclick="navTo('catB', this)"
+              id="nav-catB"
+            >
+              <i class="ti ti-plant"></i> B — উদ্যানতত্ত্ববিদ
+              <span class="badge" id="badge-catB">0</span>
+            </button>
+            <button
+              class="nav-item nav-catC"
+              onclick="navTo('catC', this)"
+              id="nav-catC"
+            >
+              <i class="ti ti-leaf"></i> C — নার্সারী তত্ত্বাবধায়ক
+              <span class="badge" id="badge-catC">0</span>
+            </button>
+
+            <div class="nav-divider"></div>
+            <div class="nav-section-label">রিপোর্ট</div>
+            <button
+              class="nav-item"
+              onclick="navTo('compare', this)"
+              id="nav-compare"
+            >
+              <i class="ti ti-chart-bar"></i> তুলনামূলক রিপোর্ট
+            </button>
+            <button
+              class="nav-item"
+              onclick="navTo('targetSummary', this)"
+              id="nav-targetSummary"
+            >
+              <i class="ti ti-target"></i> লক্ষ্যমাত্রা সারসংক্ষেপ
+            </button>
+            <button
+              class="nav-item"
+              onclick="navTo('districtSummary', this)"
+              id="nav-districtSummary"
+            >
+              <i class="ti ti-map-pin"></i> জেলাভিত্তিক সারসংক্ষেপ
+            </button>
+
+            <div id="directorOnly" style="display: none">
+              <div class="nav-divider"></div>
+              <div class="nav-section-label">পরিচালক</div>
+              <button
+                class="nav-item"
+                onclick="navTo('allCenters', this)"
+                id="nav-allCenters"
+              >
+                <i class="ti ti-settings"></i> সব Center পরিচালনা
+              </button>
+              <button
+                class="nav-item"
+                onclick="navTo('adminMgmt', this)"
+                id="nav-adminMgmt"
+              >
+                <i class="ti ti-users-group"></i> Admin পরিচালনা
+                <span class="badge" id="badge-admins">—</span>
+              </button>
+
+              <button class="nav-item" onclick="navTo('notice', this)">
+                <i class="ti ti-speakerphone"></i>
+                <span>নোটিশ বোর্ড</span>
+              </button>
+            </div>
+          </nav>
+
+          <div class="sidebar-footer">
+            <button class="btn-logout" onclick="saLogout()">
+              <i class="ti ti-logout"></i> লগআউট
+            </button>
+          </div>
+        </div>
+
+        <!-- MAIN -->
+        <div class="main">
+          <div class="topbar">
+            <div style="display: flex; align-items: center; gap: 4px">
+              <button class="hamburger" onclick="toggleSidebar()">
+                <i class="ti ti-menu-2"></i>
+              </button>
+              <div class="topbar-title" id="topbarTitle">Overview</div>
+
+              <div class="search-wrap">
+                <i class="ti ti-search search-icon"></i>
+                <input
+                  type="text"
+                  id="saSearch"
+                  class="search-input"
+                  placeholder="Center খুঁজুন..."
+                  oninput="onSearch(this.value)"
+                />
+              </div>
+            </div>
+            <div class="topbar-right">
+              <div
+                id="topbarAdminInfo"
+                style="text-align: right; margin-right: 12px; display: none"
+              >
+                <div
+                  style="font-size: 12px; font-weight: 600; color: var(--text)"
+                  id="topbarAdminName"
+                ></div>
+                <div
+                  style="font-size: 10px; color: var(--muted)"
+                  id="topbarAdminRole"
+                ></div>
+              </div>
+              <button class="refresh-btn" onclick="refreshAll()">
+                <i class="ti ti-refresh"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div class="main-content" id="mainContent">
+            <div class="loading-center"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="centerModal">
+      <div class="modal-box">
+        <div class="modal-hdr">
+          <h3 id="modalTitle">নতুন Center</h3>
+          <button class="close-btn" onclick="closeModal()">
+            <i class="ti ti-x"></i>
+          </button>
+        </div>
+        <input type="hidden" id="editId" />
+        <div class="fg-row">
+          <div class="fg">
+            <label>Slug*</label><input id="fSlug" placeholder="dhaka" />
+          </div>
+          <div class="fg">
+            <label>Category*</label>
+            <select id="fCategory">
+              <option value="A">A — উপপরিচালক</option>
+              <option value="B" selected>B — উদ্যানতত্ত্ববিদ</option>
+              <option value="C">C — নার্সারী তত্ত্বাবধায়ক</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg">
+          <label>নাম (বাংলা)*</label
+          ><input id="fNameBn" placeholder="উদ্যানতত্ত্ববিদের কার্যালয়" />
+        </div>
+        <div class="fg">
+          <label>Name (English)*</label
+          ><input id="fNameEn" placeholder="Horticulture Center, Dhaka" />
+        </div>
+        <div class="fg-row">
+          <div class="fg">
+            <label>District</label><input id="fDistrict" placeholder="ঢাকা" />
+          </div>
+          <div class="fg">
+            <label>Division</label><input id="fDivision" placeholder="ঢাকা" />
+          </div>
+        </div>
+        <div class="fg">
+          <label>Location</label><input id="fLocation" placeholder="ঢাকা সদর" />
+        </div>
+        <div class="fg">
+          <label>Database URL*</label>
+          <textarea
+            id="fDbUrl"
+            placeholder="postgresql://postgres.xxxx:PASS@aws-x.pooler.supabase.com:6543/postgres?pgbouncer=true"
+          ></textarea>
+          <div class="hint">
+            Supabase → Settings → Database → Connection Pooling → Transaction
+            mode
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" onclick="closeModal()">বাতিল</button>
+          <button class="btn-save" onclick="saveCenter()">সংরক্ষণ</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- লক্ষ্যমাত্রা নির্ধারণ Modal — </body> এর আগে যোগ করো -->
+    <div class="modal" id="mSetTarget">
+      <div class="modal-box" style="max-width: 500px">
+        <div class="modal-hdr">
+          <h3>🎯 লক্ষ্যমাত্রা নির্ধারণ করুন</h3>
+          <button
+            class="close-btn"
+            onclick="
+              document.getElementById('mSetTarget').classList.remove('open')
+            "
+          >
+            <i class="ti ti-x"></i>
+          </button>
+        </div>
+
+        <!-- সেন্টার -->
+        <div class="fg">
+          <label>সেন্টার বেছে নিন</label>
+          <select id="tgCenter"></select>
+        </div>
+
+        <!-- ধরন ও সময় -->
+        <div class="fg-row">
+          <div class="fg">
+            <label>লক্ষ্যমাত্রার ধরন</label>
+            <select id="tgType2">
+              <option value="production">🌱 উৎপাদন</option>
+              <option value="sales">💰 বিক্রয়</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>সময়কাল</label>
+            <select id="tgPeriod2" onchange="toggleTgPeriod2()">
+              <option value="annual">বার্ষিক (অর্থবছর)</option>
+              <option value="monthly">মাসিক</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- অর্থবছর ও মাস -->
+        <div class="fg-row">
+          <div class="fg">
+            <label>অর্থবছর</label>
+            <select id="tgFY2"></select>
+          </div>
+          <div class="fg" id="tgMonthBox2" style="display: none">
+            <label>মাস</label>
+            <select id="tgMonth2">
+              <option value="1">জানুয়ারি</option>
+              <option value="2">ফেব্রুয়ারি</option>
+              <option value="3">মার্চ</option>
+              <option value="4">এপ্রিল</option>
+              <option value="5">মে</option>
+              <option value="6">জুন</option>
+              <option value="7">জুলাই</option>
+              <option value="8">আগস্ট</option>
+              <option value="9">সেপ্টেম্বর</option>
+              <option value="10">অক্টোবর</option>
+              <option value="11">নভেম্বর</option>
+              <option value="12">ডিসেম্বর</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- লক্ষ্য পরিমাণ -->
+        <div class="fg-row">
+          <div class="fg">
+            <label>উৎপাদন লক্ষ্য (টি)</label>
+            <input type="number" id="tgQty2" placeholder="যেমন: ৫০০০" min="0" />
+          </div>
+          <div class="fg">
+            <label>বিক্রয় লক্ষ্য (৳)</label>
+            <input
+              type="number"
+              id="tgAmt2"
+              placeholder="যেমন: ১০০০০০"
+              min="0"
+            />
+          </div>
+        </div>
+
+        <!-- মন্তব্য -->
+        <div class="fg">
+          <label>মন্তব্য (ঐচ্ছিক)</label>
+          <input
+            type="text"
+            id="tgNotes2"
+            placeholder="কোনো বিশেষ নির্দেশনা থাকলে লিখুন"
+          />
+        </div>
+
+        <div class="modal-footer">
+          <button
+            class="btn-cancel"
+            onclick="
+              document.getElementById('mSetTarget').classList.remove('open')
+            "
+          >
+            বাতিল
+          </button>
+          <button class="btn-save" onclick="saveSetTarget()">
+            <i class="ti ti-check"></i> সংরক্ষণ করুন
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- notification modal -->
+
+    <div class="modal" id="mNotice">
+      <div class="modal-box" style="max-width: 520px">
+        <div class="modal-hdr">
+          <h3>📢 নতুন নোটিশ</h3>
+          <button
+            class="close-btn"
+            onclick="
+              document.getElementById('mNotice').classList.remove('open')
+            "
+          >
+            <i class="ti ti-x"></i>
+          </button>
+        </div>
+        <div class="fg">
+          <label>শিরোনাম*</label>
+          <input type="text" id="nTitle" placeholder="নোটিশের শিরোনাম" />
+        </div>
+        <div class="fg">
+          <label>বিষয়বস্তু*</label>
+          <textarea
+            id="nContent"
+            style="min-height: 120px"
+            placeholder="নোটিশের বিস্তারিত লিখুন..."
+          ></textarea>
+        </div>
+        <div class="fg-row">
+          <div class="fg">
+            <label>অগ্রাধিকার</label>
+            <select id="nPriority">
+              <option value="normal">🔵 সাধারণ</option>
+              <option value="important">🟡 গুরুত্বপূর্ণ</option>
+              <option value="urgent">🔴 জরুরি</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>মেয়াদ শেষ (ঐচ্ছিক)</label>
+            <input type="date" id="nExpiry" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            class="btn-cancel"
+            onclick="
+              document.getElementById('mNotice').classList.remove('open')
+            "
+          >
+            বাতিল
+          </button>
+          <button class="btn-save" onclick="saveNotice()">প্রকাশ করুন</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- end of notification modal -->
+
+    <script src="/js/superadmin.js"></script>
+  </body>
+</html>

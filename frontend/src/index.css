@@ -1,0 +1,373 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== v1-এর হুবহু রং ===== */
+:root {
+  --g50: #eaf3de;
+  --g100: #c0dd97;
+  --g200: #97c459;
+  --g400: #639922;
+  --g600: #3b6d11;
+  --g800: #27500a;
+  --t50: #e1f5ee;
+  --t400: #1d9e75;
+  --t600: #0f6e56;
+  --a50: #faeeda;
+  --a200: #ef9f27;
+  --a400: #ba7517;
+  --c50: #faece7;
+  --c400: #d85a30;
+  --c600: #993c1d;
+  --b50: #e6f1fb;
+  --b400: #378add;
+  --b600: #185fa5;
+  --r50: #fcebeb;
+  --r400: #e24b4a;
+  --r600: #a32d2d;
+  --gr50: #f1efe8;
+  --gr400: #888780;
+  --gr600: #5f5e5a;
+  --bg: #f8f6f0;
+  --sb: #1a2e1a;
+  --st: #c8dbb4;
+  --sa: #4a8c2a;
+  --card: #fff;
+  --tp: #1a1a18;
+  --tm: #888780;
+  --bd: #e2ddd5;
+}
+@layer base {
+  body {
+    background: var(--bg);
+    color: var(--tp);
+    font-family: "Noto Sans Bengali", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* ===== dashboard widget class (v1 হুবহু) ===== */
+@layer components {
+  .sc {
+    background: var(--card);
+    border: 1px solid var(--bd);
+    border-radius: 14px;
+    padding: 16px;
+  }
+  .si {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .sl {
+    font-size: 13px;
+    color: var(--tm);
+  }
+  .sv {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.15;
+    margin-top: 2px;
+  }
+  .ss2 {
+    font-size: 12px;
+    color: var(--tm);
+    margin-top: 4px;
+  }
+  .cd {
+    background: var(--card);
+    border: 1px solid var(--bd);
+    border-radius: 14px;
+    padding: 18px;
+  }
+  .cdt {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .cdt span {
+    color: var(--tm);
+    font-weight: 500;
+  }
+  .pb {
+    background: var(--gr50);
+    border-radius: 6px;
+    height: 7px;
+    overflow: hidden;
+  }
+  .pf {
+    height: 100%;
+    border-radius: 6px;
+  }
+  .ai {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--c600);
+    padding: 6px 0;
+  }
+  .tag {
+    background: var(--gr50);
+    color: var(--gr600);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 5px;
+    border: 1px solid var(--bd);
+  }
+  .b {
+    font-size: 11px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+  .bg {
+    background: var(--g50);
+    color: var(--g600);
+  }
+  .bt {
+    background: var(--t50);
+    color: var(--t600);
+  }
+  .dli {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #5a5a52;
+    margin-bottom: 6px;
+  }
+  .dld {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .bcl {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .bar {
+    border-radius: 3px 3px 0 0;
+    transition: height 0.3s;
+  }
+  .brlbl {
+    font-size: 10px;
+    color: var(--tm);
+  }
+  .lt {
+    text-align: center;
+    color: var(--tm);
+    font-size: 13px;
+    padding: 20px;
+  }
+  .field-input {
+    width: 100%;
+    border: 1px solid var(--bd);
+    border-radius: 9px;
+    padding: 10px 14px;
+    background: #fff;
+    outline: none;
+  }
+  .field-input:focus {
+    border-color: var(--g400);
+  }
+  .field-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--g600);
+    color: #fff;
+    border-radius: 9px;
+    padding: 10px 16px;
+    font-weight: 600;
+    transition: 0.15s;
+  }
+  .btn-primary:hover {
+    background: var(--g800);
+  }
+  .btn-primary:disabled {
+    opacity: 0.6;
+  }
+}
+@layer components {
+  .br {
+    background: var(--r50);
+    color: var(--r600);
+  }
+  .ba {
+    background: var(--a50);
+    color: var(--a400);
+  }
+  .bb {
+    background: var(--b50);
+    color: var(--b600);
+  }
+  .tbl {
+    width: 100%;
+    font-size: 13px;
+    border-collapse: collapse;
+  }
+  .tbl thead tr {
+    background: var(--g50);
+  }
+  .tbl th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--g800);
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--bd);
+    white-space: nowrap;
+  }
+  .tbl thead th:first-child {
+    border-top-left-radius: 10px;
+  }
+  .tbl thead th:last-child {
+    border-top-right-radius: 10px;
+  }
+  .tbl td {
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--bd);
+    vertical-align: middle;
+  }
+  .tbl tr:last-child td {
+    border-bottom: none;
+  }
+  .ico-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    border: 1px solid var(--bd);
+    background: #fff;
+    color: var(--tm);
+    transition: 0.12s;
+  }
+  .ico-btn:hover {
+    background: var(--gr50);
+    color: var(--tp);
+  }
+}
+/* চালান প্রিন্ট */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  #invoice-print,
+  #invoice-print *,
+  #print-area,
+  #print-area * {
+    visibility: visible !important;
+  }
+  #invoice-print,
+  #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 16px;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+/* ===== সব টেবিল row hover + সব widget hover (সব page-এ) ===== */
+@layer components {
+  .tbl tbody tr {
+    transition: background 0.12s;
+  }
+  .tbl tbody tr:hover {
+    background: var(--g50);
+  }
+  .dash-hover .sc,
+  .dash-hover .cd {
+    transition:
+      box-shadow 0.15s ease,
+      border-color 0.15s ease,
+      transform 0.15s ease;
+  }
+  .dash-hover .sc:hover,
+  .dash-hover .cd:hover {
+    box-shadow: 0 6px 18px rgba(39, 80, 10, 0.08);
+    border-color: var(--g200);
+    transform: translateY(-2px);
+  }
+  .ico-btn:hover {
+    border-color: var(--g400);
+  }
+}
+
+@layer components {
+  .act-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: 0.12s;
+    cursor: pointer;
+  }
+  .act-edit {
+    background: var(--b50);
+    color: var(--b600);
+  }
+  .act-edit:hover {
+    background: #d6e8fa;
+  }
+  .act-del {
+    background: var(--r50);
+    color: var(--r400);
+  }
+  .act-del:hover {
+    background: #f8dcdc;
+  }
+}
+/* ===== থিম: নীল / বেগুনি (সবুজ ডিফল্ট :root) ===== */
+[data-theme="blue"] {
+  --g50: #ebf5fb;
+  --g100: #d6eaf8;
+  --g400: #2e86c1;
+  --g600: #1a5276;
+  --g800: #0d2b4b;
+  --t50: #e8f8f5;
+  --t400: #1abc9c;
+  --t600: #148f77;
+  --sb: #1a5276;
+  --sa: #2e86c1;
+  --st: #ebf5fb;
+}
+[data-theme="purple"] {
+  --g50: #f4ecf7;
+  --g100: #e8d5f0;
+  --g400: #8e44ad;
+  --g600: #6c3483;
+  --g800: #4a235a;
+  --t50: #ebf5fb;
+  --t400: #2980b9;
+  --t600: #1a5276;
+  --sb: #6c3483;
+  --sa: #8e44ad;
+  --st: #f4ecf7;
+}
