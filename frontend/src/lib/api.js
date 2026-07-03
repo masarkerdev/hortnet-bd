@@ -24,7 +24,10 @@ api.interceptors.response.use((res) => {
   try {
     const m = (res.config?.method || '').toLowerCase();
     const u = res.config?.url || '';
-    if (m === 'delete' || u.includes('recycle-bin')) {
+    // FIX: শুধু delete/restore-এর মতো mutation action হলেই event fire হবে।
+    // আগে GET /recycle-bin (list fetch)-ও ধরে ফেলছিল, ফলে Layout.jsx-এর
+    // fetchCount() -> event -> fetchCount() -> event ... করে অসীম লুপ তৈরি হচ্ছিল।
+    if (m !== 'get' && (m === 'delete' || u.includes('recycle-bin'))) {
       window.dispatchEvent(new CustomEvent('hc:recycle'));
     }
   } catch { /* ignore */ }
