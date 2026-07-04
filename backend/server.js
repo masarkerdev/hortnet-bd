@@ -8,6 +8,8 @@ const tenantMiddleware = require("./middleware/tenant");
 
 const app = express();
 
+app.set("etag", false); // Disable ETag caching — prevents stale 304 responses on frequently-changing data
+
 app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
