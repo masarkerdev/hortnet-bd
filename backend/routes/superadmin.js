@@ -32,7 +32,7 @@ function directorOnly(req, res, next) {
 async function queryTenant(dbUrl, sql, params = []) {
   const pool = new Pool({
     connectionString: dbUrl,
-    ssl: { rejectUnauthorized: false },
+    ssl: false,
     max: 1,
     connectionTimeoutMillis: 8000,
   });
@@ -940,7 +940,7 @@ router.post("/center/:slug/set-target", saAuth, async (req, res) => {
     // Center-এর নিজস্ব DB-তে connect করো
     const pool = new Pool({
       connectionString: tenant.db_url,
-      ssl: { rejectUnauthorized: false },
+      ssl: false,
       max: 1,
       connectionTimeoutMillis: 8000,
     });
@@ -1040,7 +1040,7 @@ router.post("/center/:slug/set-target", saAuth, async (req, res) => {
     // Center-এর নিজস্ব DB-তে connect করো
     const pool = new Pool({
       connectionString: tenant.db_url,
-      ssl: { rejectUnauthorized: false },
+      ssl: false,
       max: 1,
       connectionTimeoutMillis: 8000,
     });
