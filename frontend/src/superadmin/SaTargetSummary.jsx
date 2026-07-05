@@ -35,7 +35,7 @@ export default function SaTargetSummary() {
       .finally(() => setLoading(false));
   }, []);
 
-  const ok = rows.filter(c => c.status==='ok' || c.total_revenue!=null);
+  const ok = rows.filter(c => c.status==='ok');
   const totalAnnual = ok.reduce((s,c)=>s+(+c.annual_prod_target||0),0);
   const totalMonthlyTarget = ok.reduce((s,c)=>s+(+c.monthly_prod_target||0),0);
   const totalMonthlyAchieved = ok.reduce((s,c)=>s+(+c.monthly_prod_achieved||0),0);

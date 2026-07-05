@@ -337,7 +337,10 @@ function TabIncome({ d }) {
   );
 }
 
-// ট্যাব: জনবল
+// ট্যাব: জনবল (Center App-এর হুবহু)
+const POSTING = { sanctioned:'মঞ্জুরীকৃত', deputation:'প্রেষণে' };
+const CHARGE = { additional:'অতিরিক্ত দায়িত্ব', acting:'ভারপ্রাপ্ত দায়িত্ব', routine:'রুটিন দায়িত্ব', current:'চলতি দায়িত্ব' };
+
 function TabEmployee({ slug, category }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -357,48 +360,91 @@ function TabEmployee({ slug, category }) {
   const cat = data.category||category||'B';
   const sanc = SANCTIONED[cat]||SANCTIONED['B'];
   const totalSanc = sanc.reduce((s,[,v])=>s+v,0);
-  const filledPerm = (data.permanent||[]).filter(e=>e.status==='active').length;
+  const perm = data.permanent||[];
+  const temp = data.temporary||[];
+  const activePerm = perm.filter(e=>e.status==='active');
+  const activeTemp = temp.filter(e=>e.status==='active');
+  const filledPerm = activePerm.length;
   const vacant = Math.max(0, totalSanc-filledPerm);
+  const deputationCount = activePerm.filter(e=>e.posting_type==='deputation').length;
   const desigMap = {};
-  (data.permanent||[]).forEach(e=>{ if(e.status==='active') desigMap[e.designation]=(desigMap[e.designation]||0)+1; });
+  activePerm.forEach(e=>{ desigMap[e.designation]=(desigMap[e.designation]||0)+1; });
+
+  const summary = sanc.map(([designation, sanctioned])=>{
+    const actual = desigMap[designation]||0;
+    const vac = sanctioned-actual;
+    let badge, color;
+    if (vac===0) { badge='✅ পূর্ণ'; color=V.green; }
+    else if (actual===0) { badge='🔴 শূন্য পদ'; color=V.red; }
+    else { badge=`⚠️ ${toBn(vac)} শূন্য`; color=V.amber; }
+    return { designation, sanctioned, actual, vac, badge, color };
+  });
+
+  const CARDS = [
+    { l:'মঞ্জুরিকৃত পদ', v:toBn(totalSanc), s:`ক্যাটাগরী-${cat}`, color:V.purple },
+    { l:'কর্মরত (স্থায়ী)', v:toBn(filledPerm), s:'জন', color:V.green },
+    { l:'শূন্য পদ', v:toBn(vacant), s:vacant>0?'⚠️ পূরণ হয়নি':'✅ পূর্ণ', color:vacant>0?V.red:V.green },
+    { l:'সাময়িক শ্রমিক', v:toBn(activeTemp.length), s:'জন কর্মরত', color:V.amber },
+  ];
+  if (deputationCount>0) CARDS.push({ l:'প্রেষণে', v:toBn(deputationCount), s:'জন কর্মরত', color:V.blue });
 
   return (
     <div>
+      {/* KPI cards */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:14 }}>
-        <KPI label="মঞ্জুরিকৃত পদ"    value={fmtN(totalSanc)} sub={`ক্যাটাগরী-${cat}`} color={V.purple} />
-        <KPI label="কর্মরত (স্থায়ী)"   value={fmtN(filledPerm)} sub=""                  color={V.green}  />
-        <KPI label="শূন্য পদ"          value={fmtN(vacant)}     sub=""                  color={V.red}    />
-        <KPI label="সাময়িক শ্রমিক"    value={fmtN((data.temporary||[]).filter(e=>e.status==='active').length)} sub="" color={V.amber} />
+        {CARDS.map(c=>(
+          <KPI key={c.l} label={c.l} value={c.v} sub={c.s} color={c.color}/>
+        ))}
       </div>
-      <Card title={`📋 পদভিত্তিক অবস্থান`} sub={`ক্যাটাগরী-${cat}`}>
-        <TW heads={['পদ','মঞ্জুরিকৃত','কর্মরত','শূন্য','অবস্থা']}
-          rows={sanc.map(([post,sanctAmt])=>{
-            const filled=desigMap[post]||0; const vac=Math.max(0,sanctAmt-filled);
-            return [post,toBn(sanctAmt),<span style={{color:V.green,fontWeight:600}}>{toBn(filled)}</span>,<span style={{color:vac>0?V.red:V.green,fontWeight:600}}>{toBn(vac)}</span>,vac===0?'✅':filled===0?'🔴':'⚠️'];
-          })}/>
+
+      {/* পদভিত্তিক অবস্থান */}
+      <Card title="📋 পদভিত্তিক অবস্থান" sub={`ক্যাটাগরী-${cat}`}>
+        <div style={{ padding:'0 16px' }}>
+          {summary.map(s=>(
+            <div key={s.designation} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom:`1px solid ${V.border}` }}>
+              <div style={{ fontSize:13 }}>{s.designation}</div>
+              <div style={{ display:'flex', alignItems:'center', gap:16, fontSize:12 }}>
+                <span style={{ color:V.muted }}>মঞ্জুরি: <strong>{toBn(s.sanctioned)}</strong></span>
+                <span style={{ color:V.green }}>কর্মরত: <strong>{toBn(s.actual)}</strong></span>
+                <span style={{ color:s.color, fontWeight:600, minWidth:90, textAlign:'right' }}>{s.badge}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       </Card>
-      {(data.permanent||[]).length>0 && (
-        <Card title="👔 স্থায়ী জনবল" sub={`${toBn(data.permanent.length)} জন`}>
-          <TW heads={['নাম','পদ','কর্মী আইডি','মোবাইল','অবস্থা']}
-            rows={data.permanent.map(e=>[
-              <strong>{e.name_bn}</strong>, e.designation,
-              <span style={{fontFamily:'monospace',color:V.muted}}>{e.employee_id||'—'}</span>,
-              <span style={{color:V.muted}}>{e.mobile||'—'}</span>,
-              <Pill type={e.status==='active'?'on':'off'}>{e.status==='active'?'কর্মরত':'নিষ্ক্রিয়'}</Pill>,
-            ])}/>
-        </Card>
-      )}
-      {(data.temporary||[]).length>0 && (
-        <Card title="👷 সাময়িক শ্রমিক" sub={`${toBn(data.temporary.length)} জন`}>
-          <TW heads={['নাম','পদ','ধরন','মোবাইল','অবস্থা']}
-            rows={data.temporary.map(e=>[
-              <strong>{e.name_bn}</strong>, e.designation||'—',
-              <Pill type="sold">{e.worker_type||'—'}</Pill>,
-              <span style={{color:V.muted}}>{e.mobile||'—'}</span>,
-              <Pill type={e.status==='active'?'on':'off'}>{e.status==='active'?'কর্মরত':'নিষ্ক্রিয়'}</Pill>,
-            ])}/>
-        </Card>
-      )}
+
+      {/* স্থায়ী জনবল */}
+      <Card title="👔 স্থায়ী জনবল" sub={`${toBn(perm.length)} জন`}>
+        <TW heads={['#','গ্রেডেশন নং/ID','নাম','পদবি','নিয়োগের ধরন','দায়িত্বের ধরন','যোগদান','মোবাইল','অবস্থা']}
+          rows={perm.length ? perm.map((e,i)=>[
+            <span style={{color:V.muted}}>{toBn(i+1)}</span>,
+            <span style={{color:V.muted}}>{e.employee_id||'—'}</span>,
+            <strong>{e.name_bn}</strong>,
+            <Pill type="active">{e.designation}</Pill>,
+            <Pill type={e.posting_type==='deputation'?'due':'on'}>{POSTING[e.posting_type]||'মঞ্জুরীকৃত'}</Pill>,
+            e.charge_type ? <Pill type="sold">{CHARGE[e.charge_type]}{e.charge_designation?`: ${e.charge_designation}`:''}</Pill> : <span style={{color:V.muted}}>—</span>,
+            <span style={{color:V.muted}}>{fmtDate(e.join_date)}</span>,
+            <span style={{color:V.muted}}>{e.mobile||'—'}</span>,
+            <Pill type={e.status==='active'?'on':'off'}>{e.status==='active'?'কর্মরত':'নিষ্ক্রিয়'}</Pill>,
+          ]) : []}/>
+        {!perm.length && <div style={{ textAlign:'center', color:V.muted, padding:20 }}>কোনো স্থায়ী কর্মচারী নেই</div>}
+      </Card>
+
+      {/* সাময়িক শ্রমিক */}
+      <Card title="👷 সাময়িক শ্রমিক" sub={`${toBn(temp.length)} জন`}>
+        <TW heads={['#','নাম','শ্রমিকের ধরন','যোগদান','মোবাইল','NID','ঠিকানা','অবস্থা']}
+          rows={temp.length ? temp.map((e,i)=>[
+            <span style={{color:V.muted}}>{toBn(i+1)}</span>,
+            <strong>{e.name_bn}</strong>,
+            <Pill type={e.worker_type==='নিয়মিত'?'on':'active'}>{e.worker_type||'—'}</Pill>,
+            <span style={{color:V.muted}}>{fmtDate(e.join_date)}</span>,
+            <span style={{color:V.muted}}>{e.mobile||'—'}</span>,
+            <span style={{color:V.muted}}>{e.nid||'—'}</span>,
+            <span style={{color:V.muted}}>{e.address||'—'}</span>,
+            <Pill type={e.status==='active'?'on':'off'}>{e.status==='active'?'কর্মরত':'ছাড়'}</Pill>,
+          ]) : []}/>
+        {!temp.length && <div style={{ textAlign:'center', color:V.muted, padding:20 }}>কোনো সাময়িক শ্রমিক নেই</div>}
+      </Card>
     </div>
   );
 }
