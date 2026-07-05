@@ -14,7 +14,7 @@ function getPool(connectionString, tenantSlug) {
     if (!pools.has(tenantSlug)) {
         const pool = new Pool({
             connectionString,
-            ssl: process.env.PGSSL === 'off' ? false : { rejectUnauthorized: false },
+            ssl: false,
             max: 3,                        // Vercel serverless-এর জন্য কম রাখো
             idleTimeoutMillis: 30000,
             connectionTimeoutMillis: 10000,
