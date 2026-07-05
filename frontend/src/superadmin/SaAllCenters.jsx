@@ -19,27 +19,31 @@ export default function SaAllCenters(){
   const [loading,setLoading]=useState(true);
   const [modal,setModal]=useState(false);
   const [editId,setEditId]=useState(null);
-  const [form,setForm]=useState({slug:'',name_bn:'',name_en:'',location:'',district:'',division:'',category:'B',db_url:''});
+  const [form,setForm]=useState({slug:'',name_bn:'',name_en:'',location:'',district:'',division:'',dae_region:'',category:'B',db_url:''});
   const [saving,setSaving]=useState(false);
   const [msg,setMsg]=useState('');
 
   async function load(){try{const r=await saApi.get('/tenants');if(r.data?.success)setCenters(r.data.data||[]);}catch{}finally{setLoading(false);}}
   useEffect(()=>{load();},[]);
 
-  function openAdd(){setForm({slug:'',name_bn:'',name_en:'',location:'',district:'',division:'',category:'B',db_url:''});setEditId(null);setMsg('');setModal(true);}
-  function openEdit(c){setForm({slug:c.slug,name_bn:c.name_bn,name_en:c.name_en||'',location:c.location||'',district:c.district||'',division:c.division||'',category:c.category||'B',db_url:''});setEditId(c.id);setMsg('');setModal(true);}
+  function openAdd(){setForm({slug:'',name_bn:'',name_en:'',location:'',district:'',division:'',dae_region:'',category:'B',db_url:''});setEditId(null);setMsg('');setModal(true);}
+  function openEdit(c){setForm({slug:c.slug,name_bn:c.name_bn,name_en:c.name_en||'',location:c.location||'',district:c.district||'',division:c.division||'',dae_region:c.dae_region||'',category:c.category||'B',db_url:''});setEditId(c.id);setMsg('');setModal(true);}
 
   async function save(){
     if(!form.name_bn||!form.name_en){setMsg('বাংলা ও ইংরেজি নাম দিন।');return;}
     if(!editId&&(!form.db_url||!form.slug)){setMsg('Slug ও Database URL দিন।');return;}
     setSaving(true);setMsg('');
     try{
-      const body={name_bn:form.name_bn,name_en:form.name_en,location:form.location,district:form.district,division:form.division,category:form.category};
+      const body={name_bn:form.name_bn,name_en:form.name_en,location:form.location,district:form.district,division:form.division,dae_region:form.dae_region,category:form.category};
       let r;
       if(editId){const cur=centers.find(c=>c.id===editId);r=await saApi.put(`/tenants/${editId}`,{...body,db_url:form.db_url||cur?.db_url||'',active:cur?.active??true});}
       else{r=await saApi.post('/tenants',{slug:form.slug.toLowerCase(),...body,db_url:form.db_url,currency:'BDT'});}
-      if(r.data?.success){setModal(false);load();}else setMsg(r.data?.message||r.data?.error||'সমস্যা');
-    }catch(e){setMsg(e?.response?.data?.message||'সমস্যা');}finally{setSaving(false);}
+      if(r.data?.success){setModal(false);load();}
+      else setMsg(r.data?.message||r.data?.error||JSON.stringify(r.data)||'অজানা সমস্যা');
+    }catch(e){
+      const ed=e?.response?.data;
+      setMsg(ed?.message||ed?.error||e?.message||'সংযোগ সমস্যা');
+    }finally{setSaving(false);}
   }
 
   async function toggle(c){
@@ -59,7 +63,7 @@ export default function SaAllCenters(){
               <div style={{width:30,height:30,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0,background:cc.bg,color:cc.col}}>{c.category}</div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:15,fontWeight:600,color:C.text}}>{c.name_bn}</div>
-                <div style={{fontSize:13,color:C.muted,marginTop:2}}>/{c.slug} • {c.district||''} • <span style={{color:c.active?C.green:C.red,fontWeight:500}}>{c.active?'সক্রিয়':'বন্ধ'}</span></div>
+                <div style={{fontSize:13,color:C.muted,marginTop:2}}>/{c.slug} • {c.district||''}{c.dae_region?' • '+c.dae_region:''} • <span style={{color:c.active?C.green:C.red,fontWeight:500}}>{c.active?'সক্রিয়':'বন্ধ'}</span></div>
               </div>
               <div style={{display:'flex',gap:6,flexShrink:0}}>
                 <button onClick={()=>navigate(`/superadmin/center/${c.slug}`)} style={{padding:'7px 12px',borderRadius:7,fontSize:13,cursor:'pointer',fontFamily:FONT,background:C.bg,border:`1px solid ${C.border}`,color:C.muted}}>👁 দেখুন</button>
@@ -94,11 +98,20 @@ export default function SaAllCenters(){
               <div><label style={{display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500}}>District</label><input value={form.district} onChange={e=>setForm({...form,district:e.target.value})} placeholder="ঢাকা" style={inp}/></div>
               <div><label style={{display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500}}>Division</label><input value={form.division} onChange={e=>setForm({...form,division:e.target.value})} placeholder="ঢাকা" style={inp}/></div>
             </div>
+            <div style={{marginBottom:14}}>
+              <label style={{display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500}}>DAE অঞ্চল</label>
+              <select value={form.dae_region} onChange={e=>setForm({...form,dae_region:e.target.value})} style={inp}>
+                <option value="">-- অঞ্চল বেছে নিন --</option>
+                {['ঢাকা অঞ্চল','চট্টগ্রাম অঞ্চল','কুমিল্লা অঞ্চল','রাজশাহী অঞ্চল','রংপুর অঞ্চল','দিনাজপুর অঞ্চল','বগুড়া অঞ্চল','যশোর অঞ্চল','খুলনা অঞ্চল','বরিশাল অঞ্চল','ফরিদপুর অঞ্চল','ময়মনসিংহ অঞ্চল','সিলেট অঞ্চল','পটুয়াখালী অঞ্চল','রাঙ্গামাটি অঞ্চল'].map(r=>(
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
             <div style={{marginBottom:14}}><label style={{display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500}}>Location</label><input value={form.location} onChange={e=>setForm({...form,location:e.target.value})} placeholder="ঢাকা সদর" style={inp}/></div>
             <div style={{marginBottom:14}}>
               <label style={{display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500}}>Database URL{editId?' (পরিবর্তন করতে চাইলে)':'*'}</label>
               <textarea value={form.db_url} onChange={e=>setForm({...form,db_url:e.target.value})} placeholder="postgresql://..." rows={3} style={{...inp,resize:'vertical'}}/>
-              <div style={{fontSize:11,color:C.muted,marginTop:4}}>Supabase → Settings → Database → Connection Pooling → Transaction mode</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:4}}>উদাহরণ: postgresql://user:password@localhost:5432/database_name</div>
             </div>
             {msg&&<div style={{color:C.red,fontSize:13,marginBottom:8}}>{msg}</div>}
             <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>

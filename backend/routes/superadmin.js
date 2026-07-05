@@ -490,13 +490,44 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
   if (!slug || !name_bn || !name_en || !db_url)
     return res.status(400).json({ success: false, message: "সব তথ্য দিন।" });
   try {
-    const ex = await masterDb.query("SELECT id FROM tenants WHERE slug=$1", [
-      slug,
-    ]);
+    const ex = await masterDb.query("SELECT id FROM tenants WHERE slug=$1", [slug]);
     if (ex.rows.length)
-      return res
-        .status(400)
-        .json({ success: false, message: "এই slug আগে থেকে আছে।" });
+      return res.status(400).json({ success: false, message: "এই slug আগে থেকে আছে।" });
+
+    // ✅ Automatic database setup
+    const fs = require("fs");
+    const path = require("path");
+    const { Pool } = require("pg");
+
+    // Step 1: database নাম বের করি db_url থেকে
+    const dbName = db_url.split("/").pop().split("?")[0];
+    const baseUrl = db_url.substring(0, db_url.lastIndexOf("/"));
+
+    // Step 2: postgres database-এ connect করে নতুন database তৈরি
+    const pgPool = new Pool({ connectionString: baseUrl + "/hortnet_v1_master", ssl: false });
+    try {
+      await pgPool.query(`CREATE DATABASE "${dbName}"`);
+    } catch (e) {
+      if (!e.message.includes("already exists")) {
+        await pgPool.end();
+        return res.status(500).json({ success: false, message: `Database তৈরিতে সমস্যা: ${e.message}` });
+      }
+    }
+    await pgPool.end();
+
+    // Step 3: নতুন database-এ schema apply
+    const tenantPool = new Pool({ connectionString: db_url, ssl: false });
+    try {
+      const schemaPath = path.join(__dirname, "../db/tenant_schema.sql");
+      const schema = fs.readFileSync(schemaPath, "utf8");
+      await tenantPool.query(schema);
+    } catch (e) {
+      await tenantPool.end();
+      return res.status(500).json({ success: false, message: `Schema apply-এ সমস্যা: ${e.message}` });
+    }
+    await tenantPool.end();
+
+    // Step 4: master-এ tenant যোগ
     const r = await masterDb.query(
       `INSERT INTO tenants (slug,name_bn,name_en,location,district,division,dae_region,category,db_url,currency,active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true) RETURNING id,slug,name_bn`,
       [
@@ -515,7 +546,7 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
     clearCache();
     res.json({
       success: true,
-      message: `"${name_bn}" যোগ হয়েছে।`,
+      message: `"${name_bn}" যোগ হয়েছে এবং database তৈরি হয়েছে।`,
       data: r.rows[0],
     });
   } catch (err) {
