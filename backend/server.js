@@ -8,8 +8,6 @@ const tenantMiddleware = require("./middleware/tenant");
 
 const app = express();
 
-app.set("etag", false); // Disable ETag caching — prevents stale 304 responses on frequently-changing data
-
 app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -21,6 +19,8 @@ app.use(tenantMiddleware);
 
 // ★ Super Admin routes
 app.use("/api/superadmin", require("./routes/superadmin"));
+// ★ Developer routes (hidden)
+app.use("/api/dev", require("./routes/developer"));
 
 // ★ Super Admin HTML page
 app.get("/superadmin", (req, res) => {
@@ -79,10 +79,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, error: err.message });
 });
 
-const PORT = process.env.PORT || 30002;
-
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 module.exports = app;

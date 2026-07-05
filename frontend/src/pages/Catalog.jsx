@@ -23,7 +23,7 @@ export default function Catalog() {
   const [mobileMenu, setMobileMenu] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/api/public/centers`)
+    fetch(`${API}/api/public/centers`, {headers:{'Cache-Control':'no-store'}})
       .then(r=>r.json())
       .then(d=>{ if(d.success) setCenters(d.data||[]); })
       .catch(()=>{})

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { IcEye } from '../components/icons';
@@ -14,8 +14,26 @@ export default function Login() {
   const [hint, setHint] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [centers, setCenters] = useState([]);
+  const [selectedSlug, setSelectedSlug] = useState(
+    localStorage.getItem('tenantSlug') || ''
+  );
+
+  useEffect(() => {
+    const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
+    fetch(`${apiBase}/api/public/centers`, {headers:{'Cache-Control':'no-store'}})
+      .then(r=>r.json())
+      .then(d=>{ if(d.success) setCenters(d.data||[]); })
+      .catch(()=>{});
+  }, []);
+
+  function handleCenterChange(slug) {
+    setSelectedSlug(slug);
+    if (slug) localStorage.setItem('tenantSlug', slug);
+  }
 
   async function submitStep1(e) {
+    if (!selectedSlug) { setError('আগে সেন্টার বেছে নিন।'); return; }
     e.preventDefault();
     setError(''); setHint(''); setBusy(true);
     try {
@@ -32,7 +50,7 @@ export default function Login() {
     setError(''); setBusy(true);
     try {
       const d = await verifyOtp(email.trim(), otp.trim());
-      if (d.success) navigate('/app', { replace: true });
+      if (d.success) navigate('/dashboard', { replace: true });
       else setError(d.message || 'OTP ভুল।');
     } catch (err) {
       setError(err?.response?.data?.message || 'সংযোগ সমস্যা।');
@@ -61,6 +79,19 @@ export default function Login() {
               <h1 className="text-2xl font-semibold tracking-tight">লগইন করুন</h1>
               <p className="mt-1 text-sm text-muted">ইমেইল ও পাসওয়ার্ড দিন।</p>
               <form onSubmit={submitStep1} className="mt-8 space-y-4">
+                <div>
+                  <label className="field-label">সেন্টার বেছে নিন</label>
+                  <select
+                    value={selectedSlug}
+                    onChange={e=>handleCenterChange(e.target.value)}
+                    className="field-input"
+                    required>
+                    <option value="">-- সেন্টার বেছে নিন --</option>
+                    {centers.map(c=>(
+                      <option key={c.slug} value={c.slug}>{c.name_bn}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="field-label">ইমেইল</label>
                   <input type="email" className="field-input" value={email} onChange={(e)=>setEmail(e.target.value)} autoFocus required />

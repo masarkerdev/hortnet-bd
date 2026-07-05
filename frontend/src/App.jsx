@@ -1,4 +1,5 @@
 import Catalog from './pages/Catalog';
+import DevPanel from './pages/DevPanel';
 import About from './pages/About';
 import TenantLogin from './pages/TenantLogin';
 import { Routes, Route, Navigate } from 'react-router-dom';
@@ -47,11 +48,12 @@ const SOON = [
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<Catalog />} />
+      <Route path="/dev" element={<DevPanel />} />
       <Route path="/about" element={<About />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/:slug" element={<TenantLogin />} />
-      <Route path="/" element={<Catalog />} />
-      <Route path="/app" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+      <Route path="/:slug/login" element={<TenantLogin />} />
+      <Route path="/dashboard" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="seedlings" element={<Seedlings />} />
         <Route path="production" element={<Production />} />

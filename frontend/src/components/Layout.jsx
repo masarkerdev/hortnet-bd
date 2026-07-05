@@ -28,30 +28,30 @@ const ACCESS = {
 
 const SECTIONS = [
   { en: 'MAIN', bn: 'প্রধান', items: [
-    { to: '/', label: 'ড্যাশবোর্ড', icon: IcGrid, end: true },
+    { to: '/dashboard', label: 'ড্যাশবোর্ড', icon: IcGrid, end: true },
   ]},
   { en: 'PRODUCTION', bn: 'উৎপাদন', items: [
-    { to: '/seedlings', label: 'চারা তালিকা', icon: IcLeaf },
-    { to: '/production', label: 'উৎপাদন রেজিস্টার', icon: IcClipboard },
-    { to: '/mother-plants', label: 'মাদার প্ল্যান্ট', icon: IcTree },
-    { to: '/batches', label: 'ব্যাচ ম্যানেজমেন্ট', icon: IcBox },
+    { to: '/dashboard/seedlings', label: 'চারা তালিকা', icon: IcLeaf },
+    { to: '/dashboard/production', label: 'উৎপাদন রেজিস্টার', icon: IcClipboard },
+    { to: '/dashboard/mother-plants', label: 'মাদার প্ল্যান্ট', icon: IcTree },
+    { to: '/dashboard/batches', label: 'ব্যাচ ম্যানেজমেন্ট', icon: IcBox },
   ]},
   { en: 'INVENTORY', bn: 'মজুদ', items: [
-    { to: '/stock', label: 'স্টক রেজিস্টার', icon: IcBox },
-    { to: '/opening-stock', label: 'প্রারম্ভিক স্টক', icon: IcArchive },
-    { to: '/damages', label: 'ক্ষতি / নষ্ট', icon: IcAlert },
+    { to: '/dashboard/stock', label: 'স্টক রেজিস্টার', icon: IcBox },
+    { to: '/dashboard/opening-stock', label: 'প্রারম্ভিক স্টক', icon: IcArchive },
+    { to: '/dashboard/damages', label: 'ক্ষতি / নষ্ট', icon: IcAlert },
   ]},
   { en: 'SALES', bn: 'বিক্রয়', items: [
-    { to: '/sales', label: 'বিক্রয় ও চালান', icon: IcReceipt },
-    { to: '/income', label: 'অন্যান্য আয়', icon: IcCoin },
-    { to: '/customers', label: 'গ্রাহক তালিকা', icon: IcUsers },
+    { to: '/dashboard/sales', label: 'বিক্রয় ও চালান', icon: IcReceipt },
+    { to: '/dashboard/income', label: 'অন্যান্য আয়', icon: IcCoin },
+    { to: '/dashboard/customers', label: 'গ্রাহক তালিকা', icon: IcUsers },
   ]},
   { en: 'REPORTS', bn: 'রিপোর্ট', items: [
-    { to: '/reports', label: 'রিপোর্ট ও বিশ্লেষণ', icon: IcChart },
+    { to: '/dashboard/reports', label: 'রিপোর্ট ও বিশ্লেষণ', icon: IcChart },
   ]},
   { en: 'SYSTEM', bn: 'সিস্টেম', items: [
-    { to: '/users', label: 'ব্যবহারকারী', icon: IcUser },
-    { to: '/employees', label: 'জনবল তালিকা', icon: IcUsers },
+    { to: '/dashboard/users', label: 'ব্যবহারকারী', icon: IcUser },
+    { to: '/dashboard/employees', label: 'জনবল তালিকা', icon: IcUsers },
   ]},
 ];
 
@@ -242,7 +242,7 @@ export default function Layout() {
               onMouseEnter={()=>setShowNotices(true)}
               onMouseLeave={()=>setShowNotices(false)}>
               <button onClick={()=>{
-                  navigate('/notices');
+                  navigate('/dashboard/notices');
                   // সব নোটিশ seen mark করো
                   const seenIds = notices.map(n=>n.id);
                   localStorage.setItem('seen_notices', JSON.stringify(seenIds));
@@ -271,7 +271,7 @@ export default function Layout() {
                     {notices.slice(0,5).map(n=>(
                       <div key={n.id}
                         onClick={()=>{
-                          navigate('/notices');
+                          navigate('/dashboard/notices');
                           const seenIds = notices.map(n=>n.id);
                           localStorage.setItem('seen_notices', JSON.stringify(seenIds));
                           setUnseenCount(0);
@@ -286,7 +286,7 @@ export default function Layout() {
                     ))}
                     <div
                       onClick={()=>{
-                        navigate('/notices');
+                        navigate('/dashboard/notices');
                         const seenIds = notices.map(n=>n.id);
                         localStorage.setItem('seen_notices', JSON.stringify(seenIds));
                         setUnseenCount(0);
@@ -301,9 +301,9 @@ export default function Layout() {
                 </div>
               )}
             </div>
-            {can('cfg') && <button onClick={() => navigate('/settings')} title="সেটিংস" className="rounded-lg border p-2" style={{ borderColor: 'var(--bd)', color: loc.pathname==='/settings' ? 'var(--g600)' : 'var(--tm)' }} aria-label="সেটিংস"><IcSettings className="h-[18px] w-[18px]" /></button>}
+            {can('cfg') && <button onClick={() => navigate('/dashboard/settings')} title="সেটিংস" className="rounded-lg border p-2" style={{ borderColor: 'var(--bd)', color: loc.pathname==='/settings' ? 'var(--g600)' : 'var(--tm)' }} aria-label="সেটিংস"><IcSettings className="h-[18px] w-[18px]" /></button>}
             {can('bin') && (
-              <button onClick={() => navigate('/recycle-bin')} title="রিসাইকেল বিন" className="relative rounded-lg border p-2" style={{ borderColor: 'var(--bd)', color: loc.pathname==='/recycle-bin' ? 'var(--g600)' : 'var(--tm)' }} aria-label="রিসাইকেল বিন">
+              <button onClick={() => navigate('/dashboard/recycle-bin')} title="রিসাইকেল বিন" className="relative rounded-lg border p-2" style={{ borderColor: 'var(--bd)', color: loc.pathname==='/recycle-bin' ? 'var(--g600)' : 'var(--tm)' }} aria-label="রিসাইকেল বিন">
                 <IcBin className="h-[18px] w-[18px]" />
                 {recycleCount > 0 && (
                   <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white" style={{ background: 'var(--r400, #e23b3b)' }}>
@@ -319,8 +319,8 @@ export default function Layout() {
         <main className="mx-auto max-w-[1400px] p-4 lg:p-6">
           <Outlet key={fy} context={{ fy, setFy }} />
         </main>
-        <BatchModal open={batchOpen} onClose={()=>setBatchOpen(false)} seedlings={seedlings} mothers={mothers} batch={null} onSaved={()=>{ setBatchOpen(false); navigate('/production'); }} />
-        <SaleModal open={saleOpen} onClose={()=>setSaleOpen(false)} seedlings={seedlings} sale={null} onSaved={()=>{ setSaleOpen(false); navigate('/sales'); }} />
+        <BatchModal open={batchOpen} onClose={()=>setBatchOpen(false)} seedlings={seedlings} mothers={mothers} batch={null} onSaved={()=>{ setBatchOpen(false); navigate('/dashboard/production'); }} />
+        <SaleModal open={saleOpen} onClose={()=>setSaleOpen(false)} seedlings={seedlings} sale={null} onSaved={()=>{ setSaleOpen(false); navigate('/dashboard/sales'); }} />
         <ConfirmHost />
         <ProfileModal open={profileOpen} onClose={()=>setProfileOpen(false)} user={user} logout={() => { logout(); navigate('/login', { replace:true }); }} />
       </div>
