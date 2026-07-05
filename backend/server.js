@@ -20,6 +20,9 @@ app.use(tenantMiddleware);
 // ★ Super Admin routes
 app.use("/api/superadmin", require("./routes/superadmin"));
 
+// ★ Developer routes (hidden)
+app.use("/api/dev", require("./routes/developer"));
+
 // ★ Super Admin HTML page
 app.get("/superadmin", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "superadmin.html"));
