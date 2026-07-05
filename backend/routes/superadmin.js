@@ -494,7 +494,7 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
     if (ex.rows.length)
       return res.status(400).json({ success: false, message: "এই slug আগে থেকে আছে।" });
 
-    // ✅ Automatic database setup
+    // ✅ Automatic database + schema setup
     const fs = require("fs");
     const path = require("path");
     const { Pool } = require("pg");
@@ -503,7 +503,7 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
     const dbName = db_url.split("/").pop().split("?")[0];
     const baseUrl = db_url.substring(0, db_url.lastIndexOf("/"));
 
-    // Step 2: postgres database-এ connect করে নতুন database তৈরি
+    // Step 2: master database-এ connect করে নতুন database তৈরি
     const pgPool = new Pool({ connectionString: baseUrl + "/hortnet_v1_master", ssl: false });
     try {
       await pgPool.query(`CREATE DATABASE "${dbName}"`);
