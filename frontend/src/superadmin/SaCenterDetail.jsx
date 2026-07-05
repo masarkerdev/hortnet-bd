@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import saApi from './saApi';
 import { useSa } from './SaAuth';
+import saApi from './saApi';
 import { toBn, fmt, fmtN, fmtK, typeLabel, roleLabel, roleColor, fmtDate, V, FONT } from './saUtils';
 
 const COLORS = ['#7c3aed','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
@@ -12,23 +12,22 @@ const SANCTIONED = {
   C:{'নার্সারী তত্ত্বাবধায়ক':1,'উপসহকারী কৃষি কর্মকর্তা':2,'অফিস সহকারী':1,'ফার্মলেবার':5,'এমএলএসএস':1,'গার্ড':2},
 };
 
-// repo-র .pill হুবহু
 function Pill({ type, children }) {
-  const s = {
-    paid:   { bg:V.green3, color:V.green2, border:V.green4 },
-    due:    { bg:V.red3,   color:V.red,    border:'#fecaca' },
-    active: { bg:V.blue3,  color:V.blue,   border:'#bfdbfe' },
-    sold:   { bg:V.purple3,color:V.purple, border:'#ddd6fe' },
-    on:     { bg:V.green3, color:V.green2, border:V.green4 },
-    off:    { bg:V.red3,   color:V.red,    border:'#fecaca' },
-  }[type] || { bg:V.green3, color:V.green2, border:V.green4 };
+  const styles = {
+    paid:   { bg:V.green3,   color:V.green2,  border:V.green4 },
+    due:    { bg:V.red3,     color:V.red,      border:'#fecaca' },
+    active: { bg:V.blue3,    color:V.blue,     border:'#bfdbfe' },
+    sold:   { bg:V.purple3,  color:V.purple,   border:'#ddd6fe' },
+    on:     { bg:V.green3,   color:V.green2,   border:V.green4 },
+    off:    { bg:V.red3,     color:V.red,       border:'#fecaca' },
+  };
+  const s = styles[type] || styles.active;
   return <span style={{ display:'inline-block', fontSize:12, padding:'3px 10px', borderRadius:20, fontWeight:500, background:s.bg, color:s.color, border:`1px solid ${s.border}` }}>{children}</span>;
 }
 
-// repo-র .card/.card-head/.card-body হুবহু
-function Card({ title, sub, children, style={} }) {
+function Card({ title, sub, children }) {
   return (
-    <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, marginBottom:14, overflow:'hidden', boxShadow:V.shadow, ...style }}>
+    <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, marginBottom:14, overflow:'hidden', boxShadow:V.shadow }}>
       <div style={{ padding:'14px 18px', borderBottom:`1px solid ${V.border}`, fontSize:16, fontWeight:600, display:'flex', justifyContent:'space-between', alignItems:'center', background:V.card2 }}>
         <span>{title}</span>
         {sub && <span style={{ fontSize:13, color:V.muted, fontWeight:400 }}>{sub}</span>}
@@ -38,18 +37,16 @@ function Card({ title, sub, children, style={} }) {
   );
 }
 
-// repo-র .kpi grid হুবহু
 function KPI({ label, value, sub, color }) {
   return (
     <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, padding:18, boxShadow:V.shadow, borderTop:`3px solid ${color}` }}>
-      <div style={{ fontSize:18, color:V.muted, marginBottom:8, fontWeight:500 }}>{label}</div>
+      <div style={{ fontSize:14, color:V.muted, marginBottom:8, fontWeight:500 }}>{label}</div>
       <div style={{ fontSize:28, fontWeight:700, lineHeight:1, color }}>{value}</div>
-      {sub && <div style={{ fontSize:14, color:V.sub, marginTop:6 }}>{sub}</div>}
+      {sub && <div style={{ fontSize:13, color:V.sub, marginTop:6 }}>{sub}</div>}
     </div>
   );
 }
 
-// repo-র .tw table হুবহু
 function TW({ heads, rows }) {
   return (
     <div style={{ overflowX:'auto' }}>
@@ -70,35 +67,34 @@ function TW({ heads, rows }) {
   );
 }
 
-// repo-র .bar-row হুবহু
 function BarRow({ label, pct, color, right }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-      <div style={{ fontSize:13, color:V.muted, width:90, textAlign:'right', flexShrink:0 }}>{label}</div>
+      <div style={{ fontSize:13, color:V.muted, width:100, textAlign:'right', flexShrink:0 }}>{label}</div>
       <div style={{ flex:1, background:V.bg, borderRadius:4, height:24, overflow:'hidden', border:`1px solid ${V.border}` }}>
-        <div style={{ height:'100%', width:`${Math.min(pct,100)}%`, background:color, borderRadius:4, display:'flex', alignItems:'center', padding:'0 8px', fontSize:12, fontWeight:600, color:'#fff', minWidth:24, transition:'.5s' }}/>
+        <div style={{ height:'100%', width:`${Math.min(pct,100)}%`, background:color, borderRadius:4, display:'flex', alignItems:'center', padding:'0 8px', fontSize:12, fontWeight:600, color:'#fff', minWidth:8, transition:'.5s' }}/>
       </div>
       <div style={{ fontSize:13, color:V.text, fontWeight:600, width:80, flexShrink:0 }}>{right}</div>
     </div>
   );
 }
 
-// ── ট্যাব: বিক্রয় ──
+// ট্যাব: বিক্রয়
 function TabSales({ d, userRole }) {
   const s = d.sales;
-  const maxRev = Math.max(...(s.monthly||[]).map(m=>parseFloat(m.revenue)), 1);
+  const maxRev = Math.max(...(s.monthly||[]).map(m=>parseFloat(m.revenue||0)), 1);
   return (
     <div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:14 }}>
-        <KPI label="মোট রাজস্ব"    value={`৳${fmt(s.summary?.total_revenue)}`}  sub={`${toBn(s.summary?.total_invoices||0)} চালান`} color={V.green}  />
-        <KPI label="আজকের বিক্রয়" value={`৳${fmt(s.today?.today_revenue)}`}     sub={`${toBn(s.today?.today_invoices||0)} চালান`}   color={V.blue}   />
-        <KPI label="পরিশোধিত"      value={`৳${fmt(s.summary?.paid_amount)}`}     sub=""                                               color={V.teal}   />
-        <KPI label="বকেয়া"         value={`৳${fmt(s.summary?.due_amount)}`}      sub=""                                               color={V.red}    />
+        <KPI label="মোট রাজস্ব"    value={`৳${fmt(s.summary?.total_revenue)}`}  sub={`${toBn(s.summary?.total_invoices||0)} চালান`} color={V.green} />
+        <KPI label="আজকের বিক্রয়" value={`৳${fmt(s.today?.today_revenue)}`}     sub={`${toBn(s.today?.today_invoices||0)} চালান`}   color={V.blue}  />
+        <KPI label="পরিশোধিত"      value={`৳${fmt(s.summary?.paid_amount)}`}     sub=""                                               color={V.teal}  />
+        <KPI label="বকেয়া"         value={`৳${fmt(s.summary?.due_amount)}`}      sub=""                                               color={V.red}   />
       </div>
       <Card title="📅 মাসিক বিক্রয়">
         <div style={{ padding:16 }}>
           {(s.monthly||[]).length ? s.monthly.map((m,i)=>(
-            <BarRow key={i} label={m.label} pct={(parseFloat(m.revenue)/maxRev)*100} color={COLORS[i%COLORS.length]} right={`৳${fmtK(m.revenue)}`}/>
+            <BarRow key={i} label={m.label} pct={(parseFloat(m.revenue||0)/maxRev)*100} color={COLORS[i%COLORS.length]} right={`৳${fmtK(m.revenue)}`}/>
           )) : <div style={{ textAlign:'center', color:V.muted, padding:16 }}>Data নেই</div>}
         </div>
       </Card>
@@ -128,10 +124,10 @@ function TabSales({ d, userRole }) {
   );
 }
 
-// ── ট্যাব: উৎপাদন ──
+// ট্যাব: উৎপাদন
 function TabProd({ d }) {
   const p = d.production;
-  const maxProd = Math.max(...(p.by_type||[]).map(t=>parseInt(t.total_qty)), 1);
+  const maxProd = Math.max(...(p.by_type||[]).map(t=>parseInt(t.total_qty||0)), 1);
   return (
     <div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:14 }}>
@@ -143,7 +139,7 @@ function TabProd({ d }) {
       <Card title="🌱 পদ্ধতি অনুযায়ী">
         <div style={{ padding:16 }}>
           {(p.by_type||[]).length ? p.by_type.map((t,i)=>(
-            <BarRow key={i} label={typeLabel(t.production_type)} pct={(parseInt(t.total_qty)/maxProd)*100} color={COLORS[i%COLORS.length]} right={fmtN(t.total_qty)}/>
+            <BarRow key={i} label={typeLabel(t.production_type)} pct={(parseInt(t.total_qty||0)/maxProd)*100} color={COLORS[i%COLORS.length]} right={fmtN(t.total_qty)}/>
           )) : <div style={{ textAlign:'center', color:V.muted, padding:16 }}>Data নেই</div>}
         </div>
       </Card>
@@ -161,27 +157,16 @@ function TabProd({ d }) {
   );
 }
 
-// ── ট্যাব: স্টক ──
+// ট্যাব: স্টক
 function TabStock({ d }) {
   const st = d.stock;
   return (
     <div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:14 }}>
-        <KPI label="মোট স্টক"  value={fmtN(st.summary?.total_stock)}  sub={`${toBn(st.summary?.total_species||0)} প্রজাতি`} color={V.amber} />
-        <KPI label="স্টক মূল্য" value={`৳${fmt(st.summary?.stock_value)}`} sub=""                                            color={V.green} />
-        <KPI label="কম স্টক"   value={toBn(st.summary?.low_stock_count||0)} sub=""                                           color={V.red}   />
+        <KPI label="মোট স্টক"   value={fmtN(st.summary?.total_stock)}       sub={`${toBn(st.summary?.total_species||0)} প্রজাতি`} color={V.amber} />
+        <KPI label="স্টক মূল্য" value={`৳${fmt(st.summary?.stock_value)}`}  sub=""                                                color={V.green} />
+        <KPI label="কম স্টক"   value={toBn(st.summary?.low_stock_count||0)} sub=""                                                color={V.red}   />
       </div>
-      {(st.low_stock||[]).length > 0 && (
-        <Card title="⚠️ কম স্টক সতর্কতা">
-          <TW heads={['চারা','কোড','বর্তমান স্টক','সর্বনিম্ন সীমা']}
-            rows={st.low_stock.map(s=>[
-              <strong style={{color:V.red}}>{s.name_bn}</strong>,
-              <span style={{fontFamily:'monospace',color:V.muted}}>{s.seedling_code}</span>,
-              <span style={{color:V.red,fontWeight:600}}>{fmtN(s.current_stock)}</span>,
-              fmtN(s.min_stock_alert),
-            ])}/>
-        </Card>
-      )}
       <Card title="📂 ক্যাটাগরি অনুযায়ী">
         <TW heads={['ক্যাটাগরি','প্রজাতি','স্টক']}
           rows={(st.categories||[]).map(c=>[
@@ -193,7 +178,7 @@ function TabStock({ d }) {
   );
 }
 
-// ── ট্যাব: ব্যবহারকারী ──
+// ট্যাব: ব্যবহারকারী
 function TabUsers({ d }) {
   const users = d.users || [];
   const active = users.filter(u=>u.is_active).length;
@@ -206,7 +191,7 @@ function TabUsers({ d }) {
       </div>
       <Card title="👥 ব্যবহারকারী তালিকা">
         <div style={{ padding:16, display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:10 }}>
-          {users.map(u => (
+          {users.map(u=>(
             <div key={u.id} style={{ background:V.bg, border:`1px solid ${V.border}`, borderRadius:10, padding:14, display:'flex', alignItems:'center', gap:12 }}>
               <div style={{ width:40, height:40, borderRadius:'50%', background:roleColor(u.role), display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:700, fontSize:15, flexShrink:0 }}>{(u.name||'U')[0].toUpperCase()}</div>
               <div>
@@ -219,20 +204,20 @@ function TabUsers({ d }) {
               </div>
             </div>
           ))}
-          {!users.length && <div style={{ color:V.muted, fontSize:14 }}>কেউ নেই</div>}
+          {!users.length && <div style={{ color:V.muted }}>কেউ নেই</div>}
         </div>
       </Card>
     </div>
   );
 }
 
-// ── ট্যাব: লক্ষ্যমাত্রা (repo-র dTarget হুবহু) ──
+// ট্যাব: লক্ষ্যমাত্রা
 function TabTarget({ d, slug }) {
   const curFY = new Date().getMonth()>=6 ? new Date().getFullYear() : new Date().getFullYear()-1;
   const [fy, setFy] = useState(curFY);
-  const [targets, setTargets] = useState(d.fy_data?.targets || []);
-  const [prodA, setProdA] = useState(d.fy_data?.prod_achieved || 0);
-  const [salesA, setSalesA] = useState(d.fy_data?.sales_achieved || 0);
+  const [targets, setTargets] = useState(d.fy_data?.targets||[]);
+  const [prodA, setProdA] = useState(d.fy_data?.prod_achieved||0);
+  const [salesA, setSalesA] = useState(d.fy_data?.sales_achieved||0);
   const [loading, setLoading] = useState(!d.fy_data?.targets);
 
   useEffect(() => { if (!d.fy_data?.targets) loadFY(curFY); }, []);
@@ -265,7 +250,6 @@ function TabTarget({ d, slug }) {
       }>
       {loading ? <div style={{ padding:20, textAlign:'center', color:V.muted }}>লোড হচ্ছে...</div> : (
         <div style={{ padding:'14px 18px' }}>
-          {/* progress cards */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
             {[{l:'🌱 উৎপাদন',t:tProd,a:prodA,p:pp,col:V.purple,vfn:fmtN,unit:'টি'},{l:'💰 বিক্রয়',t:tSales,a:salesA,p:sp,col:V.green,vfn:fmt,unit:'৳'}].map(it=>(
               <div key={it.l} style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, padding:14, borderLeft:`3px solid ${it.col}` }}>
@@ -285,7 +269,6 @@ function TabTarget({ d, slug }) {
               </div>
             ))}
           </div>
-          {/* targets table */}
           {targets.length ? (
             <TW heads={['সময়কাল','ধরন','লক্ষ্য (পরিমাণ)','লক্ষ্য (৳)','মন্তব্য']}
               rows={targets.map(t=>[
@@ -302,9 +285,9 @@ function TabTarget({ d, slug }) {
   );
 }
 
-// ── ট্যাব: ক্ষতি/নষ্ট ──
+// ট্যাব: ক্ষতি
 function TabDamage({ d }) {
-  const dm = d.damages || {};
+  const dm = d.damages||{};
   return (
     <div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:14 }}>
@@ -320,7 +303,7 @@ function TabDamage({ d }) {
               <span style={{color:V.amber}}>{toBn(r.count)}</span>,
             ])}/>
         </Card>
-      ) : <div style={{ textAlign:'center', padding:'40px 0', color:V.muted, fontSize:15 }}>
+      ) : <div style={{ textAlign:'center', padding:'40px 0', color:V.muted }}>
         <i className="ti ti-plant-off" style={{ fontSize:40, display:'block', marginBottom:12 }}/>
         কোনো ক্ষতির তথ্য নেই
       </div>}
@@ -328,9 +311,9 @@ function TabDamage({ d }) {
   );
 }
 
-// ── ট্যাব: অন্যান্য আয় ──
+// ট্যাব: অন্যান্য আয়
 function TabIncome({ d }) {
-  const oi = d.other_income || {};
+  const oi = d.other_income||{};
   return (
     <div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:14 }}>
@@ -346,7 +329,7 @@ function TabIncome({ d }) {
               <span style={{color:V.muted}}>{toBn(r.count)}</span>,
             ])}/>
         </Card>
-      ) : <div style={{ textAlign:'center', padding:'40px 0', color:V.muted, fontSize:15 }}>
+      ) : <div style={{ textAlign:'center', padding:'40px 0', color:V.muted }}>
         <i className="ti ti-cash-off" style={{ fontSize:40, display:'block', marginBottom:12 }}/>
         কোনো অন্যান্য আয় নেই
       </div>}
@@ -354,7 +337,7 @@ function TabIncome({ d }) {
   );
 }
 
-// ── ট্যাব: জনবল (repo-র renderEmployeeTab হুবহু) ──
+// ট্যাব: জনবল
 function TabEmployee({ slug, category }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -371,8 +354,8 @@ function TabEmployee({ slug, category }) {
   if (err) return <div style={{ padding:20, color:V.red }}>{err}</div>;
   if (!data) return null;
 
-  const cat = data.category || category || 'B';
-  const sanc = SANCTIONED[cat] || SANCTIONED['B'];
+  const cat = data.category||category||'B';
+  const sanc = SANCTIONED[cat]||SANCTIONED['B'];
   const totalSanc = Object.values(sanc).reduce((s,v)=>s+v,0);
   const filledPerm = (data.permanent||[]).filter(e=>e.status==='active').length;
   const vacant = Math.max(0, totalSanc-filledPerm);
@@ -394,7 +377,7 @@ function TabEmployee({ slug, category }) {
             return [post,toBn(sanctAmt),<span style={{color:V.green,fontWeight:600}}>{toBn(filled)}</span>,<span style={{color:vac>0?V.red:V.green,fontWeight:600}}>{toBn(vac)}</span>,vac===0?'✅':filled===0?'🔴':'⚠️'];
           })}/>
       </Card>
-      {(data.permanent||[]).length > 0 && (
+      {(data.permanent||[]).length>0 && (
         <Card title="👔 স্থায়ী জনবল" sub={`${toBn(data.permanent.length)} জন`}>
           <TW heads={['নাম','পদ','কর্মী আইডি','মোবাইল','অবস্থা']}
             rows={data.permanent.map(e=>[
@@ -405,7 +388,7 @@ function TabEmployee({ slug, category }) {
             ])}/>
         </Card>
       )}
-      {(data.temporary||[]).length > 0 && (
+      {(data.temporary||[]).length>0 && (
         <Card title="👷 সাময়িক শ্রমিক" sub={`${toBn(data.temporary.length)} জন`}>
           <TW heads={['নাম','পদ','ধরন','মোবাইল','অবস্থা']}
             rows={data.temporary.map(e=>[
@@ -420,16 +403,15 @@ function TabEmployee({ slug, category }) {
   );
 }
 
-// ── Main ──
 const TABS = [
-  { id:'dSales',    icon:'ti-coin',          label:'বিক্রয়' },
-  { id:'dProd',     icon:'ti-plant',         label:'উৎপাদন' },
-  { id:'dStock',    icon:'ti-stack-2',       label:'স্টক' },
-  { id:'dUsers',    icon:'ti-users',         label:'ব্যবহারকারী' },
-  { id:'dTarget',   icon:'ti-target',        label:'লক্ষ্যমাত্রা' },
-  { id:'dDamage',   icon:'ti-alert-triangle',label:'ক্ষতি/নষ্ট' },
-  { id:'dIncome',   icon:'ti-cash',          label:'অন্যান্য আয়' },
-  { id:'dEmployee', icon:'ti-users',         label:'জনবল' },
+  { id:'dSales',    icon:'ti-coin',           label:'বিক্রয়' },
+  { id:'dProd',     icon:'ti-plant',          label:'উৎপাদন' },
+  { id:'dStock',    icon:'ti-stack-2',        label:'স্টক' },
+  { id:'dUsers',    icon:'ti-users',          label:'ব্যবহারকারী' },
+  { id:'dTarget',   icon:'ti-target',         label:'লক্ষ্যমাত্রা' },
+  { id:'dDamage',   icon:'ti-alert-triangle', label:'ক্ষতি/নষ্ট' },
+  { id:'dIncome',   icon:'ti-cash',           label:'অন্যান্য আয়' },
+  { id:'dEmployee', icon:'ti-users',          label:'জনবল' },
 ];
 
 export default function SaCenterDetail() {
@@ -454,8 +436,8 @@ export default function SaCenterDetail() {
 
   return (
     <div style={{ fontFamily:FONT }}>
-      {/* back-btn */}
-      <button onClick={() => navigate(-1)}
+      {/* back btn */}
+      <button onClick={()=>navigate(-1)}
         onMouseEnter={e=>{e.currentTarget.style.borderColor=V.green;e.currentTarget.style.color=V.green;e.currentTarget.style.background=V.green3;}}
         onMouseLeave={e=>{e.currentTarget.style.borderColor=V.border;e.currentTarget.style.color=V.muted;e.currentTarget.style.background=V.card;}}
         style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', background:V.card, border:`1px solid ${V.border}`, borderRadius:8, color:V.muted, cursor:'pointer', fontSize:14, fontFamily:FONT, marginBottom:14, transition:'.15s' }}>
@@ -470,16 +452,15 @@ export default function SaCenterDetail() {
 
       {/* detail-tabs */}
       <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:16 }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
             style={{
-              padding:'9px 18px', borderRadius:8, cursor:'pointer', fontSize:14, fontFamily:FONT,
+              padding:'9px 16px', borderRadius:8, cursor:'pointer', fontSize:14, fontFamily:FONT,
               background: tab===t.id ? V.green3 : V.card,
-              color:      tab===t.id ? V.green2  : V.muted,
+              color:      tab===t.id ? V.green2 : V.muted,
               border:     `1px solid ${tab===t.id ? V.green4 : V.border}`,
               fontWeight: tab===t.id ? 600 : 400,
-              transition:'.15s',
-              display:'flex', alignItems:'center', gap:6,
+              transition:'.15s', display:'flex', alignItems:'center', gap:6,
             }}>
             <i className={`ti ${t.icon}`}/> {t.label}
           </button>
