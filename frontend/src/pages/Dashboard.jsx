@@ -8,6 +8,62 @@ const MN = { seed:'বীজ', cutting:'কাটিং', layering:'লেয়
 const BN_MON = { Jan:'জান', Feb:'ফেব', Mar:'মার্চ', Apr:'এপ্রি', May:'মে', Jun:'জুন', Jul:'জুলা', Aug:'আগ', Sep:'সেপ্ট', Oct:'অক্টো', Nov:'নভে', Dec:'ডিসে' };
 const CAT_COLORS = ['var(--g400)','var(--t400)','var(--a200)','var(--c400)','var(--b400)'];
 
+
+const PRI_COLOR_D = { urgent:'#ef4444', important:'#f59e0b', normal:'#3b82f6' };
+
+function useCountdown(target) {
+  const [left, setLeft] = useState('');
+  useEffect(() => {
+    if (!target) return;
+    function update() {
+      const diff = new Date(target) - new Date();
+      if (diff <= 0) { setLeft('মেয়াদ শেষ'); return; }
+      const d = Math.floor(diff/86400000);
+      const h = Math.floor((diff%86400000)/3600000);
+      const m = Math.floor((diff%3600000)/60000);
+      const s = Math.floor((diff%60000)/1000);
+      const bn = n => String(n).replace(/[0-9]/g, x=>'০১২৩৪৫৬৭৮৯'[x]);
+      if (d>0) setLeft(`${bn(d)}দিন ${bn(h)}ঘণ্টা ${bn(m)}মি`);
+      else if (h>0) setLeft(`${bn(h)}ঘণ্টা ${bn(m)}মি ${bn(s)}সে`);
+      else setLeft(`${bn(m)}মি ${bn(s)}সে`);
+    }
+    update();
+    const t = setInterval(update, 1000);
+    return () => clearInterval(t);
+  }, [target]);
+  return left;
+}
+
+function NoticeTickerWidget({ notices }) {
+  if (!notices || !notices.length) return null;
+  // সবচেয়ে কম expire সময়ের নোটিশ
+  const sorted = [...notices].filter(n=>n.expires_at).sort((a,b)=>new Date(a.expires_at)-new Date(b.expires_at));
+  const top = sorted[0] || notices[0];
+  const countdown = useCountdown(top?.expires_at);
+  const col = PRI_COLOR_D[top?.priority]||PRI_COLOR_D.normal;
+
+  return (
+    <div style={{ background:`${col}11`, border:`1px solid ${col}33`, borderLeft:`4px solid ${col}`, borderRadius:10, padding:'10px 16px', display:'flex', alignItems:'center', gap:12, overflow:'hidden' }}>
+      <i className="ti ti-speakerphone" style={{ color:col, fontSize:16, flexShrink:0 }}/>
+      <div style={{ flex:1, overflow:'hidden' }}>
+        <div style={{ overflow:'hidden', whiteSpace:'nowrap' }}>
+          <span style={{
+            display:'inline-block',
+            fontSize:14, fontWeight:600, color:'var(--tp)',
+            animation:'ticker 15s linear infinite',
+          }}>{top?.title}</span>
+        </div>
+        <style>{`@keyframes ticker { 0%{transform:translateX(100%)} 100%{transform:translateX(-100%)} }`}</style>
+      </div>
+      {countdown && (
+        <div style={{ flexShrink:0, fontSize:12, fontWeight:700, color:col, background:`${col}22`, padding:'4px 10px', borderRadius:20, whiteSpace:'nowrap' }}>
+          ⏰ {countdown}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { fy } = useOutletContext();
   const [d, setD] = useState(null);
@@ -17,6 +73,14 @@ export default function Dashboard() {
   const [low, setLow] = useState([]);
   const [acts, setActs] = useState([]);
   const [fyData, setFyData] = useState(null);
+  const [notices, setNotices] = useState([]);
+
+  const priColor = { urgent:'#f85149', important:'#e3b341', normal:'#58a6ff' };
+  const priLabel = { urgent:'🔴 জরুরি', important:'🟡 গুরুত্বপূর্ণ', normal:'🔵 সাধারণ' };
+
+  useEffect(() => {
+    api.get('/notices').then(r => { if (r.data?.success) setNotices(r.data.data||[]); }).catch(()=>{});
+  }, []);
 
   useEffect(() => {
     let ok = true;
@@ -59,6 +123,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 dash-hover">
+      {/* নোটিশ — সবচেয়ে কম expire সময়ের, horizontal scroll + countdown */}
+      <NoticeTickerWidget notices={notices}/>
       {/* ৫ স্ট্যাট কার্ড */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {STAT.map((c) => (

@@ -83,6 +83,9 @@ export default function Layout() {
   const can = (k) => allowed.includes(k);
   const [profileOpen, setProfileOpen] = useState(false);
   const [recycleCount, setRecycleCount] = useState(0);
+  const [notices, setNotices] = useState([]);
+  const [showNotices, setShowNotices] = useState(false);
+  const [unseenCount, setUnseenCount] = useState(0);
 
   // বাংলা সংখ্যা ইনপুট: inputMode numeric/decimal ফিল্ডে ০-৯ টাইপ করলে ইংরেজিতে রূপান্তর
   useEffect(() => {
@@ -107,13 +110,35 @@ export default function Layout() {
   useEffect(() => {
     if (!can('bin')) return;
     let alive = true;
-    const fetchCount = () => api.get('/recycle-bin').then((r)=>{ if (alive) setRecycleCount((r.data?.data||[]).length); }).catch(()=>{});
+    let timer = null;
+    const fetchCount = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        api.get('/recycle-bin').then((r)=>{ if (alive) setRecycleCount((r.data?.data||[]).length); }).catch(()=>{});
+      }, 500);
+    };
     fetchCount();
     const onChange = () => fetchCount();
     window.addEventListener('hc:recycle', onChange);
-    window.addEventListener('focus', onChange);
-    return () => { alive = false; window.removeEventListener('hc:recycle', onChange); window.removeEventListener('focus', onChange); };
-  }, [loc.pathname]);
+    return () => { alive = false; if(timer) clearTimeout(timer); window.removeEventListener('hc:recycle', onChange); };
+  }, []);
+
+  // notices load
+  useEffect(() => {
+    api.get('/notices').then(r => {
+      if (r.data?.success) {
+        const data = r.data.data||[];
+        setNotices(data);
+        // seen IDs check
+        try {
+          const seen = JSON.parse(localStorage.getItem('seen_notices')||'[]');
+          const unseen = data.filter(n => !seen.includes(n.id)).length;
+          setUnseenCount(unseen);
+        } catch { setUnseenCount(data.length); }
+      }
+    }).catch(()=>{});
+  }, []);
+
   const [batchOpen, setBatchOpen] = useState(false);
   const [saleOpen, setSaleOpen] = useState(false);
   const [seedlings, setSeedlings] = useState([]);
@@ -195,7 +220,7 @@ export default function Layout() {
           <h1 className="text-xl font-bold tracking-tight">{title}</h1>
 
           <div className="ml-auto flex items-center gap-2">
-            <button className="hidden rounded-lg border p-2 sm:block" style={{ borderColor: 'var(--bd)', color: 'var(--tm)' }} aria-label="খুঁজুন"><IcSearch className="h-[18px] w-[18px]" /></button>
+
             {can('prod') && (
               <button onClick={openBatch} className="hidden items-center gap-1.5 rounded-lg border px-3 py-2 text-[13px] font-medium sm:flex" style={{ borderColor: 'var(--g600)', color: 'var(--g600)' }}>
                 <IcPlus className="h-4 w-4" /> উৎপাদন
@@ -211,6 +236,70 @@ export default function Layout() {
               <select value={fy} onChange={(e) => changeFy(Number(e.target.value))} className="rounded-lg border px-2 py-1.5 text-[13px]" style={{ borderColor: 'var(--bd)' }}>
                 {fys.map((y) => <option key={y} value={y}>FY {toBn(y)}-{toBn(y + 1)}</option>)}
               </select>
+            </div>
+            {/* নোটিশ bell */}
+            <div style={{ position:'relative' }}
+              onMouseEnter={()=>setShowNotices(true)}
+              onMouseLeave={()=>setShowNotices(false)}>
+              <button onClick={()=>{
+                  navigate('/notices');
+                  // সব নোটিশ seen mark করো
+                  const seenIds = notices.map(n=>n.id);
+                  localStorage.setItem('seen_notices', JSON.stringify(seenIds));
+                  setUnseenCount(0);
+                  setShowNotices(false);
+                }}
+                title="নোটিশ" className="rounded-lg border p-2"
+                style={{ borderColor:'var(--bd)', color: loc.pathname==='/notices' ? 'var(--g600)' : 'var(--tm)' }}
+                aria-label="নোটিশ">
+                <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+              </button>
+              {unseenCount > 0 && (
+                <span style={{ position:'absolute', top:-4, right:-4, background:'#ef4444', color:'#fff', fontSize:10, fontWeight:700, borderRadius:'50%', width:17, height:17, display:'flex', alignItems:'center', justifyContent:'center', pointerEvents:'none', border:'1.5px solid #fff' }}>
+                  {unseenCount > 9 ? '৯+' : String(unseenCount).replace(/[0-9]/g, d=>'০১২৩৪৫৬৭৮৯'[d])}
+                </span>
+              )}
+              {showNotices && notices.length > 0 && (
+                <div style={{ position:'absolute', top:'100%', right:0, paddingTop:8, zIndex:1000 }}>
+                  <div style={{ background:'#fff', border:'1px solid var(--bd)', borderRadius:12, boxShadow:'0 8px 32px rgba(0,0,0,0.12)', minWidth:260, maxWidth:320, overflow:'hidden' }}>
+                    <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--bd)', fontSize:12, fontWeight:700, color:'var(--tm)', display:'flex', justifyContent:'space-between' }}>
+                      <span>📢 নোটিশ</span>
+                      <span style={{ color:'var(--g600)' }}>{notices.length}টি</span>
+                    </div>
+                    {notices.slice(0,5).map(n=>(
+                      <div key={n.id}
+                        onClick={()=>{
+                          navigate('/notices');
+                          const seenIds = notices.map(n=>n.id);
+                          localStorage.setItem('seen_notices', JSON.stringify(seenIds));
+                          setUnseenCount(0);
+                          setShowNotices(false);
+                        }}
+                        style={{ padding:'10px 14px', borderBottom:'1px solid var(--bd)', cursor:'pointer', fontSize:13, color:'var(--tp)', display:'flex', alignItems:'center', gap:8 }}
+                        onMouseEnter={e=>e.currentTarget.style.background='var(--g50)'}
+                        onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                        <span style={{ width:6, height:6, borderRadius:'50%', background:{'urgent':'#ef4444','important':'#f59e0b','normal':'#3b82f6'}[n.priority]||'#3b82f6', flexShrink:0 }}/>
+                        <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.title}</span>
+                      </div>
+                    ))}
+                    <div
+                      onClick={()=>{
+                        navigate('/notices');
+                        const seenIds = notices.map(n=>n.id);
+                        localStorage.setItem('seen_notices', JSON.stringify(seenIds));
+                        setUnseenCount(0);
+                        setShowNotices(false);
+                      }}
+                      style={{ padding:'8px 14px', fontSize:12, color:'var(--g600)', fontWeight:600, cursor:'pointer', textAlign:'center' }}
+                      onMouseEnter={e=>e.currentTarget.style.background='var(--g50)'}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      সব নোটিশ দেখুন →
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             {can('cfg') && <button onClick={() => navigate('/settings')} title="সেটিংস" className="rounded-lg border p-2" style={{ borderColor: 'var(--bd)', color: loc.pathname==='/settings' ? 'var(--g600)' : 'var(--tm)' }} aria-label="সেটিংস"><IcSettings className="h-[18px] w-[18px]" /></button>}
             {can('bin') && (

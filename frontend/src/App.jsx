@@ -16,6 +16,7 @@ import Damages from './pages/Damages';
 import Customers from './pages/Customers';
 import Users from './pages/Users';
 import RecycleBin from './pages/RecycleBin';
+import Notices from './pages/Notices';
 import Employees from './pages/Employees';
 import Settings from './pages/Settings';
 import { SaAuthProvider } from './superadmin/SaAuth';
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="employees" element={<Employees />} />
         <Route path="settings" element={<Settings />} />
         <Route path="recycle-bin" element={<RecycleBin />} />
+        <Route path="notices" element={<Notices />} />
         <Route path="sales" element={<Sales />} />
         <Route path="income" element={<Income />} />
         {SOON.map(([path, title]) => <Route key={path} path={path} element={<Placeholder title={title} />} />)}
