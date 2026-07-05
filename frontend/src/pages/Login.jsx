@@ -32,7 +32,7 @@ export default function Login() {
     setError(''); setBusy(true);
     try {
       const d = await verifyOtp(email.trim(), otp.trim());
-      if (d.success) navigate('/', { replace: true });
+      if (d.success) navigate('/app', { replace: true });
       else setError(d.message || 'OTP ভুল।');
     } catch (err) {
       setError(err?.response?.data?.message || 'সংযোগ সমস্যা।');

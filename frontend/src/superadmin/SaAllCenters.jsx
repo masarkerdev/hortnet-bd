@@ -18,6 +18,7 @@ export default function SaAllCenters(){
   const [centers,setCenters]=useState([]);
   const [loading,setLoading]=useState(true);
   const [modal,setModal]=useState(false);
+  const [changeUrl,setChangeUrl]=useState(false);
   const [editId,setEditId]=useState(null);
   const [form,setForm]=useState({slug:'',name_bn:'',name_en:'',location:'',district:'',division:'',dae_region:'',category:'B',db_url:''});
   const [saving,setSaving]=useState(false);
@@ -26,8 +27,8 @@ export default function SaAllCenters(){
   async function load(){try{const r=await saApi.get('/tenants');if(r.data?.success)setCenters(r.data.data||[]);}catch{}finally{setLoading(false);}}
   useEffect(()=>{load();},[]);
 
-  function openAdd(){setForm({slug:'',name_bn:'',name_en:'',location:'',district:'',division:'',dae_region:'',category:'B',db_url:''});setEditId(null);setMsg('');setModal(true);}
-  function openEdit(c){setForm({slug:c.slug,name_bn:c.name_bn,name_en:c.name_en||'',location:c.location||'',district:c.district||'',division:c.division||'',dae_region:c.dae_region||'',category:c.category||'B',db_url:''});setEditId(c.id);setMsg('');setModal(true);}
+  function openAdd(){setForm({slug:'',name_bn:'',name_en:'',location:'',district:'',division:'',dae_region:'',category:'B',db_url:''});setEditId(null);setMsg('');setChangeUrl(false);setModal(true);}
+  function openEdit(c){setForm({slug:c.slug,name_bn:c.name_bn,name_en:c.name_en||'',location:c.location||'',district:c.district||'',division:c.division||'',dae_region:c.dae_region||'',category:c.category||'B',db_url:''});setEditId(c.id);setMsg('');setChangeUrl(false);setModal(true);}
 
   async function save(){
     if(!form.name_bn||!form.name_en){setMsg('বাংলা ও ইংরেজি নাম দিন।');return;}
@@ -109,9 +110,27 @@ export default function SaAllCenters(){
             </div>
             <div style={{marginBottom:14}}><label style={{display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500}}>Location</label><input value={form.location} onChange={e=>setForm({...form,location:e.target.value})} placeholder="ঢাকা সদর" style={inp}/></div>
             <div style={{marginBottom:14}}>
-              <label style={{display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500}}>Database URL{editId?' (পরিবর্তন করতে চাইলে)':'*'}</label>
-              <textarea value={form.db_url} onChange={e=>setForm({...form,db_url:e.target.value})} placeholder="postgresql://..." rows={3} style={{...inp,resize:'vertical'}}/>
-              <div style={{fontSize:11,color:C.muted,marginTop:4}}>উদাহরণ: postgresql://user:password@localhost:5432/database_name</div>
+              <label style={{display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500}}>Database URL{!editId?'*':''}</label>
+              {editId ? (
+                <div>
+                  {!changeUrl ? (
+                    <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:C.bg,border:`1px solid ${C.border}`,borderRadius:8}}>
+                      <span style={{flex:1,color:C.muted,fontSize:14,letterSpacing:2}}>••••••••••••••••••••••••••••••</span>
+                      <button onClick={()=>setChangeUrl(true)} style={{background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'4px 10px',fontSize:12,cursor:'pointer',color:C.accent,fontFamily:FONT}}>পরিবর্তন করুন</button>
+                    </div>
+                  ) : (
+                    <div>
+                      <textarea value={form.db_url} onChange={e=>setForm({...form,db_url:e.target.value})} placeholder="postgresql://..." rows={2} style={{...inp,resize:'vertical'}}/>
+                      <div style={{fontSize:11,color:C.red,marginTop:4}}>⚠️ সতর্কতা: Database URL পরিবর্তন করলে center-এর সব data পরিবর্তিত হবে।</div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <textarea value={form.db_url} onChange={e=>setForm({...form,db_url:e.target.value})} placeholder="postgresql://user:password@localhost:5432/hortnet_v1_slug" rows={2} style={{...inp,resize:'vertical'}}/>
+                  <div style={{fontSize:11,color:C.muted,marginTop:4}}>উদাহরণ: postgresql://hortnet_hortnet:password@localhost:5432/hortnet_v1_kaptai</div>
+                </div>
+              )}
             </div>
             {msg&&<div style={{color:C.red,fontSize:13,marginBottom:8}}>{msg}</div>}
             <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
