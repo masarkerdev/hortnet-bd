@@ -318,6 +318,7 @@ router.get("/center/:slug", saAuth, async (req, res) => {
       otherIncome,
       targets,
       categories,
+      stockDetail,
       fyTargets,
       fyProdAchieved,
       fySalesAchieved,
