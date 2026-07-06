@@ -381,6 +381,9 @@ router.get("/center/:slug", saAuth, async (req, res) => {
       queryTenant(
         tenant.db_url,
         `SELECT c.name_bn, COUNT(s.id) AS seedling_count, COALESCE(SUM(s.current_stock),0) AS total_stock FROM categories c LEFT JOIN seedlings s ON c.id=s.category_id AND s.is_active=true GROUP BY c.id,c.name_bn ORDER BY seedling_count DESC`,
+      ),
+      queryTenant(
+        tenant.db_url,
         `SELECT s.name_bn, s.variety, s.unit_price, s.current_stock, s.min_stock_alert, s.seedling_code, c.name_bn AS category_bn FROM seedlings s LEFT JOIN categories c ON s.category_id=c.id WHERE s.is_active=true ORDER BY c.name_bn, s.name_bn, s.variety`,
       ),
       (async () => {
@@ -1149,7 +1152,116 @@ router.post("/center/:slug/set-target", saAuth, async (req, res) => {
   }
 });
 
-// module.exports = router; এর আগে এই code যোগ করো
+// 
+// ── REPORT ROUTES ──
+
+// GET /api/superadmin/report/stock-summary — সব center-এর stock summary
+router.get("/report/stock-summary", saAuth, async (req, res) => {
+  try {
+    const { fy, category } = req.query;
+    const tenants = await getTenants();
+    const results = [];
+
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      try {
+        const { getPool } = require("../config/poolManager");
+        const db = getPool(tenant.db_url, slug);
+
+        let q = `
+          SELECT 
+            c.name_bn AS category_bn,
+            s.name_bn,
+            s.variety,
+            s.current_stock,
+            s.unit_price,
+            s.seedling_code
+          FROM seedlings s
+          LEFT JOIN categories c ON s.category_id = c.id
+          WHERE s.is_active = true
+        `;
+        const params = [];
+        if (category) {
+          params.push(category);
+          q += ` AND c.name_bn = $${params.length}`;
+        }
+        q += ` ORDER BY c.name_bn, s.name_bn, s.variety`;
+
+        const r = await db.query(q, params);
+        results.push({
+          slug,
+          name_bn: tenant.name_bn,
+          name_en: tenant.name_en,
+          district: tenant.district,
+          category: tenant.category,
+          seedlings: r.rows,
+        });
+      } catch (e) {
+        results.push({ slug, name_bn: tenant.name_bn, error: e.message, seedlings: [] });
+      }
+    }
+
+    res.json({ success: true, data: results });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/superadmin/report/production-summary — উৎপাদন রিপোর্ট
+router.get("/report/production-summary", saAuth, async (req, res) => {
+  try {
+    const { fy, month, center } = req.query;
+    const tenants = await getTenants();
+    const results = [];
+
+    const fyYear = parseInt(fy) || new Date().getFullYear();
+    const startDate = `${fyYear}-07-01`;
+    const endDate = `${fyYear + 1}-06-30`;
+
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      if (center && slug !== center) continue;
+      try {
+        const { getPool } = require("../config/poolManager");
+        const db = getPool(tenant.db_url, slug);
+
+        const r = await db.query(`
+          SELECT 
+            c.name_bn AS category_bn,
+            s.name_bn,
+            s.variety,
+            COALESCE(SUM(CASE WHEN pb.production_type IN ('graft','cutting','layering') 
+              THEN pb.success_quantity ELSE pb.produced_quantity END), 0) AS total_produced,
+            COALESCE(SUM(pb.failed_quantity), 0) AS total_failed,
+            s.current_stock
+          FROM seedlings s
+          LEFT JOIN categories c ON s.category_id = c.id
+          LEFT JOIN production_batches pb ON pb.seedling_id = s.id 
+            AND pb.batch_date BETWEEN $1 AND $2
+          WHERE s.is_active = true
+          GROUP BY c.name_bn, s.name_bn, s.variety, s.current_stock
+          ORDER BY c.name_bn, s.name_bn
+        `, [startDate, endDate]);
+
+        results.push({
+          slug,
+          name_bn: tenant.name_bn,
+          district: tenant.district,
+          category: tenant.category,
+          data: r.rows,
+        });
+      } catch (e) {
+        results.push({ slug, name_bn: tenant.name_bn, error: e.message, data: [] });
+      }
+    }
+
+    res.json({ success: true, data: results, fy: fyYear });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+module.exports = router; এর আগে এই code যোগ করো
 
 router.post("/center/:slug/set-target", saAuth, async (req, res) => {
   try {
@@ -1277,5 +1389,114 @@ router.delete("/notices/:id", saAuth, async (req, res) => {
 });
 
 // end of notice board routes
+
+
+// ── REPORT ROUTES ──
+
+// GET /api/superadmin/report/stock-summary — সব center-এর stock summary
+router.get("/report/stock-summary", saAuth, async (req, res) => {
+  try {
+    const { fy, category } = req.query;
+    const tenants = await getTenants();
+    const results = [];
+
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      try {
+        const { getPool } = require("../config/poolManager");
+        const db = getPool(tenant.db_url, slug);
+
+        let q = `
+          SELECT 
+            c.name_bn AS category_bn,
+            s.name_bn,
+            s.variety,
+            s.current_stock,
+            s.unit_price,
+            s.seedling_code
+          FROM seedlings s
+          LEFT JOIN categories c ON s.category_id = c.id
+          WHERE s.is_active = true
+        `;
+        const params = [];
+        if (category) {
+          params.push(category);
+          q += ` AND c.name_bn = $${params.length}`;
+        }
+        q += ` ORDER BY c.name_bn, s.name_bn, s.variety`;
+
+        const r = await db.query(q, params);
+        results.push({
+          slug,
+          name_bn: tenant.name_bn,
+          name_en: tenant.name_en,
+          district: tenant.district,
+          category: tenant.category,
+          seedlings: r.rows,
+        });
+      } catch (e) {
+        results.push({ slug, name_bn: tenant.name_bn, error: e.message, seedlings: [] });
+      }
+    }
+
+    res.json({ success: true, data: results });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/superadmin/report/production-summary — উৎপাদন রিপোর্ট
+router.get("/report/production-summary", saAuth, async (req, res) => {
+  try {
+    const { fy, month, center } = req.query;
+    const tenants = await getTenants();
+    const results = [];
+
+    const fyYear = parseInt(fy) || new Date().getFullYear();
+    const startDate = `${fyYear}-07-01`;
+    const endDate = `${fyYear + 1}-06-30`;
+
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      if (center && slug !== center) continue;
+      try {
+        const { getPool } = require("../config/poolManager");
+        const db = getPool(tenant.db_url, slug);
+
+        const r = await db.query(`
+          SELECT 
+            c.name_bn AS category_bn,
+            s.name_bn,
+            s.variety,
+            COALESCE(SUM(CASE WHEN pb.production_type IN ('graft','cutting','layering') 
+              THEN pb.success_quantity ELSE pb.produced_quantity END), 0) AS total_produced,
+            COALESCE(SUM(pb.failed_quantity), 0) AS total_failed,
+            s.current_stock
+          FROM seedlings s
+          LEFT JOIN categories c ON s.category_id = c.id
+          LEFT JOIN production_batches pb ON pb.seedling_id = s.id 
+            AND pb.batch_date BETWEEN $1 AND $2
+          WHERE s.is_active = true
+          GROUP BY c.name_bn, s.name_bn, s.variety, s.current_stock
+          ORDER BY c.name_bn, s.name_bn
+        `, [startDate, endDate]);
+
+        results.push({
+          slug,
+          name_bn: tenant.name_bn,
+          district: tenant.district,
+          category: tenant.category,
+          data: r.rows,
+        });
+      } catch (e) {
+        results.push({ slug, name_bn: tenant.name_bn, error: e.message, data: [] });
+      }
+    }
+
+    res.json({ success: true, data: results, fy: fyYear });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 module.exports = router;
