@@ -14,9 +14,12 @@ import {
 } from './icons';
 
 const ROUTE_ACC = {
-  '/':'dash', '/seedlings':'seed', '/production':'prod', '/mother-plants':'moth', '/batches':'batch',
-  '/stock':'stk', '/opening-stock':'stk', '/damages':'dmg', '/sales':'sale', '/income':'income',
-  '/customers':'cust', '/reports':'rep', '/users':'usr', '/employees':'usr',
+  '/dashboard':'dash', '/dashboard/seedlings':'seed', '/dashboard/production':'prod',
+  '/dashboard/mother-plants':'moth', '/dashboard/batches':'batch',
+  '/dashboard/stock':'stk', '/dashboard/opening-stock':'stk', '/dashboard/damages':'dmg',
+  '/dashboard/sales':'sale', '/dashboard/income':'income',
+  '/dashboard/customers':'cust', '/dashboard/reports':'rep',
+  '/dashboard/users':'usr', '/dashboard/employees':'usr',
 };
 const ACCESS = {
   admin: ['dash','seed','prod','moth','batch','stk','dmg','sale','cust','income','rep','usr','cfg','bin'],
@@ -28,30 +31,30 @@ const ACCESS = {
 
 const SECTIONS = [
   { en: 'MAIN', bn: 'প্রধান', items: [
-    { to: '/dashboard', label: 'ড্যাশবোর্ড', icon: IcGrid, end: true },
+    { to: '/dashboard', label: 'ড্যাশবোর্ড', icon: IcGrid, acc: 'dash', end: true },
   ]},
   { en: 'PRODUCTION', bn: 'উৎপাদন', items: [
-    { to: '/dashboard/seedlings', label: 'চারা তালিকা', icon: IcLeaf },
-    { to: '/dashboard/production', label: 'উৎপাদন রেজিস্টার', icon: IcClipboard },
-    { to: '/dashboard/mother-plants', label: 'মাদার প্ল্যান্ট', icon: IcTree },
-    { to: '/dashboard/batches', label: 'ব্যাচ ম্যানেজমেন্ট', icon: IcBox },
+    { to: '/dashboard/seedlings', label: 'চারা তালিকা', icon: IcLeaf, acc: 'seed' },
+    { to: '/dashboard/production', label: 'উৎপাদন রেজিস্টার', icon: IcClipboard, acc: 'prod' },
+    { to: '/dashboard/mother-plants', label: 'মাদার প্ল্যান্ট', icon: IcTree, acc: 'moth' },
+    { to: '/dashboard/batches', label: 'ব্যাচ ম্যানেজমেন্ট', icon: IcBox, acc: 'batch' },
   ]},
   { en: 'INVENTORY', bn: 'মজুদ', items: [
-    { to: '/dashboard/stock', label: 'স্টক রেজিস্টার', icon: IcBox },
-    { to: '/dashboard/opening-stock', label: 'প্রারম্ভিক স্টক', icon: IcArchive },
-    { to: '/dashboard/damages', label: 'ক্ষতি / নষ্ট', icon: IcAlert },
+    { to: '/dashboard/stock', label: 'স্টক রেজিস্টার', icon: IcBox, acc: 'stk' },
+    { to: '/dashboard/opening-stock', label: 'প্রারম্ভিক স্টক', icon: IcArchive, acc: 'stk' },
+    { to: '/dashboard/damages', label: 'ক্ষতি / নষ্ট', icon: IcAlert, acc: 'dmg' },
   ]},
   { en: 'SALES', bn: 'বিক্রয়', items: [
-    { to: '/dashboard/sales', label: 'বিক্রয় ও চালান', icon: IcReceipt },
-    { to: '/dashboard/income', label: 'অন্যান্য আয়', icon: IcCoin },
-    { to: '/dashboard/customers', label: 'গ্রাহক তালিকা', icon: IcUsers },
+    { to: '/dashboard/sales', label: 'বিক্রয় ও চালান', icon: IcReceipt, acc: 'sale' },
+    { to: '/dashboard/income', label: 'অন্যান্য আয়', icon: IcCoin, acc: 'income' },
+    { to: '/dashboard/customers', label: 'গ্রাহক তালিকা', icon: IcUsers, acc: 'cust' },
   ]},
   { en: 'REPORTS', bn: 'রিপোর্ট', items: [
-    { to: '/dashboard/reports', label: 'রিপোর্ট ও বিশ্লেষণ', icon: IcChart },
+    { to: '/dashboard/reports', label: 'রিপোর্ট ও বিশ্লেষণ', icon: IcChart, acc: 'rep' },
   ]},
   { en: 'SYSTEM', bn: 'সিস্টেম', items: [
-    { to: '/dashboard/users', label: 'ব্যবহারকারী', icon: IcUser },
-    { to: '/dashboard/employees', label: 'জনবল তালিকা', icon: IcUsers },
+    { to: '/dashboard/users', label: 'ব্যবহারকারী', icon: IcUser, acc: 'usr' },
+    { to: '/dashboard/employees', label: 'জনবল তালিকা', icon: IcUsers, acc: 'usr' },
   ]},
 ];
 
@@ -177,7 +180,7 @@ export default function Layout() {
 
         <nav className="flex-1 overflow-y-auto px-3 py-2">
           {SECTIONS.map((sec) => {
-            const items = sec.items.filter((it) => can(ROUTE_ACC[it.to] || 'dash'));
+            const items = sec.items.filter((it) => can(it.acc || 'dash'));
             if (!items.length) return null;
             return (
             <div key={sec.en} className="mb-3">

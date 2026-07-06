@@ -381,6 +381,7 @@ router.get("/center/:slug", saAuth, async (req, res) => {
       queryTenant(
         tenant.db_url,
         `SELECT c.name_bn, COUNT(s.id) AS seedling_count, COALESCE(SUM(s.current_stock),0) AS total_stock FROM categories c LEFT JOIN seedlings s ON c.id=s.category_id AND s.is_active=true GROUP BY c.id,c.name_bn ORDER BY seedling_count DESC`,
+        `SELECT s.name_bn, s.variety, s.unit_price, s.current_stock, s.min_stock_alert, s.seedling_code, c.name_bn AS category_bn FROM seedlings s LEFT JOIN categories c ON s.category_id=c.id WHERE s.is_active=true ORDER BY c.name_bn, s.name_bn, s.variety`,
       ),
       (async () => {
         const now = new Date();
@@ -440,6 +441,7 @@ router.get("/center/:slug", saAuth, async (req, res) => {
       },
       stock: {
         summary: stockSummary[0],
+        detail: stockDetail,
         low_stock: lowStock,
         categories: categories,
       },

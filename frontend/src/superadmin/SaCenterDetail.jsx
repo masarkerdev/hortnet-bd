@@ -160,20 +160,120 @@ function TabProd({ d }) {
 // ট্যাব: স্টক
 function TabStock({ d }) {
   const st = d.stock;
+  const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState({});
+
+  // detail থেকে category → name → variety hierarchy তৈরি
+  const detail = st.detail || [];
+  const filtered = search
+    ? detail.filter(s=>(s.name_bn||'').toLowerCase().includes(search.toLowerCase())||(s.variety||'').toLowerCase().includes(search.toLowerCase()))
+    : detail;
+
+  // Group by category → name
+  const byCategory = {};
+  filtered.forEach(s => {
+    const cat = s.category_bn || 'অন্যান্য';
+    if (!byCategory[cat]) byCategory[cat] = {};
+    const name = s.name_bn || '—';
+    if (!byCategory[cat][name]) byCategory[cat][name] = [];
+    byCategory[cat][name].push(s);
+  });
+
+  const catTotal = cat => Object.values(byCategory[cat]||{}).flat().reduce((s,i)=>s+(+i.current_stock||0),0);
+  const nameTotal = items => items.reduce((s,i)=>s+(+i.current_stock||0),0);
+
+  function toggleCat(cat) { setExpanded(p=>({...p,[cat]:!p[cat]})); }
+
   return (
     <div>
+      {/* KPI */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:14 }}>
         <KPI label="মোট স্টক"   value={fmtN(st.summary?.total_stock)}       sub={`${toBn(st.summary?.total_species||0)} প্রজাতি`} color={V.amber} />
         <KPI label="স্টক মূল্য" value={`৳${fmt(st.summary?.stock_value)}`}  sub=""                                                color={V.green} />
         <KPI label="কম স্টক"   value={toBn(st.summary?.low_stock_count||0)} sub=""                                                color={V.red}   />
       </div>
-      <Card title="📂 ক্যাটাগরি অনুযায়ী">
-        <TW heads={['ক্যাটাগরি','প্রজাতি','স্টক']}
-          rows={(st.categories||[]).map(c=>[
-            c.name_bn, toBn(c.seedling_count),
-            <span style={{color:V.amber,fontWeight:600}}>{fmtN(c.total_stock)}</span>,
-          ])}/>
-      </Card>
+
+      {/* Search */}
+      <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', gap:8, marginBottom:14, boxShadow:V.shadow }}>
+        <i className="ti ti-search" style={{ color:V.muted, fontSize:16 }}/>
+        <input value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="চারা বা জাত খুঁজুন..."
+          style={{ flex:1, border:'none', outline:'none', fontSize:14, fontFamily:'inherit', color:V.text, background:'transparent' }}/>
+        {search && <button onClick={()=>setSearch('')} style={{ background:'none', border:'none', color:V.muted, cursor:'pointer', fontSize:16 }}>✕</button>}
+      </div>
+
+      {/* Hierarchy Table */}
+      <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, overflow:'hidden', boxShadow:V.shadow }}>
+        <div style={{ padding:'12px 16px', borderBottom:`1px solid ${V.border}`, display:'flex', justifyContent:'space-between', alignItems:'center', background:V.card2 }}>
+          <span style={{ fontSize:15, fontWeight:600 }}>📂 ক্যাটাগরি → চারা → জাত</span>
+          <button onClick={()=>{
+            const allCats = Object.keys(byCategory);
+            const allExpanded = allCats.every(c=>expanded[c]);
+            const newExp = {};
+            allCats.forEach(c=>newExp[c]=!allExpanded);
+            setExpanded(newExp);
+          }} style={{ background:V.green3, border:`1px solid ${V.border}`, borderRadius:7, padding:'5px 12px', fontSize:12, cursor:'pointer', color:V.green2, fontFamily:'inherit' }}>
+            সব {Object.keys(byCategory).every(c=>expanded[c]) ? 'বন্ধ' : 'খুলুন'}
+          </button>
+        </div>
+
+        {Object.entries(byCategory).map(([cat, names])=>(
+          <div key={cat}>
+            {/* Category Row */}
+            <div onClick={()=>toggleCat(cat)}
+              style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', background:'#f8faf8', borderBottom:`1px solid ${V.border}`, cursor:'pointer' }}
+              onMouseEnter={e=>e.currentTarget.style.background=V.green3}
+              onMouseLeave={e=>e.currentTarget.style.background='#f8faf8'}>
+              <i className={`ti ti-chevron-${expanded[cat]?'down':'right'}`} style={{ color:V.green, fontSize:14 }}/>
+              <span style={{ fontSize:14, fontWeight:700, color:V.text, flex:1 }}>{cat}</span>
+              <span style={{ fontSize:12, color:V.muted }}>{toBn(Object.keys(names).length)}টি চারা</span>
+              <span style={{ fontSize:14, fontWeight:700, color:V.amber, minWidth:80, textAlign:'right' }}>{fmtN(catTotal(cat))}টি</span>
+            </div>
+
+            {/* Name rows */}
+            {expanded[cat] && Object.entries(names).map(([name, varieties])=>(
+              <div key={name}>
+                {/* Name row */}
+                <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px 10px 36px', background:V.card, borderBottom:`1px solid ${V.border}` }}>
+                  <i className="ti ti-leaf" style={{ color:V.green2, fontSize:13 }}/>
+                  <span style={{ fontSize:13, fontWeight:600, color:V.text, flex:1 }}>{name}</span>
+                  {varieties.length > 1 && (
+                    <span style={{ fontSize:11, color:V.muted }}>{toBn(varieties.length)}টি জাত</span>
+                  )}
+                  <span style={{ fontSize:13, fontWeight:600, color:V.amber, minWidth:80, textAlign:'right' }}>{fmtN(nameTotal(varieties))}টি</span>
+                </div>
+
+                {/* Variety rows — একাধিক জাত থাকলে */}
+                {varieties.length > 1 && varieties.map((v,i)=>(
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 16px 8px 56px', background:'#fafcfa', borderBottom:`1px solid ${V.border}` }}>
+                    <span style={{ fontSize:12, color:V.muted, flex:1 }}>└ {v.variety||'সাধারণ'}</span>
+                    <span style={{ fontSize:11, color:V.muted, marginRight:8 }}>৳{fmtN(v.unit_price)}/টি</span>
+                    <span style={{ fontSize:12, fontWeight:600, color:v.current_stock<=(v.min_stock_alert||5)?V.red:V.green, minWidth:80, textAlign:'right' }}>
+                      {fmtN(v.current_stock)}টি
+                      {v.current_stock<=(v.min_stock_alert||5) && <span style={{ fontSize:10, marginLeft:4 }}>⚠️</span>}
+                    </span>
+                  </div>
+                ))}
+
+                {/* একটাই জাত থাকলে variety row-এ মূল্য দেখাও */}
+                {varieties.length === 1 && (
+                  <div style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 16px 6px 56px', background:'#fafcfa', borderBottom:`1px solid ${V.border}` }}>
+                    <span style={{ fontSize:11, color:V.muted, flex:1 }}>{varieties[0].variety ? `জাত: ${varieties[0].variety}` : 'সাধারণ জাত'}</span>
+                    <span style={{ fontSize:11, color:V.muted }}>৳{fmtN(varieties[0].unit_price)}/টি</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {!Object.keys(byCategory).length && (
+          <div style={{ textAlign:'center', padding:40, color:V.muted }}>
+            <i className="ti ti-plant-off" style={{ fontSize:36, display:'block', marginBottom:8 }}/>
+            কোনো স্টক নেই
+          </div>
+        )}
+      </div>
     </div>
   );
 }
