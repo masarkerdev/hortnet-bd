@@ -32,6 +32,7 @@ import SaPlaceholder from './superadmin/SaPlaceholder';
 import SaCategory from './superadmin/SaCategory';
 import SaAdmins from './superadmin/SaAdmins';
 import SaNotices from './superadmin/SaNotices';
+import SaReport from './superadmin/SaReport';
 import SaCompare from './superadmin/SaCompare';
 import SaTargetSummary from './superadmin/SaTargetSummary';
 import SaDistrictSummary from './superadmin/SaDistrictSummary';
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="all-centers" element={<SaAllCenters />} />
         <Route path="admins" element={<SaAdmins />} />
         <Route path="notices" element={<SaNotices />} />
+        <Route path="reports" element={<SaReport />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
