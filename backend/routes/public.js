@@ -1,6 +1,14 @@
 // routes/public.js — কৃষক পোর্টাল (login ছাড়া)
 const express = require("express");
 const router = express.Router();
+
+// সব public routes-এ no-cache header
+router.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
 const { Pool } = require("pg");
 const { getTenants } = require("../lib/tenantCache");
 
