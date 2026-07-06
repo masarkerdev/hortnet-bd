@@ -953,9 +953,6 @@ router.get("/center/:slug/employees", saAuth, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════
-// routes/superadmin.js এর শেষে — module.exports এর আগে
-// ══════════════════════════════════════════════════════
-
 router.post("/center/:slug/set-target", saAuth, async (req, res) => {
   try {
     const tenants = await getTenants();
@@ -1053,9 +1050,6 @@ router.post("/center/:slug/set-target", saAuth, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════
-// routes/superadmin.js এর শেষে — module.exports এর আগে
-// ══════════════════════════════════════════════════════
-
 router.post("/center/:slug/set-target", saAuth, async (req, res) => {
   try {
     const tenants = await getTenants();
@@ -1260,8 +1254,6 @@ router.get("/report/production-summary", saAuth, async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
-module.exports = router; এর আগে এই code যোগ করো
 
 router.post("/center/:slug/set-target", saAuth, async (req, res) => {
   try {
