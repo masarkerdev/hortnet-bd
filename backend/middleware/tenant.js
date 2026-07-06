@@ -46,6 +46,16 @@ async function tenantMiddleware(req, res, next) {
     return next();
   }
 
+  // Public routes bypass — login ছাড়া accessible
+  if (req.path.startsWith("/api/public")) {
+    return next();
+  }
+
+  // Developer routes bypass
+  if (req.path.startsWith("/api/dev")) {
+    return next();
+  }
+
   const slug = extractSlug(req);
   if (!slug) {
     return res.status(400).json({
