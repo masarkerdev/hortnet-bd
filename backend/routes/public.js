@@ -15,7 +15,7 @@ const { getTenants } = require("../lib/tenantCache");
 async function queryTenant(dbUrl, sql, params = []) {
   const pool = new Pool({
     connectionString: dbUrl,
-    ssl: { rejectUnauthorized: false },
+    ssl: false,
     max: 1,
     connectionTimeoutMillis: 8000,
   });
