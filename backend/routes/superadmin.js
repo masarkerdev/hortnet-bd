@@ -1127,7 +1127,187 @@ router.post("/center/:slug/set-target", saAuth, async (req, res) => {
   }
 });
 
-// module.exports = router; এর আগে এই code যোগ করো
+// 
+// ── CENTER APP USER MANAGEMENT ──
+
+// GET /api/superadmin/center-users
+router.get("/center-users", saAuth, async (req, res) => {
+  try {
+    const tenants = await getTenants();
+    const { getPool } = require("../config/poolManager");
+    const results = [];
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      try {
+        const db = getPool(tenant.db_url, slug);
+        const r = await db.query(
+          "SELECT id, name, email, role, is_active, created_at FROM users WHERE role='admin' ORDER BY created_at DESC"
+        );
+        r.rows.forEach(u => results.push({ ...u, center_slug: slug, center_name: tenant.name_bn }));
+      } catch (e) {}
+    }
+    res.json({ success: true, data: results });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/superadmin/center-users
+router.post("/center-users", saAuth, directorOnly, async (req, res) => {
+  const { center_slug, name, email, password, role } = req.body;
+  if (!center_slug || !name || !email || !password || !role)
+    return res.status(400).json({ success: false, message: "সব তথ্য দিন।" });
+  try {
+    const tenants = await getTenants();
+    const tenant = tenants[center_slug];
+    if (!tenant) return res.status(404).json({ success: false, message: "Center পাওয়া যায়নি।" });
+    const { getPool } = require("../config/poolManager");
+    const bcrypt = require("bcryptjs");
+    const db = getPool(tenant.db_url, center_slug);
+    const exists = await db.query("SELECT id FROM users WHERE email=$1", [email]);
+    if (exists.rows.length)
+      return res.status(400).json({ success: false, message: "এই email আগে থেকে আছে।" });
+    const hash = await bcrypt.hash(password, 10);
+    const r = await db.query(
+      "INSERT INTO users (name, email, password, role, is_active) VALUES ($1,$2,$3,$4,true) RETURNING id, name, email, role",
+      [name, email, hash, role]
+    );
+    res.json({ success: true, message: `"${name}" তৈরি হয়েছে।`, data: r.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/superadmin/center-users/:slug/:id
+router.put("/center-users/:slug/:id", saAuth, directorOnly, async (req, res) => {
+  const { slug, id } = req.params;
+  const { name, email, role, password } = req.body;
+  try {
+    const tenants = await getTenants();
+    const tenant = tenants[slug];
+    if (!tenant) return res.status(404).json({ success: false, message: "Center পাওয়া যায়নি।" });
+    const { getPool } = require("../config/poolManager");
+    const bcrypt = require("bcryptjs");
+    const db = getPool(tenant.db_url, slug);
+    if (password) {
+      const hash = await bcrypt.hash(password, 10);
+      await db.query("UPDATE users SET name=$1, email=$2, role=$3, password=$4 WHERE id=$5", [name, email, role, hash, id]);
+    } else {
+      await db.query("UPDATE users SET name=$1, email=$2, role=$3 WHERE id=$4", [name, email, role, id]);
+    }
+    res.json({ success: true, message: "আপডেট হয়েছে।" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/superadmin/center-users/:slug/:id/toggle
+router.post("/center-users/:slug/:id/toggle", saAuth, directorOnly, async (req, res) => {
+  const { slug, id } = req.params;
+  try {
+    const tenants = await getTenants();
+    const tenant = tenants[slug];
+    if (!tenant) return res.status(404).json({ success: false, message: "Center পাওয়া যায়নি।" });
+    const { getPool } = require("../config/poolManager");
+    const db = getPool(tenant.db_url, slug);
+    const cur = await db.query("SELECT is_active FROM users WHERE id=$1", [id]);
+    if (!cur.rows.length) return res.status(404).json({ success: false, message: "User পাওয়া যায়নি।" });
+    const newStatus = !cur.rows[0].is_active;
+    await db.query("UPDATE users SET is_active=$1 WHERE id=$2", [newStatus, id]);
+    res.json({ success: true, message: newStatus ? "সক্রিয় করা হয়েছে।" : "বন্ধ করা হয়েছে।" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/superadmin/center-users/:slug/:id/reset-password
+router.post("/center-users/:slug/:id/reset-password", saAuth, directorOnly, async (req, res) => {
+  const { slug, id } = req.params;
+  const { new_password } = req.body;
+  if (!new_password) return res.status(400).json({ success: false, message: "নতুন password দিন।" });
+  try {
+    const tenants = await getTenants();
+    const tenant = tenants[slug];
+    if (!tenant) return res.status(404).json({ success: false, message: "Center পাওয়া যায়নি।" });
+    const { getPool } = require("../config/poolManager");
+    const bcrypt = require("bcryptjs");
+    const db = getPool(tenant.db_url, slug);
+    const hash = await bcrypt.hash(new_password, 10);
+    await db.query("UPDATE users SET password=$1 WHERE id=$2", [hash, id]);
+    res.json({ success: true, message: "Password reset হয়েছে।" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── REPORT ROUTES ──
+
+// GET /api/superadmin/report/stock-summary
+router.get("/report/stock-summary", saAuth, async (req, res) => {
+  try {
+    const { category } = req.query;
+    const tenants = await getTenants();
+    const { getPool } = require("../config/poolManager");
+    const results = [];
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      try {
+        const db = getPool(tenant.db_url, slug);
+        let q = `SELECT s.name_bn, s.variety, s.unit_price, s.current_stock, s.seedling_code, c.name_bn AS category_bn FROM seedlings s LEFT JOIN categories c ON s.category_id = c.id WHERE s.is_active = true`;
+        const params = [];
+        if (category) { params.push(category); q += ` AND c.name_bn = $${params.length}`; }
+        q += ` ORDER BY c.name_bn, s.name_bn, s.variety`;
+        const r = await db.query(q, params);
+        results.push({ slug, name_bn: tenant.name_bn, name_en: tenant.name_en, district: tenant.district, category: tenant.category, seedlings: r.rows });
+      } catch (e) {
+        results.push({ slug, name_bn: tenant.name_bn, error: e.message, seedlings: [] });
+      }
+    }
+    res.json({ success: true, data: results });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/superadmin/report/production-summary
+router.get("/report/production-summary", saAuth, async (req, res) => {
+  try {
+    const { fy, center } = req.query;
+    const tenants = await getTenants();
+    const { getPool } = require("../config/poolManager");
+    const results = [];
+    const fyYear = parseInt(fy) || new Date().getFullYear();
+    const startDate = `${fyYear}-07-01`;
+    const endDate = `${fyYear + 1}-06-30`;
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      if (center && slug !== center) continue;
+      try {
+        const db = getPool(tenant.db_url, slug);
+        const r = await db.query(`
+          SELECT c.name_bn AS category_bn, s.name_bn, s.variety,
+            COALESCE(SUM(pb.produced_quantity), 0) AS total_produced,
+            COALESCE(SUM(pb.failed_quantity), 0) AS total_failed,
+            s.current_stock
+          FROM seedlings s
+          LEFT JOIN categories c ON s.category_id = c.id
+          LEFT JOIN production_batches pb ON pb.seedling_id = s.id AND pb.batch_date BETWEEN $1 AND $2
+          WHERE s.is_active = true
+          GROUP BY c.name_bn, s.name_bn, s.variety, s.current_stock
+          ORDER BY c.name_bn, s.name_bn
+        `, [startDate, endDate]);
+        results.push({ slug, name_bn: tenant.name_bn, district: tenant.district, data: r.rows });
+      } catch (e) {
+        results.push({ slug, name_bn: tenant.name_bn, error: e.message, data: [] });
+      }
+    }
+    res.json({ success: true, data: results, fy: fyYear });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+module.exports = router; এর আগে এই code যোগ করো
 
 router.post("/center/:slug/set-target", saAuth, async (req, res) => {
   try {
@@ -1255,5 +1435,185 @@ router.delete("/notices/:id", saAuth, async (req, res) => {
 });
 
 // end of notice board routes
+
+
+// ── CENTER APP USER MANAGEMENT ──
+
+// GET /api/superadmin/center-users
+router.get("/center-users", saAuth, async (req, res) => {
+  try {
+    const tenants = await getTenants();
+    const { getPool } = require("../config/poolManager");
+    const results = [];
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      try {
+        const db = getPool(tenant.db_url, slug);
+        const r = await db.query(
+          "SELECT id, name, email, role, is_active, created_at FROM users WHERE role='admin' ORDER BY created_at DESC"
+        );
+        r.rows.forEach(u => results.push({ ...u, center_slug: slug, center_name: tenant.name_bn }));
+      } catch (e) {}
+    }
+    res.json({ success: true, data: results });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/superadmin/center-users
+router.post("/center-users", saAuth, directorOnly, async (req, res) => {
+  const { center_slug, name, email, password, role } = req.body;
+  if (!center_slug || !name || !email || !password || !role)
+    return res.status(400).json({ success: false, message: "সব তথ্য দিন।" });
+  try {
+    const tenants = await getTenants();
+    const tenant = tenants[center_slug];
+    if (!tenant) return res.status(404).json({ success: false, message: "Center পাওয়া যায়নি।" });
+    const { getPool } = require("../config/poolManager");
+    const bcrypt = require("bcryptjs");
+    const db = getPool(tenant.db_url, center_slug);
+    const exists = await db.query("SELECT id FROM users WHERE email=$1", [email]);
+    if (exists.rows.length)
+      return res.status(400).json({ success: false, message: "এই email আগে থেকে আছে।" });
+    const hash = await bcrypt.hash(password, 10);
+    const r = await db.query(
+      "INSERT INTO users (name, email, password, role, is_active) VALUES ($1,$2,$3,$4,true) RETURNING id, name, email, role",
+      [name, email, hash, role]
+    );
+    res.json({ success: true, message: `"${name}" তৈরি হয়েছে।`, data: r.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/superadmin/center-users/:slug/:id
+router.put("/center-users/:slug/:id", saAuth, directorOnly, async (req, res) => {
+  const { slug, id } = req.params;
+  const { name, email, role, password } = req.body;
+  try {
+    const tenants = await getTenants();
+    const tenant = tenants[slug];
+    if (!tenant) return res.status(404).json({ success: false, message: "Center পাওয়া যায়নি।" });
+    const { getPool } = require("../config/poolManager");
+    const bcrypt = require("bcryptjs");
+    const db = getPool(tenant.db_url, slug);
+    if (password) {
+      const hash = await bcrypt.hash(password, 10);
+      await db.query("UPDATE users SET name=$1, email=$2, role=$3, password=$4 WHERE id=$5", [name, email, role, hash, id]);
+    } else {
+      await db.query("UPDATE users SET name=$1, email=$2, role=$3 WHERE id=$4", [name, email, role, id]);
+    }
+    res.json({ success: true, message: "আপডেট হয়েছে।" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/superadmin/center-users/:slug/:id/toggle
+router.post("/center-users/:slug/:id/toggle", saAuth, directorOnly, async (req, res) => {
+  const { slug, id } = req.params;
+  try {
+    const tenants = await getTenants();
+    const tenant = tenants[slug];
+    if (!tenant) return res.status(404).json({ success: false, message: "Center পাওয়া যায়নি।" });
+    const { getPool } = require("../config/poolManager");
+    const db = getPool(tenant.db_url, slug);
+    const cur = await db.query("SELECT is_active FROM users WHERE id=$1", [id]);
+    if (!cur.rows.length) return res.status(404).json({ success: false, message: "User পাওয়া যায়নি।" });
+    const newStatus = !cur.rows[0].is_active;
+    await db.query("UPDATE users SET is_active=$1 WHERE id=$2", [newStatus, id]);
+    res.json({ success: true, message: newStatus ? "সক্রিয় করা হয়েছে।" : "বন্ধ করা হয়েছে।" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/superadmin/center-users/:slug/:id/reset-password
+router.post("/center-users/:slug/:id/reset-password", saAuth, directorOnly, async (req, res) => {
+  const { slug, id } = req.params;
+  const { new_password } = req.body;
+  if (!new_password) return res.status(400).json({ success: false, message: "নতুন password দিন।" });
+  try {
+    const tenants = await getTenants();
+    const tenant = tenants[slug];
+    if (!tenant) return res.status(404).json({ success: false, message: "Center পাওয়া যায়নি।" });
+    const { getPool } = require("../config/poolManager");
+    const bcrypt = require("bcryptjs");
+    const db = getPool(tenant.db_url, slug);
+    const hash = await bcrypt.hash(new_password, 10);
+    await db.query("UPDATE users SET password=$1 WHERE id=$2", [hash, id]);
+    res.json({ success: true, message: "Password reset হয়েছে।" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── REPORT ROUTES ──
+
+// GET /api/superadmin/report/stock-summary
+router.get("/report/stock-summary", saAuth, async (req, res) => {
+  try {
+    const { category } = req.query;
+    const tenants = await getTenants();
+    const { getPool } = require("../config/poolManager");
+    const results = [];
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      try {
+        const db = getPool(tenant.db_url, slug);
+        let q = `SELECT s.name_bn, s.variety, s.unit_price, s.current_stock, s.seedling_code, c.name_bn AS category_bn FROM seedlings s LEFT JOIN categories c ON s.category_id = c.id WHERE s.is_active = true`;
+        const params = [];
+        if (category) { params.push(category); q += ` AND c.name_bn = $${params.length}`; }
+        q += ` ORDER BY c.name_bn, s.name_bn, s.variety`;
+        const r = await db.query(q, params);
+        results.push({ slug, name_bn: tenant.name_bn, name_en: tenant.name_en, district: tenant.district, category: tenant.category, seedlings: r.rows });
+      } catch (e) {
+        results.push({ slug, name_bn: tenant.name_bn, error: e.message, seedlings: [] });
+      }
+    }
+    res.json({ success: true, data: results });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/superadmin/report/production-summary
+router.get("/report/production-summary", saAuth, async (req, res) => {
+  try {
+    const { fy, center } = req.query;
+    const tenants = await getTenants();
+    const { getPool } = require("../config/poolManager");
+    const results = [];
+    const fyYear = parseInt(fy) || new Date().getFullYear();
+    const startDate = `${fyYear}-07-01`;
+    const endDate = `${fyYear + 1}-06-30`;
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      if (center && slug !== center) continue;
+      try {
+        const db = getPool(tenant.db_url, slug);
+        const r = await db.query(`
+          SELECT c.name_bn AS category_bn, s.name_bn, s.variety,
+            COALESCE(SUM(pb.produced_quantity), 0) AS total_produced,
+            COALESCE(SUM(pb.failed_quantity), 0) AS total_failed,
+            s.current_stock
+          FROM seedlings s
+          LEFT JOIN categories c ON s.category_id = c.id
+          LEFT JOIN production_batches pb ON pb.seedling_id = s.id AND pb.batch_date BETWEEN $1 AND $2
+          WHERE s.is_active = true
+          GROUP BY c.name_bn, s.name_bn, s.variety, s.current_stock
+          ORDER BY c.name_bn, s.name_bn
+        `, [startDate, endDate]);
+        results.push({ slug, name_bn: tenant.name_bn, district: tenant.district, data: r.rows });
+      } catch (e) {
+        results.push({ slug, name_bn: tenant.name_bn, error: e.message, data: [] });
+      }
+    }
+    res.json({ success: true, data: results, fy: fyYear });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 module.exports = router;
