@@ -40,19 +40,29 @@ export default function SaAdmins() {
   const [admins, setAdmins] = useState([]);
   const [centers, setCenters] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('sa'); // sa | center
   const [modal, setModal] = useState(null); // null | 'add' | 'edit' | 'assign'
   const [editId, setEditId] = useState(null);
   const [assignId, setAssignId] = useState(null);
   const [form, setForm] = useState({ name:'', email:'', password:'', role:'deputy_director', district:'', division:'', phone:'', is_active:'true' });
   const [assigned, setAssigned] = useState([]);
   const [msg, setMsg] = useState('');
+  const [centerUsers, setCenterUsers] = useState([]);
+  const [cuModal, setCuModal] = useState(false);
+  const [cuEdit, setCuEdit] = useState(null);
+  const [cuForm, setCuForm] = useState({ center_slug:'', name:'', email:'', password:'', role:'admin' });
+  const [cuMsg, setCuMsg] = useState('');
+  const [cuSaving, setCuSaving] = useState(false);
+  const [resetModal, setResetModal] = useState(null);
+  const [newPass, setNewPass] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function load() {
     try {
-      const [ar, cr] = await Promise.all([saApi.get('/admins'), saApi.get('/tenants')]);
+      const [ar, cr, cur] = await Promise.all([saApi.get('/admins'), saApi.get('/tenants'), saApi.get('/center-users')]);
       if (ar.data?.success) setAdmins(ar.data.data || []);
       if (cr.data?.success) setCenters(cr.data.data || []);
+      if (cur.data?.success) setCenterUsers(cur.data.data || []);
     } catch {} finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
@@ -86,10 +96,56 @@ export default function SaAdmins() {
     } catch (e) { setMsg(e?.response?.data?.message||'সমস্যা'); } finally { setSaving(false); }
   }
 
+  function openCuAdd() { setCuForm({ center_slug:'', name:'', email:'', password:'', role:'admin' }); setCuEdit(null); setCuMsg(''); setCuModal(true); }
+  function openCuEdit(u) { setCuForm({ center_slug:u.center_slug, name:u.name, email:u.email, password:'', role:u.role }); setCuEdit(u); setCuMsg(''); setCuModal(true); }
+
+  async function saveCu() {
+    if (!cuForm.center_slug||!cuForm.name||!cuForm.email||!cuForm.role) { setCuMsg('সব তথ্য দিন।'); return; }
+    if (!cuEdit && !cuForm.password) { setCuMsg('Password দিন।'); return; }
+    setCuSaving(true); setCuMsg('');
+    try {
+      let r;
+      if (cuEdit) {
+        r = await saApi.put(`/center-users/${cuEdit.center_slug}/${cuEdit.id}`, cuForm);
+      } else {
+        r = await saApi.post('/center-users', cuForm);
+      }
+      if (r.data?.success) { setCuModal(false); load(); } else setCuMsg(r.data?.message||'সমস্যা');
+    } catch (e) { setCuMsg(e?.response?.data?.message||'সমস্যা'); } finally { setCuSaving(false); }
+  }
+
+  async function toggleCu(u) {
+    try {
+      const r = await saApi.post(`/center-users/${u.center_slug}/${u.id}/toggle`);
+      if (r.data?.success) load();
+    } catch {}
+  }
+
+  async function resetPassword() {
+    if (!newPass) return;
+    try {
+      const r = await saApi.post(`/center-users/${resetModal.center_slug}/${resetModal.id}/reset-password`, { new_password: newPass });
+      if (r.data?.success) { setResetModal(null); setNewPass(''); }
+    } catch {}
+  }
+
   if (loading) return <div style={{ padding:'40px 0',textAlign:'center',color:C.muted,fontFamily:FONT }}>লোড হচ্ছে…</div>;
 
   return (
     <div style={{ fontFamily:FONT }}>
+      {/* Tab navigation */}
+      <div style={{ display:'flex', gap:6, marginBottom:16 }}>
+        {[['sa','👥 Super Admin Users'],['center','🏛️ Center App Users']].map(([t,l])=>(
+          <button key={t} onClick={()=>setActiveTab(t)}
+            style={{ padding:'9px 18px', borderRadius:8, border:`1px solid ${C.border}`, cursor:'pointer', fontSize:14, fontFamily:FONT,
+              background:activeTab===t?C.accent:C.card, color:activeTab===t?'#fff':C.muted, fontWeight:activeTab===t?600:400 }}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Super Admin Users Tab */}
+      {activeTab==='sa' && <>
       <div style={{ display:'flex',justifyContent:'flex-end',marginBottom:16 }}>
         <button onClick={openAdd} style={{ padding:'9px 18px',background:C.accent,color:'#fff',border:`1px solid ${C.accent}`,borderRadius:8,cursor:'pointer',fontSize:14,fontFamily:FONT,fontWeight:600 }}>
           + নতুন Admin তৈরি
@@ -169,6 +225,112 @@ export default function SaAdmins() {
           <button onClick={saveAssign} disabled={saving} style={{ padding:'10px 20px',borderRadius:8,background:C.accent,color:'#fff',border:'none',cursor:'pointer',fontSize:14,fontFamily:FONT,fontWeight:600 }}>{saving?'সংরক্ষণ হচ্ছে…':'সংরক্ষণ'}</button>
         </div>
       </Modal>
+      </> }
+
+      {/* Center App Users Tab */}
+      {activeTab==='center' && (
+        <div>
+          <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:16 }}>
+            <button onClick={openCuAdd}
+              style={{ padding:'9px 18px', background:C.accent, color:'#fff', border:`1px solid ${C.accent}`, borderRadius:8, cursor:'pointer', fontSize:14, fontFamily:FONT, fontWeight:600 }}>
+              + নতুন Center User তৈরি
+            </button>
+          </div>
+
+          {centerUsers.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'60px 0', color:C.muted }}>কোনো Center User নেই।</div>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {centerUsers.map(u=>(
+                <div key={`${u.center_slug}-${u.id}`} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:'16px', display:'flex', alignItems:'center', gap:12, boxShadow:C.shadow }}>
+                  <div style={{ width:44, height:44, borderRadius:10, background:C.accent+'22', border:`1px solid ${C.accent}44`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:700, color:C.accent, flexShrink:0 }}>
+                    {u.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:14, fontWeight:600, color:C.text }}>{u.name}</div>
+                    <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{u.email}</div>
+                    <div style={{ display:'flex', gap:6, marginTop:6, flexWrap:'wrap' }}>
+                      <span style={{ fontSize:11, background:C.accent+'22', color:C.accent, padding:'2px 8px', borderRadius:6, fontWeight:600 }}>{u.role}</span>
+                      <span style={{ fontSize:11, background:'#1e293b', color:'#94a3b8', padding:'2px 8px', borderRadius:6 }}>{u.center_name}</span>
+                      <span style={{ fontSize:11, padding:'2px 8px', borderRadius:6, background:u.is_active?'#e8f5ed':'#fee2e2', color:u.is_active?'#1a6b3a':'#dc2626', fontWeight:600 }}>
+                        {u.is_active?'সক্রিয়':'বন্ধ'}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                    <button onClick={()=>openCuEdit(u)}
+                      style={{ padding:'7px 12px', borderRadius:7, fontSize:13, cursor:'pointer', fontFamily:FONT, background:C.bg, border:`1px solid ${C.border}`, color:C.text }}>
+                      এডিট
+                    </button>
+                    <button onClick={()=>{ setResetModal(u); setNewPass(''); }}
+                      style={{ padding:'7px 12px', borderRadius:7, fontSize:13, cursor:'pointer', fontFamily:FONT, background:'#fffbeb', border:'1px solid #fbbf24', color:'#d97706' }}>
+                      Password Reset
+                    </button>
+                    <button onClick={()=>toggleCu(u)}
+                      style={{ padding:'7px 12px', borderRadius:7, fontSize:13, cursor:'pointer', fontFamily:FONT, background:u.is_active?'#fee2e2':'#e8f5ed', border:`1px solid ${u.is_active?'#fca5a5':'#86efac'}`, color:u.is_active?'#dc2626':'#1a6b3a' }}>
+                      {u.is_active?'বন্ধ করুন':'চালু করুন'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Center User Modal */}
+          <Modal open={cuModal} title={cuEdit?'Center User এডিট':'নতুন Center User তৈরি'} onClose={()=>setCuModal(false)}>
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div>
+                <label style={{ display:'block', fontSize:13, color:C.muted, marginBottom:6, fontWeight:500 }}>Center*</label>
+                <select value={cuForm.center_slug} onChange={e=>setCuForm({...cuForm,center_slug:e.target.value})} disabled={!!cuEdit}
+                  style={{ width:'100%', padding:'10px 12px', border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, fontFamily:FONT, color:C.text, background:C.bg, outline:'none' }}>
+                  <option value="">Center বেছে নিন</option>
+                  {centers.map(c=><option key={c.slug} value={c.slug}>{c.name_bn}</option>)}
+                </select>
+              </div>
+              {[['name','নাম*','text','অফিসারের নাম'],['email','Email*','email','officer@dae.gov.bd'],['password',cuEdit?'নতুন Password (খালি রাখলে পরিবর্তন হবে না)':'Password*','password','••••••••']].map(([f,l,t,ph])=>(
+                <div key={f}>
+                  <label style={{ display:'block', fontSize:13, color:C.muted, marginBottom:6, fontWeight:500 }}>{l}</label>
+                  <input type={t} value={cuForm[f]} onChange={e=>setCuForm({...cuForm,[f]:e.target.value})} placeholder={ph}
+                    style={{ width:'100%', padding:'10px 12px', border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, fontFamily:FONT, color:C.text, background:C.bg, outline:'none', boxSizing:'border-box' }}/>
+                </div>
+              ))}
+              <div>
+                <label style={{ display:'block', fontSize:13, color:C.muted, marginBottom:6, fontWeight:500 }}>Role*</label>
+                <select value={cuForm.role} onChange={e=>setCuForm({...cuForm,role:e.target.value})}
+                  style={{ width:'100%', padding:'10px 12px', border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, fontFamily:FONT, color:C.text, background:C.bg, outline:'none' }}>
+                  <option value="admin">Admin</option>
+                  <option value="manager">Manager</option>
+                  <option value="production_officer">Production Officer</option>
+                  <option value="sales_operator">Sales Operator</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </div>
+              {cuMsg && <div style={{ color:C.red, fontSize:13 }}>{cuMsg}</div>}
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:4 }}>
+                <button onClick={()=>setCuModal(false)} style={{ padding:'10px 20px', borderRadius:8, border:`1px solid ${C.border}`, background:C.bg, cursor:'pointer', fontSize:14, fontFamily:FONT }}>বাতিল</button>
+                <button onClick={saveCu} disabled={cuSaving} style={{ padding:'10px 20px', borderRadius:8, background:C.accent, color:'#fff', border:'none', cursor:'pointer', fontSize:14, fontFamily:FONT, fontWeight:600 }}>
+                  {cuSaving?'সংরক্ষণ হচ্ছে…':'সংরক্ষণ'}
+                </button>
+              </div>
+            </div>
+          </Modal>
+
+          {/* Password Reset Modal */}
+          <Modal open={!!resetModal} title="Password Reset" onClose={()=>setResetModal(null)}>
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <p style={{ fontSize:13, color:C.muted }}>
+                <strong>{resetModal?.name}</strong> ({resetModal?.center_name})-এর নতুন password:
+              </p>
+              <input type="text" value={newPass} onChange={e=>setNewPass(e.target.value)} placeholder="নতুন password"
+                style={{ width:'100%', padding:'10px 12px', border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, fontFamily:FONT, color:C.text, background:C.bg, outline:'none', boxSizing:'border-box' }}/>
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+                <button onClick={()=>setResetModal(null)} style={{ padding:'10px 20px', borderRadius:8, border:`1px solid ${C.border}`, background:C.bg, cursor:'pointer', fontSize:14, fontFamily:FONT }}>বাতিল</button>
+                <button onClick={resetPassword} style={{ padding:'10px 20px', borderRadius:8, background:'#d97706', color:'#fff', border:'none', cursor:'pointer', fontSize:14, fontFamily:FONT, fontWeight:600 }}>Reset</button>
+              </div>
+            </div>
+          </Modal>
+        </div>
+      )}
     </div>
   );
 }

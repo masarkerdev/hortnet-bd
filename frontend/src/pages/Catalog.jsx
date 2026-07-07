@@ -84,7 +84,7 @@ export default function Catalog() {
     setSeedlings([]);
     setLoadingSeedlings(true);
     try {
-      const r = await fetch(`${API}/api/public/centers/${c.slug}/seedlings`, { cache: 'no-store' });
+      const r = await fetch(`${API}/api/public/center/${c.slug}/seedlings`, { cache: 'no-store' });
       const d = await r.json();
       setSeedlings(d.data || []);
     } catch { setSeedlings([]); }
