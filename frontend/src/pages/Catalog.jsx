@@ -361,9 +361,10 @@ export default function Catalog() {
                   </div>
                   <div style={{ flex: 1 }}>
                     <h3 style={{ fontFamily: "'Noto Serif Bengali',serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{selectedCenter.name_bn}</h3>
-                    <p style={{ fontSize: 13, opacity: .85, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <p style={{ fontSize: 13, opacity: .85, display: 'flex', alignItems: 'center', gap: 6, flexWrap:'wrap' }}>
                       {selectedCenter.district && <span><i className="ti ti-map-pin"/> {selectedCenter.district}</span>}
                       {selectedCenter.location && <span>• {selectedCenter.location}</span>}
+                      {selectedCenter.mobile && <span>• <i className="ti ti-phone"/> {selectedCenter.mobile}</span>}
                     </p>
                   </div>
                   <div style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.2)', borderRadius: 10, padding: '6px 14px', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
