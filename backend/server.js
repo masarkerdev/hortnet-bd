@@ -14,14 +14,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/api/public", require("./routes/public"));
 
+// ★ Developer routes (hidden)
+app.use("/api/dev", require("./routes/developer"));
+
 // ★ Tenant middleware
 app.use(tenantMiddleware);
 
 // ★ Super Admin routes
 app.use("/api/superadmin", require("./routes/superadmin"));
-
-// ★ Developer routes (hidden)
-app.use("/api/dev", require("./routes/developer"));
 
 // ★ Super Admin HTML page
 app.get("/superadmin", (req, res) => {
@@ -83,7 +83,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 30002;
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
 module.exports = app;
