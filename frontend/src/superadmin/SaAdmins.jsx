@@ -72,7 +72,7 @@ export default function SaAdmins() {
   function openAssign(a) { setAssignId(a.id); setAssigned(a.assigned_centers||[]); setModal('assign'); }
 
   async function save() {
-    if (!form.name || !form.email || !form.role) { setMsg('স্থানের নাম, ইমেইল ও পদবী দিন।'); return; }
+    if (!form.name || !form.email || !form.role) { setMsg('সেন্টারের নাম, ইমেইল ও পদবী দিন।'); return; }
     if (!editId && !form.password) { setMsg('নতুন admin-এর জন্য পাসওয়ার্ড দিন।'); return; }
     setSaving(true); setMsg('');
     try {
@@ -190,7 +190,7 @@ export default function SaAdmins() {
       {/* Add/Edit Modal */}
       <Modal open={modal==='add'||modal==='edit'} title={editId?'Admin সম্পাদনা':'নতুন Admin তৈরি'} onClose={()=>setModal(null)}>
         <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12 }}>
-          <Field label="স্থানের নাম*"><Input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="পাচগাছিয়া"/></Field>
+          <Field label="সেন্টারের নাম*"><Input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="হর্টিকালচার সেন্টার, পাঁচগাছিয়া"/></Field>
           <Field label="পদবী*"><Select value={form.role} onChange={e=>setForm({...form,role:e.target.value})}><option value="deputy_director">উপপরিচালক</option><option value="horticulturist">উদ্যানতত্ত্ববিদ</option><option value="nursery_supervisor">নার্সারী তত্ত্বাবধায়ক</option></Select></Field>
         </div>
         <Field label="ইমেইল*"><Input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="dd.feni@horticulture.bd"/></Field>

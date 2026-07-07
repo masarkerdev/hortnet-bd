@@ -32,7 +32,7 @@ function directorOnly(req, res, next) {
 async function queryTenant(dbUrl, sql, params = []) {
   const pool = new Pool({
     connectionString: dbUrl,
-    ssl: false,
+    ssl: { rejectUnauthorized: false },
     max: 1,
     connectionTimeoutMillis: 8000,
   });
@@ -318,7 +318,6 @@ router.get("/center/:slug", saAuth, async (req, res) => {
       otherIncome,
       targets,
       categories,
-      stockDetail,
       fyTargets,
       fyProdAchieved,
       fySalesAchieved,
@@ -383,10 +382,6 @@ router.get("/center/:slug", saAuth, async (req, res) => {
         tenant.db_url,
         `SELECT c.name_bn, COUNT(s.id) AS seedling_count, COALESCE(SUM(s.current_stock),0) AS total_stock FROM categories c LEFT JOIN seedlings s ON c.id=s.category_id AND s.is_active=true GROUP BY c.id,c.name_bn ORDER BY seedling_count DESC`,
       ),
-      queryTenant(
-        tenant.db_url,
-        `SELECT s.name_bn, s.variety, s.unit_price, s.current_stock, s.min_stock_alert, s.seedling_code, c.name_bn AS category_bn FROM seedlings s LEFT JOIN categories c ON s.category_id=c.id WHERE s.is_active=true ORDER BY c.name_bn, s.name_bn, s.variety`,
-      ),
       (async () => {
         const now = new Date();
         const fyS =
@@ -445,7 +440,6 @@ router.get("/center/:slug", saAuth, async (req, res) => {
       },
       stock: {
         summary: stockSummary[0],
-        detail: stockDetail,
         low_stock: lowStock,
         categories: categories,
       },
@@ -492,50 +486,20 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
     category,
     db_url,
     currency,
+    mobile,
   } = req.body;
   if (!slug || !name_bn || !name_en || !db_url)
     return res.status(400).json({ success: false, message: "সব তথ্য দিন।" });
   try {
-    const ex = await masterDb.query("SELECT id FROM tenants WHERE slug=$1", [slug]);
+    const ex = await masterDb.query("SELECT id FROM tenants WHERE slug=$1", [
+      slug,
+    ]);
     if (ex.rows.length)
-      return res.status(400).json({ success: false, message: "এই slug আগে থেকে আছে।" });
-
-    // ✅ Automatic database + schema setup
-    const fs = require("fs");
-    const path = require("path");
-    const { Pool } = require("pg");
-
-    // Step 1: database নাম বের করি db_url থেকে
-    const dbName = db_url.split("/").pop().split("?")[0];
-    const baseUrl = db_url.substring(0, db_url.lastIndexOf("/"));
-
-    // Step 2: master database-এ connect করে নতুন database তৈরি
-    const pgPool = new Pool({ connectionString: baseUrl + "/hortnet_v1_master", ssl: false });
-    try {
-      await pgPool.query(`CREATE DATABASE "${dbName}"`);
-    } catch (e) {
-      if (!e.message.includes("already exists")) {
-        await pgPool.end();
-        return res.status(500).json({ success: false, message: `Database তৈরিতে সমস্যা: ${e.message}` });
-      }
-    }
-    await pgPool.end();
-
-    // Step 3: নতুন database-এ schema apply
-    const tenantPool = new Pool({ connectionString: db_url, ssl: false });
-    try {
-      const schemaPath = path.join(__dirname, "../db/tenant_schema.sql");
-      const schema = fs.readFileSync(schemaPath, "utf8");
-      await tenantPool.query(schema);
-    } catch (e) {
-      await tenantPool.end();
-      return res.status(500).json({ success: false, message: `Schema apply-এ সমস্যা: ${e.message}` });
-    }
-    await tenantPool.end();
-
-    // Step 4: master-এ tenant যোগ
+      return res
+        .status(400)
+        .json({ success: false, message: "এই slug আগে থেকে আছে।" });
     const r = await masterDb.query(
-      `INSERT INTO tenants (slug,name_bn,name_en,location,district,division,dae_region,category,db_url,currency,active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true) RETURNING id,slug,name_bn`,
+      `INSERT INTO tenants (slug,name_bn,name_en,location,district,division,dae_region,category,db_url,currency,mobile,active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true) RETURNING id,slug,name_bn`,
       [
         slug.toLowerCase(),
         name_bn,
@@ -547,12 +511,13 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
         category || "B",
         db_url,
         currency || "BDT",
+        mobile || "",
       ],
     );
     clearCache();
     res.json({
       success: true,
-      message: `"${name_bn}" যোগ হয়েছে এবং database তৈরি হয়েছে।`,
+      message: `"${name_bn}" যোগ হয়েছে।`,
       data: r.rows[0],
     });
   } catch (err) {
@@ -574,13 +539,6 @@ router.put("/tenants/:id", saAuth, directorOnly, async (req, res) => {
     active,
   } = req.body;
   try {
-    // db_url খালি হলে পুরোনো URL রাখব
-    let finalDbUrl = db_url;
-    if (!finalDbUrl) {
-      const cur = await masterDb.query("SELECT db_url FROM tenants WHERE id=$1", [req.params.id]);
-      finalDbUrl = cur.rows[0]?.db_url || "";
-    }
-    // dae_region যোগ করা হয়েছে
     await masterDb.query(
       `UPDATE tenants SET name_bn=$1,name_en=$2,location=$3,district=$4,division=$5,dae_region=$6,category=$7,db_url=$8,currency=$9,active=$10,updated_at=NOW() WHERE id=$11`,
       [
@@ -589,10 +547,9 @@ router.put("/tenants/:id", saAuth, directorOnly, async (req, res) => {
         location || "",
         district || "",
         division || "",
-        dae_region || "",
         category || "B",
-        finalDbUrl,
-        currency || "BDT",
+        db_url,
+        currency,
         active,
         req.params.id,
       ],
@@ -954,6 +911,9 @@ router.get("/center/:slug/employees", saAuth, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════
+// routes/superadmin.js এর শেষে — module.exports এর আগে
+// ══════════════════════════════════════════════════════
+
 router.post("/center/:slug/set-target", saAuth, async (req, res) => {
   try {
     const tenants = await getTenants();
@@ -982,7 +942,7 @@ router.post("/center/:slug/set-target", saAuth, async (req, res) => {
     // Center-এর নিজস্ব DB-তে connect করো
     const pool = new Pool({
       connectionString: tenant.db_url,
-      ssl: false,
+      ssl: { rejectUnauthorized: false },
       max: 1,
       connectionTimeoutMillis: 8000,
     });
@@ -1051,6 +1011,9 @@ router.post("/center/:slug/set-target", saAuth, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════
+// routes/superadmin.js এর শেষে — module.exports এর আগে
+// ══════════════════════════════════════════════════════
+
 router.post("/center/:slug/set-target", saAuth, async (req, res) => {
   try {
     const tenants = await getTenants();
@@ -1079,7 +1042,7 @@ router.post("/center/:slug/set-target", saAuth, async (req, res) => {
     // Center-এর নিজস্ব DB-তে connect করো
     const pool = new Pool({
       connectionString: tenant.db_url,
-      ssl: false,
+      ssl: { rejectUnauthorized: false },
       max: 1,
       connectionTimeoutMillis: 8000,
     });
@@ -1147,114 +1110,7 @@ router.post("/center/:slug/set-target", saAuth, async (req, res) => {
   }
 });
 
-// 
-// ── REPORT ROUTES ──
-
-// GET /api/superadmin/report/stock-summary — সব center-এর stock summary
-router.get("/report/stock-summary", saAuth, async (req, res) => {
-  try {
-    const { fy, category } = req.query;
-    const tenants = await getTenants();
-    const results = [];
-
-    for (const [slug, tenant] of Object.entries(tenants)) {
-      if (!tenant.active || !tenant.db_url) continue;
-      try {
-        const { getPool } = require("../config/poolManager");
-        const db = getPool(tenant.db_url, slug);
-
-        let q = `
-          SELECT 
-            c.name_bn AS category_bn,
-            s.name_bn,
-            s.variety,
-            s.current_stock,
-            s.unit_price,
-            s.seedling_code
-          FROM seedlings s
-          LEFT JOIN categories c ON s.category_id = c.id
-          WHERE s.is_active = true
-        `;
-        const params = [];
-        if (category) {
-          params.push(category);
-          q += ` AND c.name_bn = $${params.length}`;
-        }
-        q += ` ORDER BY c.name_bn, s.name_bn, s.variety`;
-
-        const r = await db.query(q, params);
-        results.push({
-          slug,
-          name_bn: tenant.name_bn,
-          name_en: tenant.name_en,
-          district: tenant.district,
-          category: tenant.category,
-          seedlings: r.rows,
-        });
-      } catch (e) {
-        results.push({ slug, name_bn: tenant.name_bn, error: e.message, seedlings: [] });
-      }
-    }
-
-    res.json({ success: true, data: results });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/superadmin/report/production-summary — উৎপাদন রিপোর্ট
-router.get("/report/production-summary", saAuth, async (req, res) => {
-  try {
-    const { fy, month, center } = req.query;
-    const tenants = await getTenants();
-    const results = [];
-
-    const fyYear = parseInt(fy) || new Date().getFullYear();
-    const startDate = `${fyYear}-07-01`;
-    const endDate = `${fyYear + 1}-06-30`;
-
-    for (const [slug, tenant] of Object.entries(tenants)) {
-      if (!tenant.active || !tenant.db_url) continue;
-      if (center && slug !== center) continue;
-      try {
-        const { getPool } = require("../config/poolManager");
-        const db = getPool(tenant.db_url, slug);
-
-        const r = await db.query(`
-          SELECT 
-            c.name_bn AS category_bn,
-            s.name_bn,
-            s.variety,
-            COALESCE(SUM(CASE WHEN pb.production_type IN ('graft','cutting','layering') 
-              THEN pb.success_quantity ELSE pb.produced_quantity END), 0) AS total_produced,
-            COALESCE(SUM(pb.failed_quantity), 0) AS total_failed,
-            s.current_stock
-          FROM seedlings s
-          LEFT JOIN categories c ON s.category_id = c.id
-          LEFT JOIN production_batches pb ON pb.seedling_id = s.id 
-            AND pb.batch_date BETWEEN $1 AND $2
-          WHERE s.is_active = true
-          GROUP BY c.name_bn, s.name_bn, s.variety, s.current_stock
-          ORDER BY c.name_bn, s.name_bn
-        `, [startDate, endDate]);
-
-        results.push({
-          slug,
-          name_bn: tenant.name_bn,
-          district: tenant.district,
-          category: tenant.category,
-          data: r.rows,
-        });
-      } catch (e) {
-        results.push({ slug, name_bn: tenant.name_bn, error: e.message, data: [] });
-      }
-    }
-
-    res.json({ success: true, data: results, fy: fyYear });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+// module.exports = router; এর আগে এই code যোগ করো
 
 router.post("/center/:slug/set-target", saAuth, async (req, res) => {
   try {
@@ -1382,250 +1238,5 @@ router.delete("/notices/:id", saAuth, async (req, res) => {
 });
 
 // end of notice board routes
-
-
-// ── REPORT ROUTES ──
-
-// GET /api/superadmin/report/stock-summary — সব center-এর stock summary
-router.get("/report/stock-summary", saAuth, async (req, res) => {
-  try {
-    const { fy, category } = req.query;
-    const tenants = await getTenants();
-    const results = [];
-
-    for (const [slug, tenant] of Object.entries(tenants)) {
-      if (!tenant.active || !tenant.db_url) continue;
-      try {
-        const { getPool } = require("../config/poolManager");
-        const db = getPool(tenant.db_url, slug);
-
-        let q = `
-          SELECT 
-            c.name_bn AS category_bn,
-            s.name_bn,
-            s.variety,
-            s.current_stock,
-            s.unit_price,
-            s.seedling_code
-          FROM seedlings s
-          LEFT JOIN categories c ON s.category_id = c.id
-          WHERE s.is_active = true
-        `;
-        const params = [];
-        if (category) {
-          params.push(category);
-          q += ` AND c.name_bn = $${params.length}`;
-        }
-        q += ` ORDER BY c.name_bn, s.name_bn, s.variety`;
-
-        const r = await db.query(q, params);
-        results.push({
-          slug,
-          name_bn: tenant.name_bn,
-          name_en: tenant.name_en,
-          district: tenant.district,
-          category: tenant.category,
-          seedlings: r.rows,
-        });
-      } catch (e) {
-        results.push({ slug, name_bn: tenant.name_bn, error: e.message, seedlings: [] });
-      }
-    }
-
-    res.json({ success: true, data: results });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/superadmin/report/production-summary — উৎপাদন রিপোর্ট
-router.get("/report/production-summary", saAuth, async (req, res) => {
-  try {
-    const { fy, month, center } = req.query;
-    const tenants = await getTenants();
-    const results = [];
-
-    const fyYear = parseInt(fy) || new Date().getFullYear();
-    const startDate = `${fyYear}-07-01`;
-    const endDate = `${fyYear + 1}-06-30`;
-
-    for (const [slug, tenant] of Object.entries(tenants)) {
-      if (!tenant.active || !tenant.db_url) continue;
-      if (center && slug !== center) continue;
-      try {
-        const { getPool } = require("../config/poolManager");
-        const db = getPool(tenant.db_url, slug);
-
-        const r = await db.query(`
-          SELECT 
-            c.name_bn AS category_bn,
-            s.name_bn,
-            s.variety,
-            COALESCE(SUM(CASE WHEN pb.production_type IN ('graft','cutting','layering') 
-              THEN pb.success_quantity ELSE pb.produced_quantity END), 0) AS total_produced,
-            COALESCE(SUM(pb.failed_quantity), 0) AS total_failed,
-            s.current_stock
-          FROM seedlings s
-          LEFT JOIN categories c ON s.category_id = c.id
-          LEFT JOIN production_batches pb ON pb.seedling_id = s.id 
-            AND pb.batch_date BETWEEN $1 AND $2
-          WHERE s.is_active = true
-          GROUP BY c.name_bn, s.name_bn, s.variety, s.current_stock
-          ORDER BY c.name_bn, s.name_bn
-        `, [startDate, endDate]);
-
-        results.push({
-          slug,
-          name_bn: tenant.name_bn,
-          district: tenant.district,
-          category: tenant.category,
-          data: r.rows,
-        });
-      } catch (e) {
-        results.push({ slug, name_bn: tenant.name_bn, error: e.message, data: [] });
-      }
-    }
-
-    res.json({ success: true, data: results, fy: fyYear });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-
-// ── CENTER APP USER MANAGEMENT ──
-
-// GET /api/superadmin/center-users — সব center-এর users
-router.get("/center-users", saAuth, async (req, res) => {
-  try {
-    const tenants = await getTenants();
-    const { getPool } = require("../config/poolManager");
-    const results = [];
-
-    for (const [slug, tenant] of Object.entries(tenants)) {
-      if (!tenant.active || !tenant.db_url) continue;
-      try {
-        const db = getPool(tenant.db_url, slug);
-        const r = await db.query(
-          "SELECT id, name, email, role, is_active, created_at FROM users WHERE role='admin' ORDER BY created_at DESC"
-        );
-        r.rows.forEach(u => results.push({
-          ...u,
-          center_slug: slug,
-          center_name: tenant.name_bn,
-        }));
-      } catch (e) {}
-    }
-
-    res.json({ success: true, data: results });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/superadmin/center-users — নতুন center user তৈরি
-router.post("/center-users", saAuth, directorOnly, async (req, res) => {
-  const { center_slug, name, email, password, role } = req.body;
-  if (!center_slug || !name || !email || !password || !role)
-    return res.status(400).json({ success: false, message: "সব তথ্য দিন।" });
-
-  try {
-    const tenants = await getTenants();
-    const tenant = tenants[center_slug];
-    if (!tenant) return res.status(404).json({ success: false, message: "Center পাওয়া যায়নি।" });
-
-    const { getPool } = require("../config/poolManager");
-    const bcrypt = require("bcryptjs");
-    const db = getPool(tenant.db_url, center_slug);
-
-    const exists = await db.query("SELECT id FROM users WHERE email=$1", [email]);
-    if (exists.rows.length)
-      return res.status(400).json({ success: false, message: "এই email আগে থেকে আছে।" });
-
-    const hash = await bcrypt.hash(password, 10);
-    const r = await db.query(
-      "INSERT INTO users (name, email, password, role, is_active) VALUES ($1,$2,$3,$4,true) RETURNING id, name, email, role",
-      [name, email, hash, role]
-    );
-
-    res.json({ success: true, message: `"${name}" তৈরি হয়েছে।`, data: r.rows[0] });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// PUT /api/superadmin/center-users/:slug/:id — user update
-router.put("/center-users/:slug/:id", saAuth, directorOnly, async (req, res) => {
-  const { slug, id } = req.params;
-  const { name, email, role, password } = req.body;
-
-  try {
-    const tenants = await getTenants();
-    const tenant = tenants[slug];
-    if (!tenant) return res.status(404).json({ success: false, message: "Center পাওয়া যায়নি।" });
-
-    const { getPool } = require("../config/poolManager");
-    const bcrypt = require("bcryptjs");
-    const db = getPool(tenant.db_url, slug);
-
-    if (password) {
-      const hash = await bcrypt.hash(password, 10);
-      await db.query("UPDATE users SET name=$1, email=$2, role=$3, password=$4 WHERE id=$5", [name, email, role, hash, id]);
-    } else {
-      await db.query("UPDATE users SET name=$1, email=$2, role=$3 WHERE id=$4", [name, email, role, id]);
-    }
-
-    res.json({ success: true, message: "আপডেট হয়েছে।" });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/superadmin/center-users/:slug/:id/toggle — বন্ধ/চালু
-router.post("/center-users/:slug/:id/toggle", saAuth, directorOnly, async (req, res) => {
-  const { slug, id } = req.params;
-  try {
-    const tenants = await getTenants();
-    const tenant = tenants[slug];
-    if (!tenant) return res.status(404).json({ success: false, message: "Center পাওয়া যায়নি।" });
-
-    const { getPool } = require("../config/poolManager");
-    const db = getPool(tenant.db_url, slug);
-
-    const cur = await db.query("SELECT is_active FROM users WHERE id=$1", [id]);
-    if (!cur.rows.length) return res.status(404).json({ success: false, message: "User পাওয়া যায়নি।" });
-
-    const newStatus = !cur.rows[0].is_active;
-    await db.query("UPDATE users SET is_active=$1 WHERE id=$2", [newStatus, id]);
-
-    res.json({ success: true, message: newStatus ? "সক্রিয় করা হয়েছে।" : "বন্ধ করা হয়েছে।" });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/superadmin/center-users/:slug/:id/reset-password — password reset
-router.post("/center-users/:slug/:id/reset-password", saAuth, directorOnly, async (req, res) => {
-  const { slug, id } = req.params;
-  const { new_password } = req.body;
-  if (!new_password) return res.status(400).json({ success: false, message: "নতুন password দিন।" });
-
-  try {
-    const tenants = await getTenants();
-    const tenant = tenants[slug];
-    if (!tenant) return res.status(404).json({ success: false, message: "Center পাওয়া যায়নি।" });
-
-    const { getPool } = require("../config/poolManager");
-    const bcrypt = require("bcryptjs");
-    const db = getPool(tenant.db_url, slug);
-
-    const hash = await bcrypt.hash(new_password, 10);
-    await db.query("UPDATE users SET password=$1 WHERE id=$2", [hash, id]);
-
-    res.json({ success: true, message: "Password reset হয়েছে।" });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 module.exports = router;

@@ -320,6 +320,7 @@ export default function Catalog() {
                         {c.division && <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#5a7a5a' }}><i className="ti ti-map" style={{ fontSize: 13 }}/>{c.division}</span>}
                         {c.district && <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#5a7a5a' }}><i className="ti ti-map-pin" style={{ fontSize: 13 }}/>{c.district}</span>}
                         {c.location && <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#5a7a5a' }}><i className="ti ti-home" style={{ fontSize: 13 }}/>{c.location}</span>}
+                        {c.mobile && <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#5a7a5a' }}><i className="ti ti-phone" style={{ fontSize: 13 }}/>{c.mobile}</span>}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderTop: '1px solid #f0f0f0', paddingTop: 12 }}>
                         <span style={{ flex: 1, fontSize: 12, color: '#5a7a5a', display: 'flex', alignItems: 'center', gap: 4 }}>

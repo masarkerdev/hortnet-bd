@@ -27,8 +27,8 @@ export default function SaAllCenters(){
   async function load(){try{const r=await saApi.get('/tenants');if(r.data?.success)setCenters(r.data.data||[]);}catch{}finally{setLoading(false);}}
   useEffect(()=>{load();},[]);
 
-  function openAdd(){setForm({slug:'',name_bn:'',name_en:'',location:'',district:'',division:'',dae_region:'',category:'B',db_url:''});setEditId(null);setMsg('');setChangeUrl(false);setModal(true);}
-  function openEdit(c){setForm({slug:c.slug,name_bn:c.name_bn,name_en:c.name_en||'',location:c.location||'',district:c.district||'',division:c.division||'',dae_region:c.dae_region||'',category:c.category||'B',db_url:''});setEditId(c.id);setMsg('');setChangeUrl(false);setModal(true);}
+  function openAdd(){setForm({slug:'',name_bn:'',name_en:'',location:'',district:'',division:'',dae_region:'',category:'B',db_url:'',mobile:''});setEditId(null);setMsg('');setChangeUrl(false);setModal(true);}
+  function openEdit(c){setForm({slug:c.slug,name_bn:c.name_bn,name_en:c.name_en||'',location:c.location||'',district:c.district||'',division:c.division||'',dae_region:c.dae_region||'',category:c.category||'B',db_url:'',mobile:c.mobile||''});setEditId(c.id);setMsg('');setChangeUrl(false);setModal(true);}
 
   async function save(){
     if(!form.name_bn||!form.name_en){setMsg('বাংলা ও ইংরেজি নাম দিন।');return;}
@@ -109,6 +109,10 @@ export default function SaAllCenters(){
               </select>
             </div>
             <div style={{marginBottom:14}}><label style={{display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500}}>Location</label><input value={form.location} onChange={e=>setForm({...form,location:e.target.value})} placeholder="ঢাকা সদর" style={inp}/></div>
+            <div style={{marginBottom:14}}>
+              <label style={{display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500}}>মোবাইল নম্বর</label>
+              <input value={form.mobile||''} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="০১XXXXXXXXX" style={{...inp}}/>
+            </div>
             <div style={{marginBottom:14}}>
               <label style={{display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500}}>Database URL{!editId?'*':''}</label>
               {editId ? (
