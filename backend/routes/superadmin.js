@@ -545,8 +545,15 @@ router.put("/tenants/:id", saAuth, directorOnly, async (req, res) => {
     db_url,
     currency,
     active,
+    mobile,
   } = req.body;
   try {
+    // db_url খালি হলে পুরোনো URL রাখব
+    let finalDbUrl = db_url;
+    if (!finalDbUrl) {
+      const cur = await masterDb.query("SELECT db_url FROM tenants WHERE id=$1", [req.params.id]);
+      finalDbUrl = cur.rows[0]?.db_url || "";
+    }
     await masterDb.query(
       `UPDATE tenants SET name_bn=$1,name_en=$2,location=$3,district=$4,division=$5,dae_region=$6,category=$7,db_url=$8,currency=$9,active=$10,mobile=$11,updated_at=NOW() WHERE id=$12`,
       [
