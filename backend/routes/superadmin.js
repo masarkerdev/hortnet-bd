@@ -1507,7 +1507,7 @@ router.get("/center-users", saAuth, async (req, res) => {
       try {
         const db = getPool(tenant.db_url, slug);
         const r = await db.query(
-          "SELECT id, name, email, role, is_active, created_at FROM users ORDER BY created_at DESC"
+          "SELECT id, name, email, role, is_active, created_at FROM users WHERE role='admin' ORDER BY created_at DESC"
         );
         r.rows.forEach(u => results.push({
           ...u,
