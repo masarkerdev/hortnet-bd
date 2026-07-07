@@ -1,6 +1,14 @@
 // routes/superadmin.js
 const express = require("express");
 const router = express.Router();
+
+// সব superadmin routes-এ no-cache header
+router.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
