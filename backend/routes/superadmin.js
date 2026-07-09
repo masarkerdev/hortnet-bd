@@ -528,6 +528,29 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
         mobile || "",
       ],
     );
+    // নতুন center-এ সব active category_master sync করি
+    try {
+      const cats = await masterDb.query(
+        "SELECT * FROM category_master WHERE is_active=true",
+      );
+      const { getPool } = require("../config/poolManager");
+      const newDb = getPool(db_url, slug.toLowerCase());
+      for (const c of cats.rows) {
+        const existing = await newDb.query(
+          "SELECT id FROM categories WHERE name_bn=$1",
+          [c.name_bn],
+        );
+        if (!existing.rows.length) {
+          await newDb.query(
+            "INSERT INTO categories (name_bn, name_en, category_master_id, base_group) VALUES ($1,$2,$3,$4)",
+            [c.name_bn, c.name_en, c.id, c.base_group],
+          );
+        }
+      }
+    } catch (e) {
+      console.error("category auto-sync error:", e.message);
+    }
+
     clearCache();
     res.json({
       success: true,
