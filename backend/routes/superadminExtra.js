@@ -1,16 +1,6 @@
 // ============================================================
 // backend/routes/superadminExtra.js — সম্পূর্ণ নতুন ফাইল।
 // existing backend/routes/superadmin.js এর একটা অক্ষর ও বদলানো হয় নাই।
-//
-// server.js-এ existing "app.use("/api/superadmin", require("./routes/superadmin"));"
-// লাইনের ঠিক নিচে এই ১ লাইন যোগ করুন:
-//
-//     app.use("/api/superadmin", require("./routes/superadminExtra"));
-//
-// Express একই prefix-এ একাধিক router mount সাপোর্ট করে — existing routes
-// (login, tenant management, targets ইত্যাদি) যেমন ছিল তেমনই কাজ করবে,
-// শুধু এই ফাইলের নতুন route-গুলো (/category-master, /report/topsheet ইত্যাদি)
-// অতিরিক্ত হিসেবে যুক্ত হবে।
 // ============================================================
 
 const express = require("express");
@@ -21,10 +11,8 @@ const { getTenants } = require("../lib/tenantCache");
 const { getPool } = require("../config/poolManager");
 const { MOTHER_CATEGORIES } = require("./reports_shared");
 
-const SA_SECRET = process.env.SA_JWT_SECRET || "sa-secret-change-this"; // existing superadmin.js এর সাথে হুবহু মিলিয়ে
+const SA_SECRET = process.env.SA_JWT_SECRET || "sa-secret-change-this";
 
-// existing superadmin.js এর saAuth/directorOnly এর হুবহু কপি —
-// দুই ফাইল আলাদা module scope বলে import সম্ভব না, তাই স্বনির্ভর রাখা হলো
 function saAuth(req, res, next) {
   const token = req.headers.authorization?.replace("Bearer ", "");
   if (!token) return res.status(401).json({ success: false, message: "Login করুন।" });
@@ -46,8 +34,6 @@ function toTargetType(motherCategoryNameBn) {
   return "category_" + motherCategoryNameBn.replace(/\s+/g, "_");
 }
 
-// ── কেন্দ্রীয় ক্যাটাগরি ব্যবস্থাপনা ──
-
 router.get("/category-master", saAuth, async (req, res) => {
   try {
     const r = await masterDb.query(
@@ -63,7 +49,6 @@ router.get("/mother-categories", saAuth, async (req, res) => {
   res.json({ success: true, data: MOTHER_CATEGORIES });
 });
 
-// POST /category-master — নতুন category তৈরি + সব সক্রিয় সেন্টারে fan-out sync
 router.post("/category-master", saAuth, directorOnly, async (req, res) => {
   const { name_bn, name_en, base_group } = req.body;
   if (!name_bn || !base_group) {
@@ -127,7 +112,66 @@ router.post("/category-master", saAuth, directorOnly, async (req, res) => {
   }
 });
 
-// ── সেন্টার থেকে ক্যাটাগরি অনুরোধ (approve/reject) ──
+// PUT /category-master/:id — edit করলে সব center-এ re-sync
+router.put("/category-master/:id", saAuth, directorOnly, async (req, res) => {
+  const { id } = req.params;
+  const { name_bn, name_en, base_group } = req.body;
+  if (!name_bn || !base_group) {
+    return res.status(400).json({ success: false, message: "নাম ও গ্রুপ দিন।" });
+  }
+  try {
+    const old = await masterDb.query("SELECT name_bn FROM category_master WHERE id=$1", [id]);
+    if (!old.rows.length) return res.status(404).json({ success: false, message: "পাওয়া যায়নি।" });
+
+    await masterDb.query(
+      "UPDATE category_master SET name_bn=$1, name_en=$2, base_group=$3, updated_at=now() WHERE id=$4",
+      [name_bn, name_en || null, base_group, id]
+    );
+
+    const tenants = await getTenants();
+    let syncedCount = 0;
+    const failedSlugs = [];
+
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      try {
+        const db = getPool(tenant.db_url, slug);
+        await db.query(
+          "UPDATE categories SET name_bn=$1, name_en=$2, base_group=$3 WHERE category_master_id=$4",
+          [name_bn, name_en || null, base_group, id]
+        );
+        syncedCount++;
+      } catch (e) {
+        failedSlugs.push(slug);
+      }
+    }
+
+    await masterDb.query(
+      "INSERT INTO category_sync_log (category_master_id, action, synced_centers, failed_centers) VALUES ($1,$2,$3,$4)",
+      [id, "update", syncedCount, failedSlugs.join(",") || null]
+    );
+
+    res.json({ success: true, message: `"${name_bn}" আপডেট ও ${syncedCount}টি সেন্টারে সিঙ্ক হয়েছে।` });
+  } catch (err) {
+    console.error("category-master update error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE /category-master/:id — deactivate (soft delete), seedlings data অক্ষত থাকবে
+router.delete("/category-master/:id", saAuth, directorOnly, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const cat = await masterDb.query("SELECT name_bn FROM category_master WHERE id=$1", [id]);
+    if (!cat.rows.length) return res.status(404).json({ success: false, message: "পাওয়া যায়নি।" });
+
+    await masterDb.query("UPDATE category_master SET is_active=false, updated_at=now() WHERE id=$1", [id]);
+
+    res.json({ success: true, message: `"${cat.rows[0].name_bn}" নিষ্ক্রিয় করা হয়েছে। সেন্টারের existing চারার তথ্য অক্ষত আছে।` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 router.get("/category-requests", saAuth, async (req, res) => {
   try {
@@ -153,8 +197,6 @@ router.post("/category-requests/:id/reject", saAuth, directorOnly, async (req, r
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
-// ── ক্যাটাগরি-ওয়াইজ টার্গেট (existing "targets" টেবিল reuse, নতুন টেবিল নাই) ──
 
 router.post("/center/:slug/set-category-targets", saAuth, directorOnly, async (req, res) => {
   const { slug } = req.params;
@@ -230,8 +272,6 @@ router.get("/center/:slug/category-targets", saAuth, async (req, res) => {
   }
 });
 
-// ── কনসোলিডেটেড ও সেন্টার-ওয়াইজ রিপোর্ট (existing fan-out প্যাটার্ন reuse) ──
-
 router.get("/report/topsheet", saAuth, async (req, res) => {
   const { fiscal_year, scope = "consolidated", slug } = req.query;
   try {
@@ -261,7 +301,7 @@ router.get("/report/topsheet", saAuth, async (req, res) => {
 
         MOTHER_CATEGORIES.forEach((mc) => {
           const stockRow = stockRows.rows.find(
-            (s) => s.base_group === mc.base_group && s.propagation_class === mc.propagation_class
+            (s) => (s.base_group||'').trim() === mc.base_group && s.propagation_class === mc.propagation_class
           );
           const targetType = "category_" + mc.name_bn.replace(/\s+/g, "_");
           agg[mc.name_bn].target += targetMap[targetType] || 0;
@@ -294,7 +334,7 @@ router.get("/report/variety-consolidated", saAuth, async (req, res) => {
         const db = getPool(tenant.db_url, slug);
         const r = await db.query(
           `SELECT common_name, variety, current_stock FROM seedling_report_view
-           WHERE base_group=$1 AND propagation_class=$2`,
+           WHERE TRIM(base_group)=$1 AND propagation_class=$2`,
           [mc.base_group, mc.propagation_class]
         );
         r.rows.forEach((row) => rows.push({ ...row, center_slug: slug, center_name: tenant.name_bn }));

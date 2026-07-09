@@ -1,4 +1,5 @@
 import Catalog from './pages/Catalog';
+import Reports from './pages/Reports';
 import DevPanel from './pages/DevPanel';
 import About from './pages/About';
 import TenantLogin from './pages/TenantLogin';
@@ -33,6 +34,7 @@ import SaCategory from './superadmin/SaCategory';
 import SaAdmins from './superadmin/SaAdmins';
 import SaNotices from './superadmin/SaNotices';
 import SaReport from './superadmin/SaReport';
+import SaCategories from './superadmin/SaCategories';
 import SaCompare from './superadmin/SaCompare';
 import SaTargetSummary from './superadmin/SaTargetSummary';
 import SaDistrictSummary from './superadmin/SaDistrictSummary';
@@ -63,6 +65,7 @@ export default function App() {
         <Route path="stock" element={<Stock />} />
         <Route path="opening-stock" element={<OpeningStock />} />
         <Route path="damages" element={<Damages />} />
+        <Route path="reports" element={<Reports />} />
         <Route path="customers" element={<Customers />} />
         <Route path="users" element={<Users />} />
         <Route path="employees" element={<Employees />} />
@@ -86,6 +89,7 @@ export default function App() {
         <Route path="admins" element={<SaAdmins />} />
         <Route path="notices" element={<SaNotices />} />
         <Route path="reports" element={<SaReport />} />
+        <Route path="categories" element={<SaCategories />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
