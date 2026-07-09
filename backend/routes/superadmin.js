@@ -512,6 +512,48 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "এই slug আগে থেকে আছে।" });
+    // Database তৈরি
+    const { Pool } = require("pg");
+    const dbName = db_url.split("/").pop().split("?")[0];
+    const baseUrl = db_url.substring(0, db_url.lastIndexOf("/"));
+    const pgPool = new Pool({
+      connectionString: baseUrl + "/hortnet_v1_master",
+      ssl: false,
+    });
+    try {
+      await pgPool.query(`CREATE DATABASE "${dbName}"`);
+    } catch (e) {
+      if (!e.message.includes("already exists")) {
+        await pgPool.end();
+        return res
+          .status(500)
+          .json({
+            success: false,
+            message: `Database তৈরিতে সমস্যা: ${e.message}`,
+          });
+      }
+    }
+    await pgPool.end();
+
+    // Schema apply
+    const fs = require("fs");
+    const path = require("path");
+    const tenantPool = new Pool({ connectionString: db_url, ssl: false });
+    try {
+      const schemaPath = path.join(__dirname, "../db/tenant_schema.sql");
+      const schema = fs.readFileSync(schemaPath, "utf8");
+      await tenantPool.query(schema);
+    } catch (e) {
+      await tenantPool.end();
+      return res
+        .status(500)
+        .json({
+          success: false,
+          message: `Schema apply-এ সমস্যা: ${e.message}`,
+        });
+    }
+    await tenantPool.end();
+
     const r = await masterDb.query(
       `INSERT INTO tenants (slug,name_bn,name_en,location,district,division,dae_region,category,db_url,currency,mobile,active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true) RETURNING id,slug,name_bn`,
       [
