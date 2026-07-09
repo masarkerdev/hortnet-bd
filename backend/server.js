@@ -23,6 +23,13 @@ app.use(tenantMiddleware);
 // ★ Super Admin routes
 app.use("/api/superadmin", require("./routes/superadmin"));
 
+//new lines are added here
+app.use("/api/superadmin", require("./routes/superadminExtra"));
+app.use("/api/category-requests", require("./routes/categoryRequests"));
+app.use("/api/reports", require("./routes/reports"));
+
+//end of new lines
+
 // ★ Super Admin HTML page
 app.get("/superadmin", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "superadmin.html"));
