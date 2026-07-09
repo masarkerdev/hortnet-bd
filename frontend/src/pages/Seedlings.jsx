@@ -6,7 +6,13 @@ import Modal from '../components/Modal';
 import { IcPlus, IcSearch, IcEdit, IcTrash } from '../components/icons';
 
 const LIMIT = 30;
-const EMPTY = { id:'', name_bn:'', name_en:'', variety:'', category_id:'', unit_price:'', production_cost:'', description:'' };
+const SEED_METHODS = [['seed','বীজ (চারা)']];
+const GRAFT_METHODS = [['grafting','গ্রাফটিং'],['cutting','কাটিং'],['layering','লেয়ারিং'],['budding','বাডিং'],['tissue_culture','টিস্যু কালচার']];
+function methodsForCategory(catName) {
+  if (!catName) return [...SEED_METHODS, ...GRAFT_METHODS];
+  return catName.includes('কলম') ? GRAFT_METHODS : SEED_METHODS;
+}
+const EMPTY = { id:'', name_bn:'', name_en:'', variety:'', category_id:'', production_type:'seed', unit_price:'', production_cost:'', description:'' };
 
 export default function Seedlings() {
   const [rows, setRows] = useState([]);
@@ -33,14 +39,14 @@ export default function Seedlings() {
   useEffect(() => { setPage(1); }, [search, catF]);
 
   function openNew() { setForm(EMPTY); setOpen(true); }
-  function openEdit(s) { setForm({ id:s.id, name_bn:s.name_bn||'', name_en:s.name_en||'', variety:s.variety||'', category_id:s.category_id||'', unit_price:s.unit_price||'', production_cost:s.production_cost||'', description:s.description||'' }); setOpen(true); }
+  function openEdit(s) { setForm({ id:s.id, name_bn:s.name_bn||'', name_en:s.name_en||'', variety:s.variety||'', category_id:s.category_id||'', production_type:s.production_type||'seed', unit_price:s.unit_price||'', production_cost:s.production_cost||'', description:s.description||'' }); setOpen(true); }
 
   async function save() {
     if (!form.name_bn || !form.unit_price) { setMsg('নাম ও মূল্য দিন'); return; }
     setSaving(true); setMsg('');
     const body = {
       name_bn: form.name_bn, name_en: form.name_en, variety: form.variety,
-      category_id: Number(form.category_id) || null, production_type: 'seed',
+      category_id: Number(form.category_id) || null, production_type: form.production_type || 'seed',
       unit_price: Number(form.unit_price) || 0, production_cost: Number(form.production_cost) || 0,
       description: form.description, is_active: true,
     };
@@ -126,12 +132,22 @@ export default function Seedlings() {
           <div className="grid grid-cols-2 gap-3">
             <Field label="জাত (variety)"><input className="field-input" value={form.variety} onChange={(e)=>setForm({...form,variety:e.target.value})} /></Field>
             <Field label="ক্যাটাগরি">
-              <select className="field-input" value={form.category_id} onChange={(e)=>setForm({...form,category_id:e.target.value})}>
+              <select className="field-input" value={form.category_id} onChange={(e)=>{
+                const catId = e.target.value;
+                const cat = cats.find(c=>String(c.id)===String(catId));
+                const methods = methodsForCategory(cat?.name_bn);
+                setForm({...form, category_id:catId, production_type: methods[0][0]});
+              }}>
                 <option value="">— বাছাই করুন —</option>
                 {cats.map((c)=><option key={c.id} value={c.id}>{c.name_bn}</option>)}
               </select>
             </Field>
           </div>
+          <Field label="উৎপাদন পদ্ধতি">
+            <select className="field-input" value={form.production_type} onChange={(e)=>setForm({...form,production_type:e.target.value})}>
+              {methodsForCategory(cats.find(c=>String(c.id)===String(form.category_id))?.name_bn).map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            </select>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="একক মূল্য (৳)*"><input type="text" inputMode="decimal" className="field-input" value={form.unit_price} onChange={(e)=>setForm({...form,unit_price:e.target.value})} /></Field>
             <Field label="উৎপাদন খরচ (৳)"><input type="text" inputMode="decimal" className="field-input" value={form.production_cost} onChange={(e)=>setForm({...form,production_cost:e.target.value})} /></Field>
