@@ -144,6 +144,17 @@ export default function Layout() {
 
   const [batchOpen, setBatchOpen] = useState(false);
   const [saleOpen, setSaleOpen] = useState(false);
+  const [tenantInfo, setTenantInfo] = useState(null);
+
+  useEffect(() => {
+    const slug = localStorage.getItem('tenantSlug');
+    if (!slug) return;
+    const base = 'https://api.hortnet-bd.com';
+    fetch(`${base}/api/tenant-info`, { headers: { 'x-tenant-id': slug }, cache: 'no-store' })
+      .then(r=>r.json())
+      .then(d=>{ if(d.success && d.tenant) setTenantInfo(d.tenant); })
+      .catch(()=>{});
+  }, [user]);
   const [seedlings, setSeedlings] = useState([]);
   const [mothers, setMothers] = useState([]);
 
@@ -172,9 +183,9 @@ export default function Layout() {
       >
         <div className="flex items-center gap-2.5 px-5 py-4">
           <Leaf className="h-8 w-8" />
-          <div className="leading-tight">
-            <div className="font-semibold text-white">হর্টিকালচার সেন্টার</div>
-            <div className="text-[11px]" style={{ color: 'var(--st)' }}>আসামবস্তি</div>
+          <div style={{ lineHeight:1.3 }}>
+            <div style={{ fontWeight:600, color:'#fff', fontSize:14 }}>হর্টিকালচার সেন্টার</div>
+            <div style={{ fontSize:11, color:'var(--st)' }}>{tenantInfo?.location || ''}</div>
           </div>
         </div>
 
