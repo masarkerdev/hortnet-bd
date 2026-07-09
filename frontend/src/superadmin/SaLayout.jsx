@@ -11,7 +11,7 @@ const THEMES = {
   nursery_supervisor: { accent:'#4a8c2a', sidebar:'#1a2e1a' },
 };
 const ROLE_BN = { director:'পরিচালক', deputy_director:'উপপরিচালক', horticulturist:'উদ্যানতত্ত্ববিদ', nursery_supervisor:'নার্সারী তত্ত্বাবধায়ক' };
-const PAGE_TITLES = { '':'📊 Overview', 'category/A':'🏛️ A Category — উপপরিচালক', 'category/B':'🌿 B Category — উদ্যানতত্ত্ববিদ', 'category/C':'🪴 C Category — নার্সারী তত্ত্বাবধায়ক', 'compare':'📈 তুলনামূলক রিপোর্ট', 'target-summary':'🎯 লক্ষ্যমাত্রা সারসংক্ষেপ', 'district-summary':'🗺️ জেলাভিত্তিক সারসংক্ষেপ', 'all-centers':'⚙️ সব Center পরিচালনা', 'admins':'👥 Admin পরিচালনা', 'notices':'📢 নোটিশ বোর্ড', 'reports':'📊 রিপোর্ট', 'categories':'📂 Category Master' };
+const PAGE_TITLES = { '':'📊 Overview', 'category/A':'🏛️ A Category — উপপরিচালক', 'category/B':'🌿 B Category — উদ্যানতত্ত্ববিদ', 'category/C':'🪴 C Category — নার্সারী তত্ত্বাবধায়ক', 'compare':'📈 তুলনামূলক রিপোর্ট', 'target-summary':'🎯 লক্ষ্যমাত্রা সারসংক্ষেপ', 'district-summary':'🗺️ জেলাভিত্তিক সারসংক্ষেপ', 'all-centers':'⚙️ সব Center পরিচালনা', 'admins':'👥 Admin পরিচালনা', 'notices':'📢 নোটিশ বোর্ড', 'reports':'📊 রিপোর্ট', 'categories':'📂 Category Master', 'category-targets':'🎯 ক্যাটাগরি-ওয়াইজ লক্ষ্যমাত্রা' };
 
 const NAV_SECTIONS = [
   { label:'মূল মেনু', items:[{ path:'', icon:'ti-layout-dashboard', text:'Overview', bkey:'overview' }] },
@@ -31,6 +31,7 @@ const NAV_DIR = { label:'পরিচালক', divider:true, items:[
   { path:'all-centers', icon:'ti-settings',      text:'সব Center পরিচালনা' },
   { path:'admins',      icon:'ti-users-group',   text:'Admin পরিচালনা', bkey:'admins' },
   { path:'notices',     icon:'ti-speakerphone',  text:'নোটিশ বোর্ড' },
+  { path:'category-targets', icon:'ti-target', text:'ক্যাটাগরি লক্ষ্যমাত্রা' },
 ]};
 
 export default function SaLayout() {

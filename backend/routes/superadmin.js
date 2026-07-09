@@ -525,12 +525,10 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
     } catch (e) {
       if (!e.message.includes("already exists")) {
         await pgPool.end();
-        return res
-          .status(500)
-          .json({
-            success: false,
-            message: `Database তৈরিতে সমস্যা: ${e.message}`,
-          });
+        return res.status(500).json({
+          success: false,
+          message: `Database তৈরিতে সমস্যা: ${e.message}`,
+        });
       }
     }
     await pgPool.end();
@@ -545,12 +543,10 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
       await tenantPool.query(schema);
     } catch (e) {
       await tenantPool.end();
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: `Schema apply-এ সমস্যা: ${e.message}`,
-        });
+      return res.status(500).json({
+        success: false,
+        message: `Schema apply-এ সমস্যা: ${e.message}`,
+      });
     }
     await tenantPool.end();
 
@@ -647,6 +643,30 @@ router.put("/tenants/:id", saAuth, directorOnly, async (req, res) => {
     );
     clearCache();
     res.json({ success: true, message: "আপডেট হয়েছে।" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+// new code for toggling tenant active status and deleting tenants
+
+router.delete("/tenants/:id", saAuth, directorOnly, async (req, res) => {
+  try {
+    const cur = await masterDb.query(
+      "SELECT name_bn, slug FROM tenants WHERE id=$1",
+      [req.params.id],
+    );
+    if (!cur.rows.length)
+      return res
+        .status(404)
+        .json({ success: false, message: "পাওয়া যায়নি।" });
+
+    await masterDb.query("DELETE FROM tenants WHERE id=$1", [req.params.id]);
+    clearCache();
+
+    res.json({
+      success: true,
+      message: `"${cur.rows[0].name_bn}" মুছে ফেলা হয়েছে। (Database অক্ষত আছে)`,
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

@@ -30,9 +30,7 @@ function directorOnly(req, res, next) {
   next();
 }
 
-function toTargetType(motherCategoryNameBn) {
-  return "category_" + motherCategoryNameBn.replace(/\s+/g, "_");
-}
+// ── Category Master ──
 
 router.get("/category-master", saAuth, async (req, res) => {
   try {
@@ -112,7 +110,6 @@ router.post("/category-master", saAuth, directorOnly, async (req, res) => {
   }
 });
 
-// PUT /category-master/:id — edit করলে সব center-এ re-sync
 router.put("/category-master/:id", saAuth, directorOnly, async (req, res) => {
   const { id } = req.params;
   const { name_bn, name_en, base_group } = req.body;
@@ -158,7 +155,6 @@ router.put("/category-master/:id", saAuth, directorOnly, async (req, res) => {
   }
 });
 
-// DELETE /category-master/:id — deactivate (soft delete), seedlings data অক্ষত থাকবে
 router.delete("/category-master/:id", saAuth, directorOnly, async (req, res) => {
   const { id } = req.params;
   try {
@@ -172,6 +168,8 @@ router.delete("/category-master/:id", saAuth, directorOnly, async (req, res) => 
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// ── Category Requests ──
 
 router.get("/category-requests", saAuth, async (req, res) => {
   try {
@@ -198,10 +196,12 @@ router.post("/category-requests/:id/reject", saAuth, directorOnly, async (req, r
   }
 });
 
+// ── ক্যাটাগরি-ওয়াইজ টার্গেট (fy = INTEGER, existing targets টেবিল convention) ──
+
 router.post("/center/:slug/set-category-targets", saAuth, directorOnly, async (req, res) => {
   const { slug } = req.params;
-  const { fiscal_year, targets } = req.body;
-  if (!fiscal_year || !Array.isArray(targets) || targets.length === 0) {
+  const { fy, targets } = req.body;
+  if (!fy || !Array.isArray(targets) || targets.length === 0) {
     return res.status(400).json({ success: false, message: "অর্থবছর ও লক্ষ্যমাত্রার তালিকা দিন।" });
   }
   try {
@@ -212,23 +212,23 @@ router.post("/center/:slug/set-category-targets", saAuth, directorOnly, async (r
 
     let grandTotal = 0;
     for (const t of targets) {
-      const targetType = toTargetType(t.mother_category_name_bn);
+      const targetType = "category_" + t.mother_category_name_bn.replace(/\s+/g, "_");
       const qty = Number(t.target_quantity) || 0;
       grandTotal += qty;
 
       const existing = await db.query(
         "SELECT id FROM targets WHERE target_type=$1 AND target_year=$2 AND target_month=0 LIMIT 1",
-        [targetType, fiscal_year]
+        [targetType, fy]
       );
       if (existing.rows.length > 0) {
         await db.query(
           "UPDATE targets SET target_quantity=$1 WHERE target_type=$2 AND target_year=$3 AND target_month=0",
-          [qty, targetType, fiscal_year]
+          [qty, targetType, fy]
         );
       } else {
         await db.query(
           "INSERT INTO targets (target_type, target_month, target_year, target_quantity) VALUES ($1,0,$2,$3)",
-          [targetType, fiscal_year, qty]
+          [targetType, fy, qty]
         );
       }
     }
@@ -246,8 +246,8 @@ router.post("/center/:slug/set-category-targets", saAuth, directorOnly, async (r
 
 router.get("/center/:slug/category-targets", saAuth, async (req, res) => {
   const { slug } = req.params;
-  const { fiscal_year } = req.query;
-  if (!fiscal_year) return res.status(400).json({ success: false, message: "অর্থবছর দিন।" });
+  const fy = parseInt(req.query.fy);
+  if (!fy) return res.status(400).json({ success: false, message: "অর্থবছর দিন (fy)।" });
   try {
     const tenants = await getTenants();
     const tenant = tenants[slug];
@@ -256,7 +256,7 @@ router.get("/center/:slug/category-targets", saAuth, async (req, res) => {
 
     const r = await db.query(
       "SELECT target_type, target_quantity FROM targets WHERE target_type LIKE 'category_%' AND target_year=$1 AND target_month=0",
-      [fiscal_year]
+      [fy]
     );
     const targetsMap = {};
     let grandTotal = 0;
@@ -272,41 +272,129 @@ router.get("/center/:slug/category-targets", saAuth, async (req, res) => {
   }
 });
 
+// ── Super Admin Topsheet (consolidated / center-wise) — fy = INTEGER ──
+
 router.get("/report/topsheet", saAuth, async (req, res) => {
-  const { fiscal_year, scope = "consolidated", slug } = req.query;
+  const fy = parseInt(req.query.fy);
+  const month = parseInt(req.query.month);
+  const scope = req.query.scope || "consolidated";
+  const slug = req.query.slug;
+
+  if (!fy) return res.status(400).json({ success: false, message: "অর্থবছর (fy) দিন।" });
+
+  const now = new Date();
+  const curMonth = month || now.getMonth() + 1;
+  const calYear = curMonth >= 7 ? fy : fy + 1;
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const fyStart = `${fy}-07-01`;
+  const monthStart = `${calYear}-${pad2(curMonth)}-01`;
+  const nextMonth = curMonth === 12 ? 1 : curMonth + 1;
+  const nextCalYear = curMonth === 12 ? calYear + 1 : calYear;
+  const monthEndExclusive = `${nextCalYear}-${pad2(nextMonth)}-01`;
+
+  const toClass = (pt) => (pt === "seed" ? "চারা" : pt === "purchase" ? "ক্রয়" : "কলম");
+
   try {
     const tenants = await getTenants();
     const tenantList = scope === "center" && slug ? { [slug]: tenants[slug] } : tenants;
 
     const agg = {};
     MOTHER_CATEGORIES.forEach((mc) => {
-      agg[mc.name_bn] = { mother_category: mc.name_bn, target: 0, net_stock: 0, item_count: 0, display_order: mc.order };
+      agg[mc.name_bn] = {
+        display_order: mc.order,
+        mother_category: mc.name_bn,
+        divisional_target: 0,
+        production: { current_month: 0, prev_months_total: 0, subtotal: 0, dae_challan_received: 0, prev_year_balance: 0, grand_total: 0 },
+        distribution: { target: 0, current_month: 0, prev_months_total: 0, subtotal: 0, dae_challan_sent: 0, damaged: 0, grand_total: 0 },
+        net_stock: 0,
+      };
     });
 
     for (const [tslug, tenant] of Object.entries(tenantList)) {
       if (!tenant || !tenant.active || !tenant.db_url) continue;
       try {
         const db = getPool(tenant.db_url, tslug);
-        const stockRows = await db.query(
-          `SELECT base_group, propagation_class, SUM(current_stock) AS net_stock, COUNT(*) AS item_count
-           FROM seedling_report_view GROUP BY base_group, propagation_class`
-        );
+
         const targetRows = await db.query(
-          `SELECT target_type, target_quantity FROM targets
-           WHERE target_type LIKE 'category_%' AND target_year=$1 AND target_month=0`,
-          [fiscal_year]
+          `SELECT target_type, target_quantity FROM targets WHERE target_type LIKE 'category_%' AND target_year=$1 AND target_month=0`,
+          [fy]
         );
         const targetMap = {};
-        targetRows.rows.forEach((r) => (targetMap[r.target_type] = r.target_quantity));
+        targetRows.rows.forEach((r) => (targetMap[r.target_type] = Number(r.target_quantity)));
+
+        const prodCurrent = await db.query(
+          `SELECT c.base_group, pb.production_type, COALESCE(SUM(pb.produced_quantity),0) AS qty
+           FROM production_batches pb JOIN seedlings s ON pb.seedling_id=s.id JOIN categories c ON s.category_id=c.id
+           WHERE COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date)>=$1 AND COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date)<$2
+           GROUP BY c.base_group, pb.production_type`, [monthStart, monthEndExclusive]);
+
+        const prodPrevMonths = await db.query(
+          `SELECT c.base_group, pb.production_type, COALESCE(SUM(pb.produced_quantity),0) AS qty
+           FROM production_batches pb JOIN seedlings s ON pb.seedling_id=s.id JOIN categories c ON s.category_id=c.id
+           WHERE COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date)>=$1 AND COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date)<$2
+           GROUP BY c.base_group, pb.production_type`, [fyStart, monthStart]);
+
+        const distCurrent = await db.query(
+          `SELECT c.base_group, s.production_type, COALESCE(SUM(st.quantity),0) AS qty FROM stock_transactions st
+           JOIN seedlings s ON st.seedling_id=s.id JOIN categories c ON s.category_id=c.id
+           WHERE st.txn_type='sale' AND st.created_at>=$1 AND st.created_at<$2
+           GROUP BY c.base_group, s.production_type`, [monthStart, monthEndExclusive]);
+
+        const distPrevMonths = await db.query(
+          `SELECT c.base_group, s.production_type, COALESCE(SUM(st.quantity),0) AS qty FROM stock_transactions st
+           JOIN seedlings s ON st.seedling_id=s.id JOIN categories c ON s.category_id=c.id
+           WHERE st.txn_type='sale' AND st.created_at>=$1 AND st.created_at<$2
+           GROUP BY c.base_group, s.production_type`, [fyStart, monthStart]);
+
+        const damageRows = await db.query(
+          `SELECT c.base_group, s.production_type, COALESCE(SUM(d.quantity),0) AS qty
+           FROM damages d JOIN seedlings s ON d.seedling_id=s.id JOIN categories c ON s.category_id=c.id
+           WHERE d.damage_date>=$1 AND d.damage_date<$2
+           GROUP BY c.base_group, s.production_type`, [fyStart, monthEndExclusive]);
+
+        const prevYearBalance = await db.query(
+          `SELECT c.base_group, s.production_type, COALESCE(SUM(latest.balance_after),0) AS qty
+           FROM seedlings s JOIN categories c ON s.category_id=c.id
+           LEFT JOIN LATERAL (SELECT balance_after FROM stock_transactions st WHERE st.seedling_id=s.id AND st.created_at<$1 ORDER BY st.created_at DESC LIMIT 1) latest ON true
+           GROUP BY c.base_group, s.production_type`, [fyStart]);
+
+        const netStock = await db.query(
+          `SELECT c.base_group, s.production_type, COALESCE(SUM(s.current_stock),0) AS qty
+           FROM seedlings s JOIN categories c ON s.category_id=c.id WHERE s.is_active=true
+           GROUP BY c.base_group, s.production_type`);
+
+        const findQty = (rows, baseGroup, propClass) => {
+          const row = rows.find((r) => (r.base_group||'').trim() === baseGroup && toClass(r.production_type) === propClass);
+          return row ? Number(row.qty) : 0;
+        };
 
         MOTHER_CATEGORIES.forEach((mc) => {
-          const stockRow = stockRows.rows.find(
-            (s) => (s.base_group||'').trim() === mc.base_group && s.propagation_class === mc.propagation_class
-          );
           const targetType = "category_" + mc.name_bn.replace(/\s+/g, "_");
-          agg[mc.name_bn].target += targetMap[targetType] || 0;
-          agg[mc.name_bn].net_stock += stockRow ? Number(stockRow.net_stock) : 0;
-          agg[mc.name_bn].item_count += stockRow ? Number(stockRow.item_count) : 0;
+          const target = targetMap[targetType] || 0;
+          const a = agg[mc.name_bn];
+
+          a.divisional_target += target;
+
+          const prodCur = findQty(prodCurrent.rows, mc.base_group, mc.propagation_class);
+          const prodPrev = findQty(prodPrevMonths.rows, mc.base_group, mc.propagation_class);
+          const prevYearJer = findQty(prevYearBalance.rows, mc.base_group, mc.propagation_class);
+          a.production.current_month += prodCur;
+          a.production.prev_months_total += prodPrev;
+          a.production.subtotal += prodCur + prodPrev;
+          a.production.prev_year_balance += prevYearJer;
+          a.production.grand_total += prodCur + prodPrev + prevYearJer;
+
+          const distCur = findQty(distCurrent.rows, mc.base_group, mc.propagation_class);
+          const distPrev = findQty(distPrevMonths.rows, mc.base_group, mc.propagation_class);
+          const damaged = findQty(damageRows.rows, mc.base_group, mc.propagation_class);
+          a.distribution.target += target;
+          a.distribution.current_month += distCur;
+          a.distribution.prev_months_total += distPrev;
+          a.distribution.subtotal += distCur + distPrev;
+          a.distribution.damaged += damaged;
+          a.distribution.grand_total += distCur + distPrev + damaged;
+
+          a.net_stock += findQty(netStock.rows, mc.base_group, mc.propagation_class);
         });
       } catch (e) {
         console.error(`[${tslug}] topsheet fetch error:`, e.message);
@@ -314,7 +402,7 @@ router.get("/report/topsheet", saAuth, async (req, res) => {
     }
 
     const report = Object.values(agg).sort((a, b) => a.display_order - b.display_order);
-    res.json({ success: true, scope, fiscal_year, data: report });
+    res.json({ success: true, scope, fy: `${fy}-${String(fy + 1).slice(-2)}`, month: curMonth, data: report });
   } catch (err) {
     console.error("superadmin topsheet error:", err.message);
     res.status(500).json({ success: false, error: err.message });

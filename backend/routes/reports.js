@@ -1,14 +1,14 @@
 // ============================================================
-// backend/routes/reports.js — নতুন ফাইল, existing কোনো ফাইল edit করা হয় নাই।
+// backend/routes/reports.js — Center App রিপোর্ট routes
+// existing কোনো ফাইল edit হয় নাই।
+// fy = INTEGER (যেমন 2025 মানে অর্থবছর ২০২৫-২৬)
 //
-// server.js-এ যোগ করার একমাত্র লাইন (existing "app.use("/api", ...)" এর কাছাকাছি,
-// existing কোনো লাইন মুছে/বদলে না):
-//
-//     app.use("/api/reports", require("./routes/reports"));
-//
-// tenant middleware আগে থেকেই গ্লোবালি বসানো (server.js-এ app.use(tenantMiddleware)
-// /api mount এর আগে) — তাই db.query() স্বয়ংক্রিয়ভাবে সঠিক সেন্টারের DB-তে যাবে,
-// আলাদা করে কিছু বসাতে হবে না।
+// Data sources (existing tables, verified against actual schema):
+//   উৎপাদন → production_batches (sowing_date/propagation_date + produced_quantity)
+//   বিতরণ  → stock_transactions (txn_type='sale')
+//   মৃত/বিনষ্ট → damages (damage_date + quantity)
+//   পূর্ব বছরের জের → stock_transactions (txn_type='opening_balance', প্রথম entry FY-এর মধ্যে)
+//   নীট মজুদ → seedlings.current_stock (source of truth)
 // ============================================================
 
 const express = require("express");
@@ -17,57 +17,167 @@ const db = require("../config/db");
 const { authenticate } = require("../middleware/auth");
 const { MOTHER_CATEGORIES } = require("./reports_shared");
 
-// GET /api/reports/topsheet?fiscal_year=2025-26
-router.get("/topsheet", authenticate, async (req, res) => {
-  const { fiscal_year } = req.query;
-  if (!fiscal_year) {
-    return res.status(400).json({ success: false, message: "অর্থবছর দিন।" });
-  }
-  try {
-    // ১. প্রতিটা mother_category-র জন্য net_stock ও item সংখ্যা
-    const stockRows = await db.query(
-      `SELECT base_group, propagation_class, SUM(current_stock) AS net_stock, COUNT(*) AS item_count
-       FROM seedling_report_view
-       GROUP BY base_group, propagation_class`
-    );
+const getCurrentFY = () => {
+  const now = new Date();
+  return now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+};
+const getFYDates = (fy) => {
+  const f = parseInt(fy) || getCurrentFY();
+  return { start: `${f}-07-01`, end: `${f + 1}-06-30`, fy: f };
+};
+const monthCalendarYear = (fy, month) => (month >= 7 ? fy : fy + 1);
+const pad2 = (n) => String(n).padStart(2, "0");
+const toClass = (pt) => (pt === "seed" ? "চারা" : pt === "purchase" ? "ক্রয়" : "কলম");
 
-    // ২. target (existing targets টেবিল থেকে, category_ prefix convention)
+router.get("/topsheet", authenticate, async (req, res) => {
+  const { fy: fyParam, month: monthParam } = req.query;
+  const { start: fyStart, fy } = getFYDates(fyParam);
+
+  const now = new Date();
+  const month = parseInt(monthParam) || now.getMonth() + 1;
+  const calYear = monthCalendarYear(fy, month);
+  const monthStart = `${calYear}-${pad2(month)}-01`;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextMonthCalYear = month === 12 ? calYear + 1 : calYear;
+  const monthEndExclusive = `${nextMonthCalYear}-${pad2(nextMonth)}-01`;
+
+  try {
     const targetRows = await db.query(
       `SELECT target_type, target_quantity FROM targets
        WHERE target_type LIKE 'category_%' AND target_year = $1 AND target_month = 0`,
-      [fiscal_year]
+      [fy]
     );
     const targetMap = {};
-    targetRows.rows.forEach((r) => {
-      targetMap[r.target_type] = r.target_quantity;
-    });
+    targetRows.rows.forEach((r) => (targetMap[r.target_type] = Number(r.target_quantity)));
 
-    // ৩. ১১টা mother_category ক্রম অনুযায়ী সাজিয়ে ফলাফল বানানো
+    // উৎপাদন — চলতি মাস (production_batches, propagation_date না থাকলে sowing_date/created_at ব্যবহার)
+    const prodCurrent = await db.query(
+      `SELECT c.base_group, pb.production_type, COALESCE(SUM(pb.produced_quantity),0) AS qty
+       FROM production_batches pb
+       JOIN seedlings s ON pb.seedling_id = s.id
+       JOIN categories c ON s.category_id = c.id
+       WHERE COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date) >= $1
+         AND COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date) < $2
+       GROUP BY c.base_group, pb.production_type`,
+      [monthStart, monthEndExclusive]
+    );
+
+    // উৎপাদন — পূর্বমাস পর্যন্ত (FY শুরু থেকে চলতি মাস শুরুর আগ পর্যন্ত)
+    const prodPrevMonths = await db.query(
+      `SELECT c.base_group, pb.production_type, COALESCE(SUM(pb.produced_quantity),0) AS qty
+       FROM production_batches pb
+       JOIN seedlings s ON pb.seedling_id = s.id
+       JOIN categories c ON s.category_id = c.id
+       WHERE COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date) >= $1
+         AND COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date) < $2
+       GROUP BY c.base_group, pb.production_type`,
+      [fyStart, monthStart]
+    );
+
+    // বিতরণ — চলতি মাস (stock_transactions, txn_type='sale')
+    const distCurrent = await db.query(
+      `SELECT c.base_group, s.production_type, COALESCE(SUM(st.quantity),0) AS qty
+       FROM stock_transactions st
+       JOIN seedlings s ON st.seedling_id = s.id
+       JOIN categories c ON s.category_id = c.id
+       WHERE st.txn_type = 'sale' AND st.created_at >= $1 AND st.created_at < $2
+       GROUP BY c.base_group, s.production_type`,
+      [monthStart, monthEndExclusive]
+    );
+
+    // বিতরণ — পূর্বমাস পর্যন্ত
+    const distPrevMonths = await db.query(
+      `SELECT c.base_group, s.production_type, COALESCE(SUM(st.quantity),0) AS qty
+       FROM stock_transactions st
+       JOIN seedlings s ON st.seedling_id = s.id
+       JOIN categories c ON s.category_id = c.id
+       WHERE st.txn_type = 'sale' AND st.created_at >= $1 AND st.created_at < $2
+       GROUP BY c.base_group, s.production_type`,
+      [fyStart, monthStart]
+    );
+
+    // মৃত/বিনষ্ট — FY শুরু থেকে চলতি মাসের শেষ পর্যন্ত (damages টেবিল থেকে, cumulative)
+    const damageRows = await db.query(
+      `SELECT c.base_group, s.production_type, COALESCE(SUM(d.quantity),0) AS qty
+       FROM damages d
+       JOIN seedlings s ON d.seedling_id = s.id
+       JOIN categories c ON s.category_id = c.id
+       WHERE d.damage_date >= $1 AND d.damage_date < $2
+       GROUP BY c.base_group, s.production_type`,
+      [fyStart, monthEndExclusive]
+    );
+
+    // পূর্ব বছরের জের — FY শুরুর আগের সর্বশেষ opening_balance/stock_transactions balance
+    const prevYearBalance = await db.query(
+      `SELECT c.base_group, s.production_type, COALESCE(SUM(latest.balance_after),0) AS qty
+       FROM seedlings s
+       JOIN categories c ON s.category_id = c.id
+       LEFT JOIN LATERAL (
+         SELECT balance_after FROM stock_transactions st
+         WHERE st.seedling_id = s.id AND st.created_at < $1
+         ORDER BY st.created_at DESC LIMIT 1
+       ) latest ON true
+       GROUP BY c.base_group, s.production_type`,
+      [fyStart]
+    );
+
+    // নীট মজুদ — current_stock (source of truth)
+    const netStock = await db.query(
+      `SELECT c.base_group, s.production_type, COALESCE(SUM(s.current_stock),0) AS qty
+       FROM seedlings s
+       JOIN categories c ON s.category_id = c.id
+       WHERE s.is_active = true
+       GROUP BY c.base_group, s.production_type`
+    );
+
+    const findQty = (rows, baseGroup, propClass) => {
+      const row = rows.find((r) => (r.base_group||'').trim() === baseGroup && toClass(r.production_type) === propClass);
+      return row ? Number(row.qty) : 0;
+    };
+
     const report = MOTHER_CATEGORIES.map((mc) => {
-      const stockRow = stockRows.rows.find(
-        (s) => s.base_group === mc.base_group && s.propagation_class === mc.propagation_class
-      );
       const targetType = "category_" + mc.name_bn.replace(/\s+/g, "_");
+      const target = targetMap[targetType] || 0;
+
+      const prodCur = findQty(prodCurrent.rows, mc.base_group, mc.propagation_class);
+      const prodPrev = findQty(prodPrevMonths.rows, mc.base_group, mc.propagation_class);
+      const prodTotal = prodCur + prodPrev;
+      const daeIn = 0;
+      const prevYearJer = findQty(prevYearBalance.rows, mc.base_group, mc.propagation_class);
+      const prodGrandTotal = prodTotal + daeIn + prevYearJer;
+
+      const distCur = findQty(distCurrent.rows, mc.base_group, mc.propagation_class);
+      const distPrev = findQty(distPrevMonths.rows, mc.base_group, mc.propagation_class);
+      const distTotal = distCur + distPrev;
+      const daeOut = 0;
+      const damaged = findQty(damageRows.rows, mc.base_group, mc.propagation_class);
+      const distGrandTotal = distTotal + daeOut + damaged;
+
+      const netStockQty = findQty(netStock.rows, mc.base_group, mc.propagation_class);
+
       return {
-        mother_category: mc.name_bn,
-        target: targetMap[targetType] || 0,
-        net_stock: stockRow ? Number(stockRow.net_stock) : 0,
-        item_count: stockRow ? Number(stockRow.item_count) : 0,
         display_order: mc.order,
-        // উৎপাদন/বিতরণ চলতি-মাস, পূর্বমাস, ডিএইচালান কলামগুলো এখানে
-        // production_batches ও stock_transactions থেকে date-range filter দিয়ে
-        // পরের ধাপে যোগ হবে — এই route টা কাঠামোর ভিত্তি
+        mother_category: mc.name_bn,
+        divisional_target: target,
+        production: {
+          current_month: prodCur, prev_months_total: prodPrev, subtotal: prodTotal,
+          dae_challan_received: daeIn, prev_year_balance: prevYearJer, grand_total: prodGrandTotal,
+        },
+        distribution: {
+          target, current_month: distCur, prev_months_total: distPrev, subtotal: distTotal,
+          dae_challan_sent: daeOut, damaged, grand_total: distGrandTotal,
+        },
+        net_stock: netStockQty,
       };
     });
 
-    res.json({ success: true, fiscal_year, data: report });
+    res.json({ success: true, fy: `${fy}-${String(fy + 1).slice(-2)}`, month, data: report });
   } catch (err) {
     console.error("topsheet report error:", err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// GET /api/reports/category-detail?mother_category=ফলদ কলম
 router.get("/category-detail", authenticate, async (req, res) => {
   const { mother_category } = req.query;
   const mc = MOTHER_CATEGORIES.find((m) => m.name_bn === mother_category);
@@ -75,12 +185,19 @@ router.get("/category-detail", authenticate, async (req, res) => {
     return res.status(400).json({ success: false, message: "সঠিক mother_category নাম দিন।" });
   }
   try {
+    const toClassSql =
+      mc.propagation_class === "চারা" ? "s.production_type = 'seed'" :
+      mc.propagation_class === "ক্রয়" ? "s.production_type = 'purchase'" :
+      "s.production_type NOT IN ('seed','purchase')";
+
     const items = await db.query(
-      `SELECT common_name, variety, current_stock
-       FROM seedling_report_view
-       WHERE base_group = $1 AND propagation_class = $2
-       ORDER BY common_name, variety`,
-      [mc.base_group, mc.propagation_class]
+      `SELECT c.name_bn AS common_name, s.variety, SUM(s.current_stock) AS current_stock
+       FROM seedlings s
+       JOIN categories c ON s.category_id = c.id
+       WHERE c.base_group = $1 AND s.is_active = true AND ${toClassSql}
+       GROUP BY c.name_bn, s.variety
+       ORDER BY c.name_bn, s.variety`,
+      [mc.base_group]
     );
     res.json({ success: true, mother_category, data: items.rows });
   } catch (err) {
