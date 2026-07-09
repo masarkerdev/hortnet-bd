@@ -409,34 +409,128 @@ router.get("/report/topsheet", saAuth, async (req, res) => {
   }
 });
 
-router.get("/report/variety-consolidated", saAuth, async (req, res) => {
-  const { mother_category } = req.query;
+router.get("/report/category-detail", saAuth, async (req, res) => {
+  const { mother_category, fy: fyParam, month: monthParam, scope = "consolidated", slug: onlySlug } = req.query;
   const mc = MOTHER_CATEGORIES.find((m) => m.name_bn === mother_category);
   if (!mc) return res.status(400).json({ success: false, message: "সঠিক mother_category দিন।" });
+
+  const fy = parseInt(fyParam) || (new Date().getMonth() >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1);
+  const fyStart = `${fy}-07-01`;
+  const now = new Date();
+  const month = parseInt(monthParam) || now.getMonth() + 1;
+  const calYear = month >= 7 ? fy : fy + 1;
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const monthStart = `${calYear}-${pad2(month)}-01`;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextCalYear = month === 12 ? calYear + 1 : calYear;
+  const monthEndExclusive = `${nextCalYear}-${pad2(nextMonth)}-01`;
+
+  const toClassSql =
+    mc.propagation_class === "চারা" ? "s.production_type = 'seed'" :
+    mc.propagation_class === "ক্রয়" ? "s.production_type = 'purchase'" :
+    "s.production_type NOT IN ('seed','purchase')";
+
   try {
     const tenants = await getTenants();
-    const rows = [];
-    for (const [slug, tenant] of Object.entries(tenants)) {
-      if (!tenant.active || !tenant.db_url) continue;
+    const tenantList = scope === "center" && onlySlug ? { [onlySlug]: tenants[onlySlug] } : tenants;
+    const merged = {}; // key: common_name + '|' + variety
+
+    for (const [slug, tenant] of Object.entries(tenantList)) {
+      if (!tenant || !tenant.active || !tenant.db_url) continue;
       try {
         const db = getPool(tenant.db_url, slug);
-        const r = await db.query(
-          `SELECT common_name, variety, current_stock FROM seedling_report_view
-           WHERE TRIM(base_group)=$1 AND propagation_class=$2`,
-          [mc.base_group, mc.propagation_class]
+
+        const seedlings = await db.query(
+          `SELECT s.id AS seedling_id, c.name_bn AS common_name, s.variety, s.current_stock
+           FROM seedlings s JOIN categories c ON s.category_id = c.id
+           WHERE c.base_group = $1 AND s.is_active = true AND ${toClassSql}`,
+          [mc.base_group]
         );
-        r.rows.forEach((row) => rows.push({ ...row, center_slug: slug, center_name: tenant.name_bn }));
+        if (!seedlings.rows.length) continue;
+
+        const prodCur = await db.query(
+          `SELECT pb.seedling_id, COALESCE(SUM(pb.produced_quantity),0) AS qty
+           FROM production_batches pb JOIN seedlings s ON pb.seedling_id=s.id JOIN categories c ON s.category_id=c.id
+           WHERE c.base_group=$1 AND ${toClassSql}
+             AND COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date)>=$2
+             AND COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date)<$3
+           GROUP BY pb.seedling_id`, [mc.base_group, monthStart, monthEndExclusive]);
+
+        const prodPrev = await db.query(
+          `SELECT pb.seedling_id, COALESCE(SUM(pb.produced_quantity),0) AS qty
+           FROM production_batches pb JOIN seedlings s ON pb.seedling_id=s.id JOIN categories c ON s.category_id=c.id
+           WHERE c.base_group=$1 AND ${toClassSql}
+             AND COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date)>=$2
+             AND COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date)<$3
+           GROUP BY pb.seedling_id`, [mc.base_group, fyStart, monthStart]);
+
+        const distCur = await db.query(
+          `SELECT st.seedling_id, COALESCE(SUM(st.quantity),0) AS qty
+           FROM stock_transactions st JOIN seedlings s ON st.seedling_id=s.id JOIN categories c ON s.category_id=c.id
+           WHERE c.base_group=$1 AND ${toClassSql} AND st.txn_type='sale' AND st.created_at>=$2 AND st.created_at<$3
+           GROUP BY st.seedling_id`, [mc.base_group, monthStart, monthEndExclusive]);
+
+        const distPrev = await db.query(
+          `SELECT st.seedling_id, COALESCE(SUM(st.quantity),0) AS qty
+           FROM stock_transactions st JOIN seedlings s ON st.seedling_id=s.id JOIN categories c ON s.category_id=c.id
+           WHERE c.base_group=$1 AND ${toClassSql} AND st.txn_type='sale' AND st.created_at>=$2 AND st.created_at<$3
+           GROUP BY st.seedling_id`, [mc.base_group, fyStart, monthStart]);
+
+        const damageRows = await db.query(
+          `SELECT d.seedling_id, COALESCE(SUM(d.quantity),0) AS qty
+           FROM damages d JOIN seedlings s ON d.seedling_id=s.id JOIN categories c ON s.category_id=c.id
+           WHERE c.base_group=$1 AND ${toClassSql} AND d.damage_date>=$2 AND d.damage_date<$3
+           GROUP BY d.seedling_id`, [mc.base_group, fyStart, monthEndExclusive]);
+
+        const prevYearBal = await db.query(
+          `SELECT s.id AS seedling_id, COALESCE(latest.balance_after,0) AS qty
+           FROM seedlings s JOIN categories c ON s.category_id=c.id
+           LEFT JOIN LATERAL (
+             SELECT balance_after FROM stock_transactions st WHERE st.seedling_id=s.id AND st.created_at<$2
+             ORDER BY st.created_at DESC LIMIT 1
+           ) latest ON true
+           WHERE c.base_group=$1 AND ${toClassSql}`, [mc.base_group, fyStart]);
+
+        const findQty = (rows, id) => { const r = rows.find(x=>x.seedling_id===id); return r ? Number(r.qty) : 0; };
+
+        seedlings.rows.forEach(sd => {
+          const key = sd.common_name + "|" + (sd.variety || "");
+          if (!merged[key]) {
+            merged[key] = {
+              common_name: sd.common_name, variety: sd.variety, current_stock: 0,
+              production: { current_month:0, prev_months_total:0, subtotal:0, prev_year_balance:0, grand_total:0 },
+              distribution: { current_month:0, prev_months_total:0, subtotal:0, damaged:0, grand_total:0 },
+            };
+          }
+          const m = merged[key];
+          const pCur = findQty(prodCur.rows, sd.seedling_id);
+          const pPrev = findQty(prodPrev.rows, sd.seedling_id);
+          const pJer = findQty(prevYearBal.rows, sd.seedling_id);
+          const dCur = findQty(distCur.rows, sd.seedling_id);
+          const dPrev = findQty(distPrev.rows, sd.seedling_id);
+          const dmg = findQty(damageRows.rows, sd.seedling_id);
+
+          m.current_stock += Number(sd.current_stock) || 0;
+          m.production.current_month += pCur;
+          m.production.prev_months_total += pPrev;
+          m.production.subtotal += pCur+pPrev;
+          m.production.prev_year_balance += pJer;
+          m.production.grand_total += pCur+pPrev+pJer;
+          m.distribution.current_month += dCur;
+          m.distribution.prev_months_total += dPrev;
+          m.distribution.subtotal += dCur+dPrev;
+          m.distribution.damaged += dmg;
+          m.distribution.grand_total += dCur+dPrev+dmg;
+        });
       } catch (e) {
-        console.error(`[${slug}] variety fetch error:`, e.message);
+        console.error(`[${slug}] category-detail fetch error:`, e.message);
       }
     }
-    const grouped = {};
-    rows.forEach((row) => {
-      if (!grouped[row.common_name]) grouped[row.common_name] = [];
-      grouped[row.common_name].push(row);
-    });
-    res.json({ success: true, mother_category, data: grouped });
+
+    const data = Object.values(merged).sort((a,b) => a.common_name.localeCompare(b.common_name,'bn') || (a.variety||'').localeCompare(b.variety||'','bn'));
+    res.json({ success: true, mother_category, scope, fy: `${fy}-${String(fy+1).slice(-2)}`, month, data });
   } catch (err) {
+    console.error("superadmin category-detail error:", err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

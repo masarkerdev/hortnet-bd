@@ -292,11 +292,269 @@ function ProductionReport() {
   );
 }
 
+
+// ── TOPSHEET REPORT (Consolidated / Center-wise) ──
+const MONTHS = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+
+function TopsheetReport() {
+  const [fy, setFy] = useState(curFY());
+  const [month, setMonth] = useState(new Date().getMonth()+1);
+  const [scope, setScope] = useState('consolidated');
+  const [centers, setCenters] = useState([]);
+  const [slug, setSlug] = useState('');
+  const [data, setData] = useState([]);
+  const [meta, setMeta] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedCat, setSelectedCat] = useState(null);
+  const [catDetail, setCatDetail] = useState([]);
+  const [catLoading, setCatLoading] = useState(false);
+
+  async function loadCatDetail(row) {
+    setSelectedCat(row);
+    setCatLoading(true); setCatDetail([]);
+    try {
+      let url = `/report/category-detail?mother_category=${encodeURIComponent(row.mother_category)}&fy=${fy}&month=${month}&scope=${scope}`;
+      if (scope==='center' && slug) url += `&slug=${slug}`;
+      const r = await saApi.get(url);
+      if (r.data?.success) setCatDetail(r.data.data||[]);
+    } catch {} finally { setCatLoading(false); }
+  }
+
+  useEffect(()=>{ saApi.get('/tenants').then(r=>{ const list=r.data?.data||[]; setCenters(list); if(list.length) setSlug(list[0].slug); }); },[]);
+
+  async function load() {
+    setLoading(true);
+    try {
+      let url = `/report/topsheet?fy=${fy}&month=${month}&scope=${scope}`;
+      if (scope==='center' && slug) url += `&slug=${slug}`;
+      const r = await saApi.get(url);
+      if (r.data?.success) { setData(r.data.data||[]); setMeta({fy:r.data.fy, month:r.data.month}); }
+    } catch {} finally { setLoading(false); }
+  }
+
+  useEffect(()=>{ load(); },[fy, month, scope, slug]);
+
+  const totals = data.reduce((acc,r)=>({
+    target: acc.target + r.divisional_target,
+    prodCur: acc.prodCur + r.production.current_month,
+    prodPrev: acc.prodPrev + r.production.prev_months_total,
+    prodSub: acc.prodSub + r.production.subtotal,
+    prodDae: acc.prodDae + r.production.dae_challan_received,
+    prodJer: acc.prodJer + r.production.prev_year_balance,
+    prodTotal: acc.prodTotal + r.production.grand_total,
+    distTarget: acc.distTarget + r.distribution.target,
+    distCur: acc.distCur + r.distribution.current_month,
+    distPrev: acc.distPrev + r.distribution.prev_months_total,
+    distSub: acc.distSub + r.distribution.subtotal,
+    distDae: acc.distDae + r.distribution.dae_challan_sent,
+    distDamaged: acc.distDamaged + r.distribution.damaged,
+    distTotal: acc.distTotal + r.distribution.grand_total,
+    netStock: acc.netStock + r.net_stock,
+  }), {target:0,prodCur:0,prodPrev:0,prodSub:0,prodDae:0,prodJer:0,prodTotal:0,distTarget:0,distCur:0,distPrev:0,distSub:0,distDae:0,distDamaged:0,distTotal:0,netStock:0});
+
+  function exportTopsheetCSV() {
+    const rows = [['ক্র.নং','বিবরণ','বিভাগীয় লক্ষ্যমাত্রা','উৎ-চলতি মাস','উৎ-পূর্বমাস','উৎ-মোট','উৎ-ডিএই','উৎ-পূর্ববছর জের','উৎ-সর্বমোট','বিত-লক্ষ্য','বিত-চলতি','বিত-পূর্বমাস','বিত-মোট','বিত-ডিএই','বিত-মৃত','বিত-সর্বমোট','নীট মজুদ']];
+    data.forEach((r,i)=>rows.push([i+1,r.mother_category,r.divisional_target,r.production.current_month,r.production.prev_months_total,r.production.subtotal,r.production.dae_challan_received,r.production.prev_year_balance,r.production.grand_total,r.distribution.target,r.distribution.current_month,r.distribution.prev_months_total,r.distribution.subtotal,r.distribution.dae_challan_sent,r.distribution.damaged,r.distribution.grand_total,r.net_stock]));
+    exportCSV(rows, `Topsheet_${scope}_${fy}_${new Date().toISOString().slice(0,10)}.csv`);
+  }
+
+  function exportTopsheetPDF() {
+    let html = `<table><thead><tr><th>ক্র.নং</th><th>বিবরণ</th><th>লক্ষ্যমাত্রা</th><th>উৎপাদন সর্বমোট</th><th>বিতরণ সর্বমোট</th><th>নীট মজুদ</th></tr></thead><tbody>`;
+    data.forEach((r,i)=>{ html+=`<tr><td>${i+1}</td><td>${r.mother_category}</td><td>${r.divisional_target}</td><td>${r.production.grand_total}</td><td>${r.distribution.grand_total}</td><td><b>${r.net_stock}</b></td></tr>`; });
+    html+=`</tbody></table>`;
+    exportPDF(`টপশিট রিপোর্ট — ${scope==='consolidated'?'সব সেন্টার':centers.find(c=>c.slug===slug)?.name_bn||''}`, html);
+  }
+
+  const inp = { padding:'8px 12px', border:`1px solid ${V.border}`, borderRadius:8, fontSize:13, fontFamily:FONT, color:V.text, background:V.bg, outline:'none', cursor:'pointer' };
+  const th = { padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, whiteSpace:'nowrap', textAlign:'center', background:V.card2 };
+  const td = { padding:'8px 10px', fontSize:12, borderBottom:`1px solid ${V.border}`, textAlign:'right', whiteSpace:'nowrap' };
+
+  return (
+    <div>
+      {/* Filter bar */}
+      <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, padding:'14px 16px', marginBottom:16, display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+        <div style={{ display:'flex', gap:4 }}>
+          {[['consolidated','সব সেন্টার একসাথে'],['center','একটি সেন্টার']].map(([m,l])=>(
+            <button key={m} onClick={()=>setScope(m)}
+              style={{ padding:'8px 14px', borderRadius:8, border:`1px solid ${V.border}`, background:scope===m?V.green:V.card, color:scope===m?'#fff':V.muted, cursor:'pointer', fontSize:13, fontFamily:FONT }}>
+              {l}
+            </button>
+          ))}
+        </div>
+        {scope==='center' && (
+          <select value={slug} onChange={e=>setSlug(e.target.value)} style={inp}>
+            {centers.map(c=><option key={c.slug} value={c.slug}>{c.name_bn}</option>)}
+          </select>
+        )}
+        <select value={fy} onChange={e=>setFy(Number(e.target.value))} style={inp}>
+          {[curFY(), curFY()-1, curFY()-2].map(y=><option key={y} value={y}>FY {toBn(y)}-{toBn(y+1)}</option>)}
+        </select>
+        <select value={month} onChange={e=>setMonth(Number(e.target.value))} style={inp}>
+          {MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}
+        </select>
+        <div style={{ display:'flex', gap:4, marginLeft:'auto' }}>
+          <button onClick={exportTopsheetCSV}
+            style={{ padding:'7px 14px', borderRadius:8, border:`1px solid ${V.border}`, background:V.green, color:'#fff', cursor:'pointer', fontSize:13, fontFamily:FONT, display:'flex', alignItems:'center', gap:5 }}>
+            <i className="ti ti-file-spreadsheet"/> Excel
+          </button>
+          <button onClick={exportTopsheetPDF}
+            style={{ padding:'7px 14px', borderRadius:8, border:'1px solid #c084fc44', background:'#c084fc22', color:'#c084fc', cursor:'pointer', fontSize:13, fontFamily:FONT, display:'flex', alignItems:'center', gap:5 }}>
+            <i className="ti ti-file-type-pdf"/> PDF
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign:'center', padding:60, color:V.muted }}>
+          <div style={{ width:32, height:32, border:`3px solid ${V.border}`, borderTopColor:V.green, borderRadius:'50%', animation:'spin .8s linear infinite', margin:'0 auto 12px' }}/>
+          লোড হচ্ছে...
+        </div>
+      ) : (
+        <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, overflow:'hidden' }}>
+          <div style={{ padding:'12px 16px', borderBottom:`1px solid ${V.border}`, background:V.card2 }}>
+            <span style={{ fontSize:14, fontWeight:600 }}>
+              📋 টপশিট — {scope==='consolidated'?'সব সেন্টার একসাথে':centers.find(c=>c.slug===slug)?.name_bn} — {meta?.fy||`${fy}-${String(fy+1).slice(-2)}`}, {MONTHS[month-1]} পর্যন্ত
+            </span>
+          </div>
+          <div style={{ overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', minWidth:1400 }}>
+              <thead>
+                <tr>
+                  <th rowSpan={2} style={{...th,textAlign:'left',minWidth:60}}>ক্র.নং</th>
+                  <th rowSpan={2} style={{...th,textAlign:'left',minWidth:160}}>বিবরণ</th>
+                  <th rowSpan={2} style={{...th,minWidth:90,background:V.green3}}>বিভাগীয় লক্ষ্যমাত্রা</th>
+                  <th colSpan={6} style={{...th,background:'#dcfce7'}}>উৎপাদন</th>
+                  <th colSpan={7} style={{...th,background:'#fef3c7'}}>বিতরণ</th>
+                  <th rowSpan={2} style={{...th,minWidth:90,background:'#dbeafe'}}>নীট মজুদ</th>
+                </tr>
+                <tr>
+                  <th style={{...th,background:'#dcfce7'}}>চলতি মাস</th>
+                  <th style={{...th,background:'#dcfce7'}}>পূর্বমাস পর্যন্ত</th>
+                  <th style={{...th,background:'#dcfce7'}}>মোট</th>
+                  <th style={{...th,background:'#dcfce7'}}>ডিএই চালান</th>
+                  <th style={{...th,background:'#dcfce7'}}>পূর্ব বছরের জের</th>
+                  <th style={{...th,background:'#dcfce7',fontWeight:700}}>সর্বমোট</th>
+                  <th style={{...th,background:'#fef3c7'}}>লক্ষ্যমাত্রা</th>
+                  <th style={{...th,background:'#fef3c7'}}>চলতি মাস</th>
+                  <th style={{...th,background:'#fef3c7'}}>পূর্বমাস পর্যন্ত</th>
+                  <th style={{...th,background:'#fef3c7'}}>মোট</th>
+                  <th style={{...th,background:'#fef3c7'}}>ডিএই চালান</th>
+                  <th style={{...th,background:'#fef3c7'}}>মৃত/বিনষ্ট</th>
+                  <th style={{...th,background:'#fef3c7',fontWeight:700}}>সর্বমোট</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((row,i)=>(
+                  <tr key={row.mother_category} onClick={()=>loadCatDetail(row)} style={{cursor:'pointer', background: selectedCat?.mother_category===row.mother_category?V.green3:'transparent'}} onMouseEnter={e=>e.currentTarget.style.background=V.green3} onMouseLeave={e=>e.currentTarget.style.background=selectedCat?.mother_category===row.mother_category?V.green3:'transparent'}>
+                    <td style={{...td,textAlign:'left',color:V.muted}}>{toBn(i+1)}</td>
+                    <td style={{...td,textAlign:'left',fontWeight:600}}>{row.mother_category}</td>
+                    <td style={{...td,color:V.green,fontWeight:600}}>{row.divisional_target?fmtN(row.divisional_target):'—'}</td>
+                    <td style={td}>{fmtN(row.production.current_month)}</td>
+                    <td style={td}>{fmtN(row.production.prev_months_total)}</td>
+                    <td style={{...td,fontWeight:600}}>{fmtN(row.production.subtotal)}</td>
+                    <td style={td}>{fmtN(row.production.dae_challan_received)}</td>
+                    <td style={td}>{fmtN(row.production.prev_year_balance)}</td>
+                    <td style={{...td,fontWeight:700,color:'#059669'}}>{fmtN(row.production.grand_total)}</td>
+                    <td style={{...td,color:V.amber}}>{row.distribution.target?fmtN(row.distribution.target):'—'}</td>
+                    <td style={td}>{fmtN(row.distribution.current_month)}</td>
+                    <td style={td}>{fmtN(row.distribution.prev_months_total)}</td>
+                    <td style={{...td,fontWeight:600}}>{fmtN(row.distribution.subtotal)}</td>
+                    <td style={td}>{fmtN(row.distribution.dae_challan_sent)}</td>
+                    <td style={{...td,color:row.distribution.damaged>0?V.red:'inherit'}}>{fmtN(row.distribution.damaged)}</td>
+                    <td style={{...td,fontWeight:700,color:'#b45309'}}>{fmtN(row.distribution.grand_total)}</td>
+                    <td style={{...td,fontWeight:700,color:'#1d4ed8'}}>{fmtN(row.net_stock)}</td>
+                  </tr>
+                ))}
+                <tr style={{ background:V.green3 }}>
+                  <td colSpan={2} style={{...td,textAlign:'left',fontWeight:700,borderTop:`2px solid ${V.border}`}}>সর্বমোট</td>
+                  <td style={{...td,fontWeight:700,color:V.green,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.target)}</td>
+                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.prodCur)}</td>
+                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.prodPrev)}</td>
+                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.prodSub)}</td>
+                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.prodDae)}</td>
+                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.prodJer)}</td>
+                  <td style={{...td,fontWeight:700,color:'#059669',borderTop:`2px solid ${V.border}`}}>{fmtN(totals.prodTotal)}</td>
+                  <td style={{...td,fontWeight:700,color:V.amber,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distTarget)}</td>
+                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distCur)}</td>
+                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distPrev)}</td>
+                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distSub)}</td>
+                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distDae)}</td>
+                  <td style={{...td,fontWeight:700,color:V.red,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distDamaged)}</td>
+                  <td style={{...td,fontWeight:700,color:'#b45309',borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distTotal)}</td>
+                  <td style={{...td,fontWeight:700,color:'#1d4ed8',borderTop:`2px solid ${V.border}`}}>{fmtN(totals.netStock)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Category Detail */}
+      {selectedCat && (
+        <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, overflow:'hidden', marginTop:16 }}>
+          <div style={{ padding:'12px 16px', borderBottom:`1px solid ${V.border}`, background:V.card2, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <span style={{ fontSize:14, fontWeight:600 }}>🌱 {selectedCat.mother_category} — বিস্তারিত ({scope==='consolidated'?'সব সেন্টার একসাথে':centers.find(c=>c.slug===slug)?.name_bn})</span>
+            <button onClick={()=>{setSelectedCat(null);setCatDetail([]);}} style={{ background:'none', border:'none', fontSize:16, cursor:'pointer', color:V.muted }}>✕</button>
+          </div>
+          {catLoading ? (
+            <div style={{ textAlign:'center', padding:32, color:V.muted }}>লোড হচ্ছে...</div>
+          ) : !catDetail.length ? (
+            <div style={{ textAlign:'center', padding:40, color:V.muted }}>কোনো চারা নেই</div>
+          ) : (
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:1100 }}>
+                <thead>
+                  <tr>
+                    <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:V.green3, textAlign:'left' }}>ক্র.নং</th>
+                    <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:V.green3, textAlign:'left', minWidth:120 }}>সাধারণ নাম</th>
+                    <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:V.green3, textAlign:'left', minWidth:100 }}>জাত</th>
+                    <th colSpan={5} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#dcfce7', textAlign:'center' }}>উৎপাদন</th>
+                    <th colSpan={4} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#fef3c7', textAlign:'center' }}>বিতরণ</th>
+                    <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#dbeafe', textAlign:'right', minWidth:80 }}>নীট মজুদ</th>
+                  </tr>
+                  <tr>
+                    {['চলতি মাস','পূর্বমাস','মোট','পূর্ববছর জের','সর্বমোট'].map(h=>(
+                      <th key={h} style={{ padding:'6px 8px', fontSize:10, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#dcfce7', textAlign:'right' }}>{h}</th>
+                    ))}
+                    {['চলতি মাস','পূর্বমাস','মৃত/বিনষ্ট','সর্বমোট'].map(h=>(
+                      <th key={h} style={{ padding:'6px 8px', fontSize:10, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#fef3c7', textAlign:'right' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {catDetail.map((item,i)=>(
+                    <tr key={i} onMouseEnter={e=>e.currentTarget.style.background=V.green3} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <td style={{ padding:'8px 10px', fontSize:12, color:V.muted }}>{toBn(i+1)}</td>
+                      <td style={{ padding:'8px 10px', fontSize:13, fontWeight:600 }}>{item.common_name}</td>
+                      <td style={{ padding:'8px 10px', fontSize:12, color:V.muted }}>{item.variety||'—'}</td>
+                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{fmtN(item.production.current_month)}</td>
+                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{fmtN(item.production.prev_months_total)}</td>
+                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right', fontWeight:600 }}>{fmtN(item.production.subtotal)}</td>
+                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{fmtN(item.production.prev_year_balance)}</td>
+                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right', fontWeight:700, color:'#059669' }}>{fmtN(item.production.grand_total)}</td>
+                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{fmtN(item.distribution.current_month)}</td>
+                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{fmtN(item.distribution.prev_months_total)}</td>
+                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right', color: item.distribution.damaged>0?V.red:'inherit' }}>{fmtN(item.distribution.damaged)}</td>
+                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right', fontWeight:700, color:'#b45309' }}>{fmtN(item.distribution.grand_total)}</td>
+                      <td style={{ padding:'8px 10px', fontSize:13, fontWeight:700, color:'#1d4ed8', textAlign:'right' }}>{fmtN(item.current_stock)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── MAIN REPORT PAGE ──
 export default function SaReport() {
   const [tab, setTab] = useState('stock');
 
   const TABS = [
+    { id:'topsheet', label:'📋 টপশিট' },
     { id:'stock', label:'📦 স্টক রিপোর্ট' },
     { id:'production', label:'🌱 উৎপাদন রিপোর্ট' },
   ];
@@ -316,6 +574,7 @@ export default function SaReport() {
         ))}
       </div>
 
+      {tab==='topsheet' && <TopsheetReport/>}
       {tab==='stock' && <StockReport/>}
       {tab==='production' && <ProductionReport/>}
     </div>
