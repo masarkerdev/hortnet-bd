@@ -259,3 +259,29 @@ BEFORE INSERT ON sales
 FOR EACH ROW
 WHEN (NEW.invoice_no IS NULL OR NEW.invoice_no = '')
 EXECUTE FUNCTION generate_invoice_no();
+
+
+CREATE TABLE IF NOT EXISTS employees (
+  id SERIAL PRIMARY KEY,
+  name_bn VARCHAR(200) NOT NULL,
+  name_en VARCHAR(200),
+  designation VARCHAR(200),
+  staff_type VARCHAR(20) DEFAULT 'permanent',
+  worker_type VARCHAR(50),
+  posting_type VARCHAR(20) DEFAULT 'regular',
+  charge_type VARCHAR(20),
+  charge_designation VARCHAR(200),
+  employee_id VARCHAR(50),
+  grade VARCHAR(20),
+  prl_date DATE,
+  gender VARCHAR(10),
+  join_date DATE,
+  nid VARCHAR(50),
+  mobile VARCHAR(20),
+  address TEXT,
+  notes TEXT,
+  status VARCHAR(20) DEFAULT 'active',
+  created_by INTEGER,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
