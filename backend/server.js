@@ -16,6 +16,7 @@ app.use("/api/public", require("./routes/public"));
 
 // ★ Developer routes (hidden)
 app.use("/api/dev", require("./routes/developer"));
+app.use("/api/hrm", require("./routes/hrm"));
 
 // ★ Tenant middleware
 app.use(tenantMiddleware);
