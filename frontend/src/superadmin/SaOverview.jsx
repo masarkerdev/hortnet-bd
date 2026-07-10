@@ -168,7 +168,7 @@ export default function SaOverview() {
           <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:14, padding:'18px 20px', borderTop:`3px solid ${V.green}` }}>
             <div style={{ fontSize:13, color:V.muted, marginBottom:6 }}>মোট লক্ষ্যমাত্রা (সব সেন্টার)</div>
             <div style={{ fontSize:26, fontWeight:700, color:V.green }}>{toBn(targetSummary.target)}<span style={{ fontSize:14, fontWeight:500 }}> টি চারা/কলম</span></div>
-            <div style={{ fontSize:12, color:V.muted, marginTop:4 }}>({targetSummary.fy} অর্থবছরে)</div>
+            <div style={{ fontSize:12, color:V.muted, marginTop:4 }}>({toBn(targetSummary.fy.split('-')[0])}-{toBn(targetSummary.fy.split('-')[1])} অর্থবছরে)</div>
           </div>
           <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:14, padding:'18px 20px', borderTop:`3px solid ${V.amber}` }}>
             <div style={{ fontSize:13, color:V.muted, marginBottom:6 }}>অর্জিত</div>

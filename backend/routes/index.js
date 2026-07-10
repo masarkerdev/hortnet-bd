@@ -101,17 +101,25 @@ router.get("/center-info", authenticate, (req, res) => {
 router.get("/dashboard/stats", authenticate, fyMiddleware, async (req, res) => {
   try {
     const { fyStart, fyEnd } = req;
-    const [sales, todaySales, prod, stock, damages, lowStock, recentSales, otherIncome] =
-      await Promise.all([
-        db.query(
-          `SELECT COUNT(*) AS total_invoices, COALESCE(SUM(total_amount),0) AS total_revenue, COALESCE(SUM(CASE WHEN payment_status='due' THEN total_amount ELSE 0 END),0) AS due_amount FROM sales WHERE sale_date BETWEEN $1 AND $2`,
-          [fyStart, fyEnd],
-        ),
-        db.query(
-          `SELECT COALESCE(SUM(total_amount),0) AS today_revenue, COUNT(*) AS today_invoices FROM sales WHERE sale_date=CURRENT_DATE`,
-        ),
-        db.query(
-          `SELECT COUNT(*) AS total_batches,
+    const [
+      sales,
+      todaySales,
+      prod,
+      stock,
+      damages,
+      lowStock,
+      recentSales,
+      otherIncome,
+    ] = await Promise.all([
+      db.query(
+        `SELECT COUNT(*) AS total_invoices, COALESCE(SUM(total_amount),0) AS total_revenue, COALESCE(SUM(CASE WHEN payment_status='due' THEN total_amount ELSE 0 END),0) AS due_amount FROM sales WHERE sale_date BETWEEN $1 AND $2`,
+        [fyStart, fyEnd],
+      ),
+      db.query(
+        `SELECT COALESCE(SUM(total_amount),0) AS today_revenue, COUNT(*) AS today_invoices FROM sales WHERE sale_date=CURRENT_DATE`,
+      ),
+      db.query(
+        `SELECT COUNT(*) AS total_batches,
                       COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS total_produced,
                       COALESCE(SUM(success_quantity),0) AS total_success,
                       COALESCE(SUM(failed_quantity),0) AS total_failed,
@@ -123,29 +131,29 @@ router.get("/dashboard/stats", authenticate, fyMiddleware, async (req, res) => {
                           OR (sowing_date IS NULL AND propagation_date IS NOT NULL AND propagation_date BETWEEN $1 AND $2)
                           OR (sowing_date IS NULL AND propagation_date IS NULL AND DATE(created_at) BETWEEN $1 AND $2)
                       )`,
-          [fyStart, fyEnd],
-        ),
-        db.query(
-          `SELECT COUNT(*) AS total_species, COALESCE(SUM(current_stock),0) AS total_stock, COALESCE(SUM(current_stock*unit_price),0) AS stock_value FROM seedlings WHERE is_active=TRUE`,
-        ),
-        db.query(
-          `SELECT COALESCE(SUM(quantity),0) AS total_damaged FROM damages WHERE damage_date BETWEEN $1 AND $2`,
-          [fyStart, fyEnd],
-        ),
-        db.query(
-          `SELECT s.name_bn, s.seedling_code, s.current_stock, s.min_stock_alert FROM seedlings s WHERE s.is_active=TRUE AND s.current_stock<=s.min_stock_alert ORDER BY s.current_stock ASC LIMIT 5`,
-        ),
-        db.query(
-          `SELECT s.invoice_no, s.customer_name, s.total_amount, s.payment_status, s.sale_date FROM sales s WHERE s.sale_date BETWEEN $1 AND $2 ORDER BY s.created_at DESC LIMIT 5`,
-          [fyStart, fyEnd],
-        ),
-        db.query(
-          `SELECT COALESCE(SUM(CASE WHEN income_date BETWEEN $1 AND $2 THEN amount ELSE 0 END),0) AS total,
+        [fyStart, fyEnd],
+      ),
+      db.query(
+        `SELECT COUNT(*) AS total_species, COALESCE(SUM(current_stock),0) AS total_stock, COALESCE(SUM(current_stock*unit_price),0) AS stock_value FROM seedlings WHERE is_active=TRUE`,
+      ),
+      db.query(
+        `SELECT COALESCE(SUM(quantity),0) AS total_damaged FROM damages WHERE damage_date BETWEEN $1 AND $2`,
+        [fyStart, fyEnd],
+      ),
+      db.query(
+        `SELECT s.name_bn, s.seedling_code, s.current_stock, s.min_stock_alert FROM seedlings s WHERE s.is_active=TRUE AND s.current_stock<=s.min_stock_alert ORDER BY s.current_stock ASC LIMIT 5`,
+      ),
+      db.query(
+        `SELECT s.invoice_no, s.customer_name, s.total_amount, s.payment_status, s.sale_date FROM sales s WHERE s.sale_date BETWEEN $1 AND $2 ORDER BY s.created_at DESC LIMIT 5`,
+        [fyStart, fyEnd],
+      ),
+      db.query(
+        `SELECT COALESCE(SUM(CASE WHEN income_date BETWEEN $1 AND $2 THEN amount ELSE 0 END),0) AS total,
                   COALESCE(SUM(CASE WHEN income_date=CURRENT_DATE THEN amount ELSE 0 END),0) AS today
              FROM other_income`,
-          [fyStart, fyEnd],
-        ),
-      ]);
+        [fyStart, fyEnd],
+      ),
+    ]);
     res.json({
       success: true,
       data: {
@@ -692,10 +700,10 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
         ],
       );
       const newStock = curStock - it.quantity;
-      await client.query(
-        "UPDATE seedlings SET current_stock=$1 WHERE id=$2",
-        [newStock, it.seedling_id],
-      );
+      await client.query("UPDATE seedlings SET current_stock=$1 WHERE id=$2", [
+        newStock,
+        it.seedling_id,
+      ]);
       await client.query(
         `INSERT INTO stock_transactions
          (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
@@ -1235,6 +1243,10 @@ router.get(
         `SELECT target_quantity FROM targets WHERE target_type='production' AND target_year=$1 AND target_month=0`,
         [fy],
       );
+      const categoryAnnualTgt = await db.query(
+        `SELECT COALESCE(SUM(target_quantity),0) AS total FROM targets WHERE target_type LIKE 'category_%' AND target_year=$1 AND target_month=0`,
+        [fy],
+      );
       const saleAnnualTgt = await db.query(
         `SELECT target_amount FROM targets WHERE target_type='sales' AND target_year=$1 AND target_month=0`,
         [fy],
@@ -1247,9 +1259,14 @@ router.get(
         `SELECT COALESCE(SUM(target_amount),0) AS total FROM targets WHERE target_type='sales' AND target_month>0 AND ((target_year=$1 AND target_month=ANY($2)) OR (target_year=$3 AND target_month=ANY($4)))`,
         [fy, [7, 8, 9, 10, 11, 12], fy + 1, [1, 2, 3, 4, 5, 6]],
       );
-      const prodTarget = prodAnnualTgt.rows.length
-        ? parseFloat(prodAnnualTgt.rows[0].target_quantity)
-        : parseFloat(prodTargets.rows[0].total) || 0;
+      const categoryTargetSum =
+        parseFloat(categoryAnnualTgt.rows[0]?.total) || 0;
+      const prodTarget =
+        categoryTargetSum > 0
+          ? categoryTargetSum
+          : prodAnnualTgt.rows.length
+            ? parseFloat(prodAnnualTgt.rows[0].target_quantity)
+            : parseFloat(prodTargets.rows[0].total) || 0;
       const saleTarget = saleAnnualTgt.rows.length
         ? parseFloat(saleAnnualTgt.rows[0].target_amount)
         : parseFloat(saleTargets.rows[0].total) || 0;
@@ -1331,7 +1348,10 @@ router.put("/auth/update-profile", authenticate, async (req, res) => {
     const user = userResult.rows[0];
     const bcrypt = require("bcryptjs");
     if (new_password) {
-      const isMatch = await bcrypt.compare(current_password || "", user.password);
+      const isMatch = await bcrypt.compare(
+        current_password || "",
+        user.password,
+      );
       if (!isMatch)
         return res
           .status(400)
@@ -1621,9 +1641,20 @@ router.get("/other-income", authenticate, fyMiddleware, async (req, res) => {
 });
 router.post("/other-income", authenticate, async (req, res) => {
   const {
-    income_type, category, amount, income_date, description,
-    quantity, unit_price, produce_price_id, room_category_id, check_in, check_out,
-    guest_name, guest_mobile, guest_occupation,
+    income_type,
+    category,
+    amount,
+    income_date,
+    description,
+    quantity,
+    unit_price,
+    produce_price_id,
+    room_category_id,
+    check_in,
+    check_out,
+    guest_name,
+    guest_mobile,
+    guest_occupation,
   } = req.body;
   try {
     const result = await db.query(
@@ -1665,9 +1696,20 @@ router.put(
   adminOrManager,
   async (req, res) => {
     const {
-      income_type, category, amount, income_date, description,
-      quantity, unit_price, produce_price_id, room_category_id, check_in, check_out,
-      guest_name, guest_mobile, guest_occupation,
+      income_type,
+      category,
+      amount,
+      income_date,
+      description,
+      quantity,
+      unit_price,
+      produce_price_id,
+      room_category_id,
+      check_in,
+      check_out,
+      guest_name,
+      guest_mobile,
+      guest_occupation,
     } = req.body;
     try {
       await db.query(
@@ -1705,14 +1747,26 @@ router.delete(
   adminOrManager,
   async (req, res) => {
     try {
-      const found = await db.query("SELECT * FROM other_income WHERE id=$1", [req.params.id]);
+      const found = await db.query("SELECT * FROM other_income WHERE id=$1", [
+        req.params.id,
+      ]);
       if (!found.rows.length)
-        return res.status(404).json({ success: false, message: "পাওয়া যায়নি।" });
+        return res
+          .status(404)
+          .json({ success: false, message: "পাওয়া যায়নি।" });
       const rec = found.rows[0];
-      const label = rec.category || rec.guest_name || rec.income_type || ("আয় #" + rec.id);
+      const label =
+        rec.category || rec.guest_name || rec.income_type || "আয় #" + rec.id;
       await db.query(
         "INSERT INTO recycle_bin (table_name,record_id,record_data,module,item_name,deleted_by) VALUES ($1,$2,$3,$4,$5,$6)",
-        ["other_income", req.params.id, JSON.stringify(rec), "অন্যান্য আয়", label, req.user.id],
+        [
+          "other_income",
+          req.params.id,
+          JSON.stringify(rec),
+          "অন্যান্য আয়",
+          label,
+          req.user.id,
+        ],
       );
       await db.query("DELETE FROM other_income WHERE id=$1", [req.params.id]);
       res.json({ success: true, message: "Recycle Bin-এ পাঠানো হয়েছে।" });
@@ -1727,34 +1781,49 @@ router.delete(
 // ============================================================
 router.get("/produce-prices", authenticate, async (req, res) => {
   try {
-    const r = await db.query("SELECT * FROM produce_prices WHERE is_active=true ORDER BY name");
+    const r = await db.query(
+      "SELECT * FROM produce_prices WHERE is_active=true ORDER BY name",
+    );
     res.json({ success: true, data: r.rows });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 router.post("/produce-prices", authenticate, async (req, res) => {
   const { name, unit, price } = req.body;
-  if (!name) return res.status(400).json({ success: false, message: "নাম দিন" });
+  if (!name)
+    return res.status(400).json({ success: false, message: "নাম দিন" });
   try {
     const r = await db.query(
       "INSERT INTO produce_prices (name,unit,price) VALUES ($1,$2,$3) RETURNING *",
       [name, unit || "kg", price || 0],
     );
     res.json({ success: true, data: r.rows[0], message: "সংরক্ষিত হয়েছে।" });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 router.put("/produce-prices/:id", authenticate, async (req, res) => {
   const { name, unit, price } = req.body;
   try {
-    await db.query("UPDATE produce_prices SET name=$1,unit=$2,price=$3 WHERE id=$4",
-      [name, unit || "kg", price || 0, req.params.id]);
+    await db.query(
+      "UPDATE produce_prices SET name=$1,unit=$2,price=$3 WHERE id=$4",
+      [name, unit || "kg", price || 0, req.params.id],
+    );
     res.json({ success: true, message: "আপডেট হয়েছে।" });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 router.delete("/produce-prices/:id", authenticate, async (req, res) => {
   try {
-    await db.query("UPDATE produce_prices SET is_active=false WHERE id=$1", [req.params.id]);
+    await db.query("UPDATE produce_prices SET is_active=false WHERE id=$1", [
+      req.params.id,
+    ]);
     res.json({ success: true, message: "মুছে ফেলা হয়েছে।" });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ============================================================
@@ -1762,34 +1831,49 @@ router.delete("/produce-prices/:id", authenticate, async (req, res) => {
 // ============================================================
 router.get("/room-categories", authenticate, async (req, res) => {
   try {
-    const r = await db.query("SELECT * FROM room_categories WHERE is_active=true ORDER BY name");
+    const r = await db.query(
+      "SELECT * FROM room_categories WHERE is_active=true ORDER BY name",
+    );
     res.json({ success: true, data: r.rows });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 router.post("/room-categories", authenticate, async (req, res) => {
   const { name, daily_rate } = req.body;
-  if (!name) return res.status(400).json({ success: false, message: "নাম দিন" });
+  if (!name)
+    return res.status(400).json({ success: false, message: "নাম দিন" });
   try {
     const r = await db.query(
       "INSERT INTO room_categories (name,daily_rate) VALUES ($1,$2) RETURNING *",
       [name, daily_rate || 0],
     );
     res.json({ success: true, data: r.rows[0], message: "সংরক্ষিত হয়েছে।" });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 router.put("/room-categories/:id", authenticate, async (req, res) => {
   const { name, daily_rate } = req.body;
   try {
-    await db.query("UPDATE room_categories SET name=$1,daily_rate=$2 WHERE id=$3",
-      [name, daily_rate || 0, req.params.id]);
+    await db.query(
+      "UPDATE room_categories SET name=$1,daily_rate=$2 WHERE id=$3",
+      [name, daily_rate || 0, req.params.id],
+    );
     res.json({ success: true, message: "আপডেট হয়েছে।" });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 router.delete("/room-categories/:id", authenticate, async (req, res) => {
   try {
-    await db.query("UPDATE room_categories SET is_active=false WHERE id=$1", [req.params.id]);
+    await db.query("UPDATE room_categories SET is_active=false WHERE id=$1", [
+      req.params.id,
+    ]);
     res.json({ success: true, message: "মুছে ফেলা হয়েছে।" });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ============================================================
@@ -1818,9 +1902,16 @@ router.post("/auth/send-otp", async (req, res) => {
     // লোকাল মোড: SMTP (GMAIL) সেট করা না থাকলে ইমেইল ছাড়াই fixed OTP = 123456
     if (!process.env.GMAIL_USER) {
       otp = "123456";
-      otpStore[email] = { otp, expires: Date.now() + 5 * 60 * 1000, userId: user.id };
+      otpStore[email] = {
+        otp,
+        expires: Date.now() + 5 * 60 * 1000,
+        userId: user.id,
+      };
       console.log("[LOCAL] OTP for " + email + " = 123456");
-      return res.json({ success: true, message: "OTP: 123456 (লোকাল মোড — ইমেইল ছাড়া)" });
+      return res.json({
+        success: true,
+        message: "OTP: 123456 (লোকাল মোড — ইমেইল ছাড়া)",
+      });
     }
     otpStore[email] = {
       otp,
@@ -1892,15 +1983,23 @@ router.post("/auth/verify-otp", async (req, res) => {
 // (১) লগইন করা ব্যবহারকারীর ইমেইলে পাসওয়ার্ড-পরিবর্তন OTP পাঠানো
 router.post("/auth/password-otp", authenticate, async (req, res) => {
   try {
-    const r = await db.query("SELECT email FROM users WHERE id=$1", [req.user.id]);
+    const r = await db.query("SELECT email FROM users WHERE id=$1", [
+      req.user.id,
+    ]);
     if (!r.rows.length)
-      return res.status(404).json({ success: false, message: "ব্যবহারকারী পাওয়া যায়নি।" });
+      return res
+        .status(404)
+        .json({ success: false, message: "ব্যবহারকারী পাওয়া যায়নি।" });
     const email = r.rows[0].email;
     let otp = Math.floor(100000 + Math.random() * 900000).toString();
     if (!process.env.GMAIL_USER) {
       otp = "123456";
       otpStore["pc:" + email] = { otp, expires: Date.now() + 5 * 60 * 1000 };
-      return res.json({ success: true, local: true, message: "OTP: 123456 (লোকাল মোড — ইমেইল ছাড়া)" });
+      return res.json({
+        success: true,
+        local: true,
+        message: "OTP: 123456 (লোকাল মোড — ইমেইল ছাড়া)",
+      });
     }
     otpStore["pc:" + email] = { otp, expires: Date.now() + 5 * 60 * 1000 };
     const nodemailer = require("nodemailer");
@@ -1916,54 +2015,78 @@ router.post("/auth/password-otp", authenticate, async (req, res) => {
     });
     res.json({ success: true, message: "OTP পাঠানো হয়েছে।" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "OTP পাঠাতে সমস্যা: " + err.message });
+    res
+      .status(500)
+      .json({ success: false, message: "OTP পাঠাতে সমস্যা: " + err.message });
   }
 });
 
 // (২) OTP যাচাই করে পাসওয়ার্ড পরিবর্তন
 //     - admin (সেন্টার প্রধান): সরাসরি কার্যকর
 //     - manager/production_officer/sales_operator/viewer: admin-অনুমোদনের জন্য pending
-router.post("/auth/change-password-verified", authenticate, async (req, res) => {
-  const { otp, new_password } = req.body;
-  if (!new_password || new_password.length < 6)
-    return res.status(400).json({ success: false, message: "কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড দিন।" });
-  try {
-    const ur = await db.query("SELECT email, role FROM users WHERE id=$1", [req.user.id]);
-    if (!ur.rows.length)
-      return res.status(404).json({ success: false, message: "ব্যবহারকারী পাওয়া যায়নি।" });
-    const { email, role } = ur.rows[0];
-    const stored = otpStore["pc:" + email];
-    if (!stored)
-      return res.status(401).json({ success: false, message: "OTP পাওয়া যায়নি। আবার চেষ্টা করুন।" });
-    if (Date.now() > stored.expires) {
+router.post(
+  "/auth/change-password-verified",
+  authenticate,
+  async (req, res) => {
+    const { otp, new_password } = req.body;
+    if (!new_password || new_password.length < 6)
+      return res
+        .status(400)
+        .json({ success: false, message: "কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড দিন।" });
+    try {
+      const ur = await db.query("SELECT email, role FROM users WHERE id=$1", [
+        req.user.id,
+      ]);
+      if (!ur.rows.length)
+        return res
+          .status(404)
+          .json({ success: false, message: "ব্যবহারকারী পাওয়া যায়নি।" });
+      const { email, role } = ur.rows[0];
+      const stored = otpStore["pc:" + email];
+      if (!stored)
+        return res
+          .status(401)
+          .json({
+            success: false,
+            message: "OTP পাওয়া যায়নি। আবার চেষ্টা করুন।",
+          });
+      if (Date.now() > stored.expires) {
+        delete otpStore["pc:" + email];
+        return res
+          .status(401)
+          .json({ success: false, message: "OTP মেয়াদ শেষ।" });
+      }
+      if (stored.otp !== otp)
+        return res.status(401).json({ success: false, message: "OTP ভুল।" });
       delete otpStore["pc:" + email];
-      return res.status(401).json({ success: false, message: "OTP মেয়াদ শেষ।" });
-    }
-    if (stored.otp !== otp)
-      return res.status(401).json({ success: false, message: "OTP ভুল।" });
-    delete otpStore["pc:" + email];
-    const bcrypt = require("bcryptjs");
-    const hashed = await bcrypt.hash(new_password, 10);
-    if (role === "admin") {
+      const bcrypt = require("bcryptjs");
+      const hashed = await bcrypt.hash(new_password, 10);
+      if (role === "admin") {
+        await db.query(
+          "UPDATE users SET password=$1, pending_password=NULL, password_request_status=NULL WHERE id=$2",
+          [hashed, req.user.id],
+        );
+        return res.json({
+          success: true,
+          applied: true,
+          message: "পাসওয়ার্ড পরিবর্তন হয়েছে।",
+        });
+      }
       await db.query(
-        "UPDATE users SET password=$1, pending_password=NULL, password_request_status=NULL WHERE id=$2",
+        "UPDATE users SET pending_password=$1, password_request_status='pending' WHERE id=$2",
         [hashed, req.user.id],
       );
-      return res.json({ success: true, applied: true, message: "পাসওয়ার্ড পরিবর্তন হয়েছে।" });
+      return res.json({
+        success: true,
+        applied: false,
+        message:
+          "ইমেইল যাচাই সম্পন্ন। Admin-এর অনুমোদনের পর পাসওয়ার্ড কার্যকর হবে।",
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
     }
-    await db.query(
-      "UPDATE users SET pending_password=$1, password_request_status='pending' WHERE id=$2",
-      [hashed, req.user.id],
-    );
-    return res.json({
-      success: true,
-      applied: false,
-      message: "ইমেইল যাচাই সম্পন্ন। Admin-এর অনুমোদনের পর পাসওয়ার্ড কার্যকর হবে।",
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+  },
+);
 
 // Opening Balance Stats
 router.get("/stock/opening-balance/stats", authenticate, async (req, res) => {
@@ -2382,18 +2505,23 @@ router.post("/sanctioned-posts", authenticate, adminOnly, async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-router.put("/sanctioned-posts/:id", authenticate, adminOnly, async (req, res) => {
-  const { designation, sanctioned_count, sort_order } = req.body;
-  try {
-    await db.query(
-      "UPDATE sanctioned_posts SET designation=$1, sanctioned_count=$2, sort_order=$3 WHERE id=$4",
-      [designation, sanctioned_count || 1, sort_order || 0, req.params.id],
-    );
-    res.json({ success: true, message: "আপডেট হয়েছে।" });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+router.put(
+  "/sanctioned-posts/:id",
+  authenticate,
+  adminOnly,
+  async (req, res) => {
+    const { designation, sanctioned_count, sort_order } = req.body;
+    try {
+      await db.query(
+        "UPDATE sanctioned_posts SET designation=$1, sanctioned_count=$2, sort_order=$3 WHERE id=$4",
+        [designation, sanctioned_count || 1, sort_order || 0, req.params.id],
+      );
+      res.json({ success: true, message: "আপডেট হয়েছে।" });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  },
+);
 router.delete(
   "/sanctioned-posts/:id",
   authenticate,
