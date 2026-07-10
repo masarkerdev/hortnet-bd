@@ -104,10 +104,6 @@ export default function Dashboard() {
   }, [fy]);
   useEffect(() => { loadFy(); }, [loadFy]);
 
-  const [targetSummary, setTargetSummary] = useState(null);
-  useEffect(() => {
-    api.get('/reports/target-summary?fy=' + fy).then((r) => { if (r.data?.success) setTargetSummary(r.data); }).catch(() => {});
-  }, [fy]);
 
   if (err) return <div className="rounded-lg border px-4 py-3 text-sm" style={{ borderColor:'var(--r400)', background:'var(--r50)', color:'var(--r600)' }}>{err}</div>;
   if (!d) return <div className="lt">লোড হচ্ছে…</div>;
@@ -130,21 +126,6 @@ export default function Dashboard() {
     <div className="space-y-4 dash-hover">
       {/* নোটিশ — সবচেয়ে কম expire সময়ের, horizontal scroll + countdown */}
       <NoticeTickerWidget notices={notices}/>
-      {/* ক্যাটাগরি লক্ষ্যমাত্রা vs অর্জিত */}
-      {targetSummary && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border p-4" style={{ borderColor:'var(--g200)', background:'#fff', borderTop:'3px solid var(--g600)' }}>
-            <div className="text-xs" style={{ color:'var(--muted)' }}>মোট লক্ষ্যমাত্রা</div>
-            <div className="text-2xl font-bold" style={{ color:'var(--g600)' }}>{toBn(targetSummary.target)} <span className="text-sm font-medium">টি চারা/কলম</span></div>
-            <div className="text-xs mt-1" style={{ color:'var(--muted)' }}>({targetSummary.fy} অর্থবছরে)</div>
-          </div>
-          <div className="rounded-xl border p-4" style={{ borderColor:'var(--a200)', background:'#fff', borderTop:'3px solid var(--a400)' }}>
-            <div className="text-xs" style={{ color:'var(--muted)' }}>অর্জিত</div>
-            <div className="text-2xl font-bold" style={{ color:'var(--a400)' }}>{toBn(targetSummary.achieved)} <span className="text-sm font-medium">টি চারা/কলম</span></div>
-            <div className="text-xs mt-1" style={{ color:'var(--muted)' }}>এখন অব্দি</div>
-          </div>
-        </div>
-      )}
       {/* ৫ স্ট্যাট কার্ড */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {STAT.map((c) => (
@@ -294,18 +275,8 @@ function FyAchievement({ data }) {
         {/* ডান: চলতি মাস */}
         <div className="text-[12px]">
           <div className="mb-2 text-[10px] font-semibold" style={{ color:'var(--tm)' }}>চলতি মাস — {BN_MONTHS_FULL[cm.month] || ''}</div>
-          {cm.target > 0 ? (
-            <div>
-              <div className="mb-1 flex justify-between"><span style={{ color:'var(--tm)' }}>নির্ধারিত:</span><strong>{toBn(cm.target)}টি</strong></div>
-              <div className="mb-1.5 flex justify-between"><span style={{ color:'var(--tm)' }}>অর্জন:</span><strong style={{ color: cm.actual >= cm.target ? 'var(--g600)' : 'var(--c400)' }}>{toBn(cm.actual || 0)}টি</strong></div>
-              <div style={{ height:8, background:'#e6e2d8', borderRadius:4, overflow:'hidden' }}>
-                <div style={{ height:'100%', width: mPct + '%', background: mPct >= 100 ? 'var(--g600)' : 'var(--g400)', borderRadius:4 }} />
-              </div>
-              <div className="mt-1 text-right text-[11px]" style={{ color:'var(--tm)' }}>{toBn(mPct)}%</div>
-            </div>
-          ) : (
-            <div className="text-[11px]" style={{ color:'var(--tm)' }}>এই মাসের লক্ষ্যমাত্রা নির্ধারণ করা হয়নি</div>
-          )}
+          <div style={{ color:'var(--g600)', fontSize:22, fontWeight:700 }}>{toBn(cm.actual || 0)}<span style={{ fontSize:13, fontWeight:500 }}>টি</span></div>
+          <div className="mt-0.5 text-[11px]" style={{ color:'var(--tm)' }}>এই মাসে উৎপাদিত চারা/কলম</div>
         </div>
       </div>
     </div>

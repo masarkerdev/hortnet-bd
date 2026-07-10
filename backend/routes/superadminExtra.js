@@ -473,7 +473,7 @@ router.get("/report/category-detail", saAuth, async (req, res) => {
         const db = getPool(tenant.db_url, slug);
 
         const seedlings = await db.query(
-          `SELECT s.id AS seedling_id, c.name_bn AS common_name, s.variety, s.current_stock
+          `SELECT s.id AS seedling_id, s.name_bn AS common_name, s.variety, s.current_stock
            FROM seedlings s JOIN categories c ON s.category_id = c.id
            WHERE c.name_bn = $1 AND s.is_active = true`,
           [mother_category]
