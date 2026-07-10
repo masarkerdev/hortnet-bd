@@ -198,13 +198,13 @@ router.get("/stats-all", saAuth, async (req, res) => {
             ),
             queryTenant(
               tenant.db_url,
-              `SELECT COALESCE(target_quantity,0) AS qty FROM targets WHERE target_type='production' AND target_month=0 AND target_year=$1 LIMIT 1`,
+              `SELECT COALESCE(SUM(target_quantity),0) AS qty FROM targets WHERE target_type LIKE 'category_%' AND target_month=0 AND target_year=$1`,
               [fyStart],
             ),
             queryTenant(
               tenant.db_url,
-              `SELECT COALESCE(target_quantity,0) AS qty FROM targets WHERE target_type='production' AND target_month=$1 AND target_year=$2 LIMIT 1`,
-              [curMonth, curYear],
+              `SELECT COALESCE(ROUND(SUM(target_quantity)/12.0),0) AS qty FROM targets WHERE target_type LIKE 'category_%' AND target_month=0 AND target_year=$1`,
+              [fyStart],
             ),
             queryTenant(
               tenant.db_url,
