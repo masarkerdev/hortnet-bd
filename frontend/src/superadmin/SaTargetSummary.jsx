@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import saApi from './saApi';
 import { useSa } from './SaAuth';
 import { toBn } from '../lib/format';
+import CategoryTargetsWidget from './CategoryTargetsWidget';
 
 const FONT = "'Noto Sans Bengali','Segoe UI',sans-serif";
 const C = { bg:'#f8f6f0',card:'#fff',card2:'#f8f6f0',border:'#e2ddd5',text:'#1a1a18',muted:'#888780',green:'#16a34a',green3:'#f0fdf4',green4:'#dcfce7',red:'#dc2626',amber:'#d97706',purple:'#7c3aed',blue:'#2563eb',teal:'#0d9488',accent:'#3b6d11' };
@@ -21,10 +22,6 @@ export default function SaTargetSummary() {
   const [rows, setRows] = useState([]);
   const [centers, setCenters] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ slug:'', type:'production', period:'annual', fy:'', month:'7', qty:'', amt:'', notes:'' });
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState('');
   const [catFilter, setCatFilter] = useState('');
 
   const curFY = new Date().getMonth()>=6 ? new Date().getFullYear() : new Date().getFullYear()-1;
@@ -44,36 +41,10 @@ export default function SaTargetSummary() {
   const overallPct = totalMonthlyTarget>0 ? Math.round((totalMonthlyAchieved/totalMonthlyTarget)*100) : 0;
   const centersOnTrack = filteredOk.filter(c=>c.monthly_prod_target>0 && c.monthly_prod_achieved/c.monthly_prod_target>=0.7).length;
 
-  function openModal() {
-    setForm({ slug: centers[0]?.slug||'', type:'production', period:'annual', fy:String(curFY), month:'7', qty:'', amt:'', notes:'' });
-    setMsg(''); setModal(true);
-  }
-
-  async function save() {
-    if (!form.slug) { setMsg('সেন্টার বেছে নিন।'); return; }
-    if (!form.qty && !form.amt) { setMsg('পরিমাণ বা বিক্রয়ের লক্ষ্য দিন।'); return; }
-    setSaving(true); setMsg('');
-    const month = form.period==='annual' ? 0 : parseInt(form.month);
-    const year = form.period==='annual' ? parseInt(form.fy) : (month>=7 ? parseInt(form.fy) : parseInt(form.fy)+1);
-    try {
-      const r = await saApi.post(`/center/${form.slug}/set-target`, { target_type:form.type, target_month:month, target_year:year, target_quantity:+form.qty||0, target_amount:+form.amt||0, notes:form.notes });
-      if (r.data?.success) { setModal(false); const sr=await saApi.get('/stats-all'); setRows(sr.data?.data||[]); }
-      else setMsg(r.data?.message||'সমস্যা');
-    } catch (e) { setMsg(e?.response?.data?.message||'সমস্যা'); } finally { setSaving(false); }
-  }
-
-  const inp = { width:'100%',padding:'10px 14px',background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:9,color:C.text,fontSize:14,outline:'none',fontFamily:FONT,boxSizing:'border-box' };
-
   if (loading) return <div style={{ padding:'40px 0',textAlign:'center',color:C.muted,fontFamily:FONT }}>লোড হচ্ছে…</div>;
 
   return (
     <div style={{ fontFamily:FONT }}>
-      {isDir && (
-        <div style={{ display:'flex',justifyContent:'flex-end',marginBottom:16 }}>
-          <button onClick={openModal} style={{ padding:'9px 18px',background:C.accent,color:'#fff',border:`1px solid ${C.accent}`,borderRadius:8,cursor:'pointer',fontSize:14,fontFamily:FONT,fontWeight:600 }}>🎯 লক্ষ্যমাত্রা নির্ধারণ</button>
-        </div>
-      )}
-
       {/* KPI */}
       <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:20 }}>
         {[
@@ -149,60 +120,10 @@ export default function SaTargetSummary() {
         </div>
       </div>
 
-      {/* লক্ষ্যমাত্রা নির্ধারণ Modal */}
-      {modal && (
-        <div style={{ position:'fixed',inset:0,zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(26,46,26,0.45)' }}>
-          <div style={{ background:C.card,borderRadius:16,padding:28,width:'100%',maxWidth:500,boxShadow:'0 20px 60px rgba(0,0,0,0.2)',maxHeight:'90vh',overflowY:'auto' }}>
-            <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20 }}>
-              <div style={{ fontSize:17,fontWeight:700,color:C.text }}>🎯 লক্ষ্যমাত্রা নির্ধারণ করুন</div>
-              <button onClick={()=>setModal(false)} style={{ background:'none',border:'none',cursor:'pointer',fontSize:20,color:C.muted }}>×</button>
-            </div>
-            <div style={{ marginBottom:14 }}><label style={{ display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500 }}>সেন্টার বেছে নিন</label>
-              <select value={form.slug} onChange={e=>setForm({...form,slug:e.target.value})} style={inp}>
-                {centers.map(c=><option key={c.slug} value={c.slug}>{c.name_bn}</option>)}
-              </select>
-            </div>
-            <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14 }}>
-              <div><label style={{ display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500 }}>লক্ষ্যমাত্রার ধরন</label>
-                <select value={form.type} onChange={e=>setForm({...form,type:e.target.value})} style={inp}>
-                  <option value="production">🌱 উৎপাদন</option>
-                  <option value="sales">💰 বিক্রয়</option>
-                </select>
-              </div>
-              <div><label style={{ display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500 }}>সময়কাল</label>
-                <select value={form.period} onChange={e=>setForm({...form,period:e.target.value})} style={inp}>
-                  <option value="annual">বার্ষিক (অর্থবছর)</option>
-                  <option value="monthly">মাসিক</option>
-                </select>
-              </div>
-            </div>
-            <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14 }}>
-              <div><label style={{ display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500 }}>অর্থবছর</label>
-                <select value={form.fy} onChange={e=>setForm({...form,fy:e.target.value})} style={inp}>
-                  {[curFY,curFY-1,curFY-2].map(y=><option key={y} value={y}>FY {toBn(y)}-{toBn(y+1)}</option>)}
-                </select>
-              </div>
-              {form.period==='monthly' && (
-                <div><label style={{ display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500 }}>মাস</label>
-                  <select value={form.month} onChange={e=>setForm({...form,month:e.target.value})} style={inp}>
-                    {MONTHS.slice(1).map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}
-                  </select>
-                </div>
-              )}
-            </div>
-            <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14 }}>
-              <div><label style={{ display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500 }}>উৎপাদন লক্ষ্য (টি)</label><input type="text" inputMode="decimal" value={form.qty} onChange={e=>setForm({...form,qty:e.target.value})} placeholder="যেমন: ৫০০০" style={inp}/></div>
-              <div><label style={{ display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500 }}>বিক্রয় লক্ষ্য (৳)</label><input type="text" inputMode="decimal" value={form.amt} onChange={e=>setForm({...form,amt:e.target.value})} placeholder="যেমন: ১০০০০০" style={inp}/></div>
-            </div>
-            <div style={{ marginBottom:14 }}><label style={{ display:'block',fontSize:13,color:C.muted,marginBottom:6,fontWeight:500 }}>মন্তব্য (ঐচ্ছিক)</label><input type="text" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="কোনো বিশেষ নির্দেশনা থাকলে লিখুন" style={inp}/></div>
-            {msg && <div style={{ color:C.red,fontSize:13,marginBottom:8 }}>{msg}</div>}
-            <div style={{ display:'flex',justifyContent:'flex-end',gap:8 }}>
-              <button onClick={()=>setModal(false)} style={{ padding:'10px 20px',borderRadius:8,border:`1px solid ${C.border}`,background:C.bg,cursor:'pointer',fontSize:14,fontFamily:FONT }}>বাতিল</button>
-              <button onClick={save} disabled={saving} style={{ padding:'10px 20px',borderRadius:8,background:C.accent,color:'#fff',border:'none',cursor:'pointer',fontSize:14,fontFamily:FONT,fontWeight:600 }}>{saving?'সংরক্ষণ হচ্ছে…':'✓ সংরক্ষণ করুন'}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <div style={{ marginTop:20 }}>
+        <CategoryTargetsWidget />
+      </div>
+
     </div>
   );
 }

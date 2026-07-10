@@ -900,11 +900,24 @@ router.get("/center/:slug/targets", saAuth, async (req, res) => {
       ),
     ]);
 
+    const categoryTargets = targets.filter(
+      (t) => t.target_type && t.target_type.startsWith("category_"),
+    );
+    const categoryTargetTotal = categoryTargets.reduce(
+      (s, t) => s + (parseInt(t.target_quantity) || 0),
+      0,
+    );
+
     res.set("Cache-Control", "no-store");
     res.json({
       success: true,
       fy: `${fyStart}-${fyEnd}`,
       targets,
+      category_targets: categoryTargets.map((t) => ({
+        name: t.target_type.replace("category_", "").replace(/_/g, " "),
+        quantity: parseInt(t.target_quantity) || 0,
+      })),
+      category_target_total: categoryTargetTotal,
       prod_achieved: parseInt(prodAchieved[0]?.total || 0),
       sales_achieved: parseFloat(salesAchieved[0]?.total || 0),
     });
@@ -912,7 +925,6 @@ router.get("/center/:slug/targets", saAuth, async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
 // ===== EMPLOYEES — ALL CENTERS OVERVIEW =====
 router.get("/employees-all", saAuth, async (req, res) => {
   try {
