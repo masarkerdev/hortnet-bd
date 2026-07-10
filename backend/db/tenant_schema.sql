@@ -172,6 +172,7 @@ CREATE TABLE IF NOT EXISTS targets (
   target_year     INTEGER NOT NULL,
   target_quantity INTEGER DEFAULT 0,
   target_amount   NUMERIC DEFAULT 0,
+  remarks         TEXT,
   notes           TEXT,
   created_by      INTEGER REFERENCES users(id),
   created_at      TIMESTAMP DEFAULT now()
