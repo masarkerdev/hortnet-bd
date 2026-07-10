@@ -143,6 +143,34 @@ router.get("/topsheet", authenticate, async (req, res) => {
   }
 });
 
+
+// GET /api/reports/target-summary?fy=2026 — মোট লক্ষ্যমাত্রা vs অর্জিত (Center App-এর জন্য)
+router.get("/target-summary", authenticate, async (req, res) => {
+  const { fy: fyParam } = req.query;
+  const { start: fyStart, end: fyEnd, fy } = getFYDates(fyParam);
+  try {
+    const targetRows = await db.query(
+      `SELECT COALESCE(SUM(target_quantity),0) AS total FROM targets
+       WHERE target_type LIKE 'category_%' AND target_year=$1 AND target_month=0`,
+      [fy]
+    );
+    const achievedRows = await db.query(
+      `SELECT COALESCE(SUM(produced_quantity),0) AS total FROM production_batches
+       WHERE COALESCE(propagation_date, sowing_date, created_at::date) >= $1
+         AND COALESCE(propagation_date, sowing_date, created_at::date) <= $2`,
+      [fyStart, fyEnd]
+    );
+    res.json({
+      success: true,
+      fy: `${fy}-${String(fy+1).slice(-2)}`,
+      target: Number(targetRows.rows[0].total),
+      achieved: Number(achievedRows.rows[0].total),
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.get("/category-detail", authenticate, async (req, res) => {
   const { mother_category, fy: fyParam, month: monthParam } = req.query;
   const mc = MOTHER_CATEGORIES.find((m) => m.name_bn === mother_category);

@@ -18,6 +18,7 @@ export default function Reports() {
   const [selectedCat, setSelectedCat] = useState(null);
   const [catDetail, setCatDetail] = useState([]);
   const [catLoading, setCatLoading] = useState(false);
+  const [summary, setSummary] = useState(null);
 
   async function loadTopsheet() {
     setLoading(true); setError(''); setSelectedCat(null); setCatDetail([]);
@@ -40,6 +41,10 @@ export default function Reports() {
   }
 
   useEffect(() => { loadTopsheet(); }, [fy, month]);
+
+  useEffect(() => {
+    api.get(`/reports/target-summary?fy=${fy}`).then(r => { if (r.data?.success) setSummary(r.data); }).catch(() => {});
+  }, [fy]);
 
   const totals = data.reduce((acc, r) => ({
     target: acc.target + r.divisional_target,
@@ -80,6 +85,21 @@ export default function Reports() {
           </select>
         </div>
       </div>
+
+      {summary && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:12, marginBottom:16 }}>
+          <div style={{ background:'#fff', border:'1px solid #e8f5ed', borderRadius:14, padding:'18px 20px', borderTop:'3px solid #1a6b3a' }}>
+            <div style={{ fontSize:13, color:'#6b7280', marginBottom:6 }}>মোট লক্ষ্যমাত্রা</div>
+            <div style={{ fontSize:26, fontWeight:700, color:'#1a6b3a' }}>{fmtN(summary.target)}<span style={{ fontSize:14, fontWeight:500 }}> টি চারা/কলম</span></div>
+            <div style={{ fontSize:12, color:'#9ca3af', marginTop:4 }}>({summary.fy} অর্থবছরে)</div>
+          </div>
+          <div style={{ background:'#fff', border:'1px solid #e8f5ed', borderRadius:14, padding:'18px 20px', borderTop:'3px solid #d97706' }}>
+            <div style={{ fontSize:13, color:'#6b7280', marginBottom:6 }}>অর্জিত</div>
+            <div style={{ fontSize:26, fontWeight:700, color:'#d97706' }}>{fmtN(summary.achieved)}<span style={{ fontSize:14, fontWeight:500 }}> টি চারা/কলম</span></div>
+            <div style={{ fontSize:12, color:'#9ca3af', marginTop:4 }}>এখন অব্দি</div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 10, padding: '12px 16px', color: '#dc2626', fontSize: 13, marginBottom: 16 }}>

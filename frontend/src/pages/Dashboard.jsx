@@ -104,6 +104,11 @@ export default function Dashboard() {
   }, [fy]);
   useEffect(() => { loadFy(); }, [loadFy]);
 
+  const [targetSummary, setTargetSummary] = useState(null);
+  useEffect(() => {
+    api.get('/reports/target-summary?fy=' + fy).then((r) => { if (r.data?.success) setTargetSummary(r.data); }).catch(() => {});
+  }, [fy]);
+
   if (err) return <div className="rounded-lg border px-4 py-3 text-sm" style={{ borderColor:'var(--r400)', background:'var(--r50)', color:'var(--r600)' }}>{err}</div>;
   if (!d) return <div className="lt">লোড হচ্ছে…</div>;
 
@@ -125,6 +130,21 @@ export default function Dashboard() {
     <div className="space-y-4 dash-hover">
       {/* নোটিশ — সবচেয়ে কম expire সময়ের, horizontal scroll + countdown */}
       <NoticeTickerWidget notices={notices}/>
+      {/* ক্যাটাগরি লক্ষ্যমাত্রা vs অর্জিত */}
+      {targetSummary && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border p-4" style={{ borderColor:'var(--g200)', background:'#fff', borderTop:'3px solid var(--g600)' }}>
+            <div className="text-xs" style={{ color:'var(--muted)' }}>মোট লক্ষ্যমাত্রা</div>
+            <div className="text-2xl font-bold" style={{ color:'var(--g600)' }}>{toBn(targetSummary.target)} <span className="text-sm font-medium">টি চারা/কলম</span></div>
+            <div className="text-xs mt-1" style={{ color:'var(--muted)' }}>({targetSummary.fy} অর্থবছরে)</div>
+          </div>
+          <div className="rounded-xl border p-4" style={{ borderColor:'var(--a200)', background:'#fff', borderTop:'3px solid var(--a400)' }}>
+            <div className="text-xs" style={{ color:'var(--muted)' }}>অর্জিত</div>
+            <div className="text-2xl font-bold" style={{ color:'var(--a400)' }}>{toBn(targetSummary.achieved)} <span className="text-sm font-medium">টি চারা/কলম</span></div>
+            <div className="text-xs mt-1" style={{ color:'var(--muted)' }}>এখন অব্দি</div>
+          </div>
+        </div>
+      )}
       {/* ৫ স্ট্যাট কার্ড */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {STAT.map((c) => (

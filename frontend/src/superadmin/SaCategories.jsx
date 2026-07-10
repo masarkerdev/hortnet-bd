@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import saApi from './saApi';
+import CategoryTargetsWidget from './CategoryTargetsWidget';
 
 const FONT = "'Noto Sans Bengali','Segoe UI',sans-serif";
 const toBn = n => String(n ?? '').replace(/[0-9]/g, d => '০১২৩৪৫৬৭৮৯'[d]);
@@ -151,6 +152,10 @@ export default function SaCategories() {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div style={{ marginTop:20 }}>
+        <CategoryTargetsWidget />
       </div>
 
       {/* Modal */}

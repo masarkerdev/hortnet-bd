@@ -15,7 +15,7 @@ const MOTHER_CATEGORIES = [
 
 function fmtN(n) { return toBn(Math.round(n || 0)); }
 
-export default function SaCategoryTargets() {
+export default function CategoryTargetsWidget() {
   const { sa } = useSa();
   const isDir = sa?.role === 'director';
   const curFY = new Date().getMonth() >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1;
@@ -73,17 +73,17 @@ export default function SaCategoryTargets() {
 
   const inp = { width:'100%', padding:'10px 14px', background:C.bg, border:`1.5px solid ${C.border}`, borderRadius:9, color:C.text, fontSize:14, outline:'none', fontFamily:FONT, boxSizing:'border-box' };
 
-  if (loading) return <div style={{ padding:'40px 0', textAlign:'center', color:C.muted, fontFamily:FONT }}>লোড হচ্ছে…</div>;
+  if (loading) return <div style={{ padding:'20px 0', textAlign:'center', color:C.muted, fontFamily:FONT }}>লোড হচ্ছে…</div>;
 
   if (!isDir) {
-    return <div style={{ padding:'40px 0', textAlign:'center', color:C.muted, fontFamily:FONT }}>শুধু পরিচালক ক্যাটাগরি-ওয়াইজ লক্ষ্যমাত্রা নির্ধারণ করতে পারবেন।</div>;
+    return <div style={{ padding:'20px 0', textAlign:'center', color:C.muted, fontFamily:FONT }}>শুধু পরিচালক ক্যাটাগরি-ভিত্তিক লক্ষ্যমাত্রা নির্ধারণ করতে পারবেন।</div>;
   }
 
   return (
     <div style={{ fontFamily: FONT }}>
-      <div style={{ fontSize:18, fontWeight:700, color:C.text, marginBottom:16 }}>🎯 ক্যাটাগরি-ওয়াইজ লক্ষ্যমাত্রা নির্ধারণ</div>
+      <div style={{ fontSize:16, fontWeight:700, color:C.text, marginBottom:14 }}>🎯 ক্যাটাগরি-ভিত্তিক লক্ষ্যমাত্রা নির্ধারণ</div>
 
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:20, boxShadow:shadow, maxWidth:560 }}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:20, boxShadow:shadow }}>
         <div style={{ display:'flex', gap:12, marginBottom:18 }}>
           <div style={{ flex:1 }}>
             <label style={{ display:'block', fontSize:13, color:C.muted, marginBottom:6, fontWeight:500 }}>সেন্টার</label>
