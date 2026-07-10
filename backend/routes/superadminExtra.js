@@ -407,6 +407,45 @@ router.get("/report/topsheet", saAuth, async (req, res) => {
   }
 });
 
+
+// GET /api/superadmin/report/target-summary?fy=2026 — সব সেন্টার মিলিয়ে consolidated target vs achieved
+router.get("/report/target-summary", saAuth, async (req, res) => {
+  const fy = parseInt(req.query.fy) || (new Date().getMonth()>=6 ? new Date().getFullYear() : new Date().getFullYear()-1);
+  const fyStart = `${fy}-07-01`;
+  const fyEnd = `${fy+1}-06-30`;
+  try {
+    const tenants = await getTenants();
+    let totalTarget = 0, totalAchieved = 0;
+
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      try {
+        const db = getPool(tenant.db_url, slug);
+        const targetRows = await db.query(
+          `SELECT COALESCE(SUM(target_quantity),0) AS total FROM targets
+           WHERE target_type LIKE 'category_%' AND target_year=$1 AND target_month=0`,
+          [fy]
+        );
+        const achievedRows = await db.query(
+          `SELECT COALESCE(SUM(produced_quantity),0) AS total FROM production_batches
+           WHERE COALESCE(propagation_date, sowing_date, created_at::date) >= $1
+             AND COALESCE(propagation_date, sowing_date, created_at::date) <= $2`,
+          [fyStart, fyEnd]
+        );
+        totalTarget += Number(targetRows.rows[0].total);
+        totalAchieved += Number(achievedRows.rows[0].total);
+      } catch (e) {
+        console.error(`[${slug}] target-summary error:`, e.message);
+      }
+    }
+
+    const percent = totalTarget > 0 ? Math.round((totalAchieved / totalTarget) * 1000) / 10 : 0;
+    res.json({ success: true, fy: `${fy}-${String(fy+1).slice(-2)}`, target: totalTarget, achieved: totalAchieved, percent });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.get("/report/category-detail", saAuth, async (req, res) => {
   const { mother_category, fy: fyParam, month: monthParam, scope = "consolidated", slug: onlySlug } = req.query;
   const mc = MOTHER_CATEGORIES.find((m) => m.name_bn === mother_category);

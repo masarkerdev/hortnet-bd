@@ -107,6 +107,8 @@ export default function SaOverview() {
   const { handleBadges, search='' } = useOutletContext() || {};
   const [allStats, setAllStats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [targetSummary, setTargetSummary] = useState(null);
+  const curFY = new Date().getMonth()>=6 ? new Date().getFullYear() : new Date().getFullYear()-1;
 
   const load = async (force=false) => {
     try {
@@ -119,6 +121,9 @@ export default function SaOverview() {
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    saApi.get('/report/target-summary?fy='+curFY).then(r => { if (r.data?.success) setTargetSummary(r.data); }).catch(()=>{});
+  }, []);
   useEffect(() => {
     const fn = () => load(true);
     window.addEventListener('sa:refresh', fn);
@@ -156,6 +161,22 @@ export default function SaOverview() {
         <KpiCard label="মোট স্টক"       value={fmtN(totalStock)}       sub="টি চারা/কলম"               borderColor={V.amber}  valueColor={V.amber}  />
         <KpiCard label="সক্রিয় Center" value={toBn(ok.length)}        sub=""                          borderColor={V.teal}   valueColor={V.teal}   />
       </div>
+
+      {/* consolidated target vs achieved */}
+      {targetSummary && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:12, marginBottom:24 }}>
+          <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:14, padding:'18px 20px', borderTop:`3px solid ${V.green}` }}>
+            <div style={{ fontSize:13, color:V.muted, marginBottom:6 }}>মোট লক্ষ্যমাত্রা (সব সেন্টার)</div>
+            <div style={{ fontSize:26, fontWeight:700, color:V.green }}>{toBn(targetSummary.target)}<span style={{ fontSize:14, fontWeight:500 }}> টি চারা/কলম</span></div>
+            <div style={{ fontSize:12, color:V.muted, marginTop:4 }}>({targetSummary.fy} অর্থবছরে)</div>
+          </div>
+          <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:14, padding:'18px 20px', borderTop:`3px solid ${V.amber}` }}>
+            <div style={{ fontSize:13, color:V.muted, marginBottom:6 }}>অর্জিত</div>
+            <div style={{ fontSize:26, fontWeight:700, color:V.amber }}>{toBn(targetSummary.achieved)}<span style={{ fontSize:14, fontWeight:500 }}> টি চারা/কলম</span></div>
+            <div style={{ fontSize:12, color:V.muted, marginTop:4 }}>এখন অব্দি — <b style={{color:V.green}}>{toBn(targetSummary.percent)}%</b> অর্জিত</div>
+          </div>
+        </div>
+      )}
 
       {/* cat-groups */}
       {['A','B','C'].map(cat => {
