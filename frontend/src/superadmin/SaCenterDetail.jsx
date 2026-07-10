@@ -1156,37 +1156,6 @@ function TabTarget({ d, slug }) {
               />
             </div>
           )}
-
-          {targets.length ? (
-            <TW
-              heads={[
-                "সময়কাল",
-                "ধরন",
-                "লক্ষ্য (পরিমাণ)",
-                "লক্ষ্য (৳)",
-                "মন্তব্য",
-              ]}
-              rows={targets.map((t) => [
-                parseInt(t.target_month || 0) === 0
-                  ? `অর্থবছর ${t.target_year}-${parseInt(t.target_year) + 1}`
-                  : `${MONTHS[t.target_month]} ${t.target_year}`,
-                <Pill type={t.target_type === "production" ? "active" : "paid"}>
-                  {t.target_type === "production" ? "উৎপাদন" : "বিক্রয়"}
-                </Pill>,
-                <span style={{ color: V.purple, fontWeight: 600 }}>
-                  {fmtN(t.target_quantity)}টি
-                </span>,
-                <span style={{ color: V.green, fontWeight: 600 }}>
-                  ৳{fmt(t.target_amount)}
-                </span>,
-                <span style={{ color: V.muted }}>{t.remarks || "—"}</span>,
-              ])}
-            />
-          ) : (
-            <div style={{ textAlign: "center", color: V.muted, padding: 20 }}>
-              এই অর্থবছরে কোনো লক্ষ্যমাত্রা নেই
-            </div>
-          )}
         </div>
       )}
     </Card>
