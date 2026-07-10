@@ -11,7 +11,7 @@ const THEMES = {
   nursery_supervisor: { accent:'#4a8c2a', sidebar:'#1a2e1a' },
 };
 const ROLE_BN = { director:'পরিচালক', deputy_director:'উপপরিচালক', horticulturist:'উদ্যানতত্ত্ববিদ', nursery_supervisor:'নার্সারী তত্ত্বাবধায়ক' };
-const PAGE_TITLES = { '':'📊 Overview', 'category/A':'🏛️ A Category — উপপরিচালক', 'category/B':'🌿 B Category — উদ্যানতত্ত্ববিদ', 'category/C':'🪴 C Category — নার্সারী তত্ত্বাবধায়ক', 'compare':'📈 তুলনামূলক রিপোর্ট', 'target-summary':'🎯 লক্ষ্যমাত্রা সারসংক্ষেপ', 'district-summary':'🗺️ জেলাভিত্তিক সারসংক্ষেপ', 'all-centers':'⚙️ সব Center পরিচালনা', 'admins':'👥 Admin পরিচালনা', 'notices':'📢 নোটিশ বোর্ড', 'reports':'📊 রিপোর্ট', 'categories':'📂 Category Master' };
+const PAGE_TITLES = { '':'📊 Overview', 'category/A':'🏛️ A Category — উপপরিচালক', 'category/B':'🌿 B Category — উদ্যানতত্ত্ববিদ', 'category/C':'🪴 C Category — নার্সারী তত্ত্বাবধায়ক', 'compare':'📈 তুলনামূলক রিপোর্ট', 'target-summary':'🎯 লক্ষ্যমাত্রা সারসংক্ষেপ', 'district-summary':'🗺️ জেলাভিত্তিক সারসংক্ষেপ', 'all-centers':'⚙️ সব Center পরিচালনা', 'admins':'👥 Admin পরিচালনা', 'notices':'📢 নোটিশ বোর্ড', 'reports':'📊 রিপোর্ট', 'categories':'📂 Category Master', 'hrm':'👥 জনবল ব্যবস্থাপনা (HRM)' };
 
 const NAV_SECTIONS = [
   { label:'মূল মেনু', items:[{ path:'', icon:'ti-layout-dashboard', text:'Overview', bkey:'overview' }] },
@@ -174,6 +174,12 @@ export default function SaLayout() {
               onMouseEnter={e=>{e.currentTarget.style.background='#dcfce7';}}
               onMouseLeave={e=>{e.currentTarget.style.background='#f0fdf4';}}>
               <i className="ti ti-category"/> ক্যাটেগরি ম্যানেজমেন্ট
+            </button>
+            <button onClick={()=>navigate('hrm')}
+              style={{ background:'#eff6ff', color:'#2563eb', border:'1px solid #bfdbfe', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', gap:4, fontFamily:'inherit', transition:'.15s' }}
+              onMouseEnter={e=>{e.currentTarget.style.background='#dbeafe';}}
+              onMouseLeave={e=>{e.currentTarget.style.background='#eff6ff';}}>
+              <i className="ti ti-users"/> HRM
             </button>
             <button onClick={()=>window.dispatchEvent(new CustomEvent('sa:refresh'))}
               style={{ background:'#f1f5f9', color:'#1e293b', border:'1px solid #e2e8f0', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', gap:4, fontFamily:'inherit', transition:'.15s' }}
