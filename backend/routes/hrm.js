@@ -65,6 +65,7 @@ router.get("/vacancy", saAuth, async (req, res) => {
             sanctioned,
             actual,
             vacant: Math.max(vac, 0),
+            surplus: Math.max(-vac, 0),
           });
         });
 
@@ -79,17 +80,22 @@ router.get("/vacancy", saAuth, async (req, res) => {
     const byDesignation = {};
     centerRows.forEach(r => {
       if (!byDesignation[r.designation]) {
-        byDesignation[r.designation] = { designation: r.designation, total_sanctioned: 0, total_actual: 0, total_vacant: 0, centers: [] };
+        byDesignation[r.designation] = { designation: r.designation, total_sanctioned: 0, total_actual: 0, total_vacant: 0, total_surplus: 0, centers: [], surplus_centers: [] };
       }
       const d = byDesignation[r.designation];
       d.total_sanctioned += r.sanctioned;
       d.total_actual += r.actual;
       d.total_vacant += r.vacant;
+      d.total_surplus += r.surplus;
       if (r.vacant > 0) {
         d.centers.push({ center_name: r.center_name, center_slug: r.center_slug, sanctioned: r.sanctioned, actual: r.actual, vacant: r.vacant });
       }
+      if (r.surplus > 0) {
+        d.surplus_centers.push({ center_name: r.center_name, center_slug: r.center_slug, sanctioned: r.sanctioned, actual: r.actual, surplus: r.surplus });
+      }
     });
     const designationSummary = Object.values(byDesignation).sort((a,b) => b.total_vacant - a.total_vacant);
+    const surplusDesignations = Object.values(byDesignation).filter(d => d.total_surplus > 0).sort((a,b) => b.total_surplus - a.total_surplus);
 
     res.json({
       success: true,
@@ -97,11 +103,13 @@ router.get("/vacancy", saAuth, async (req, res) => {
         total_sanctioned: totalSanctioned,
         total_actual: totalActual,
         total_vacant: centerRows.reduce((s, r) => s + r.vacant, 0),
+        total_surplus: centerRows.reduce((s, r) => s + r.surplus, 0),
         deputation: totalDeputation,
         temporary: totalTemp,
       },
       rows: centerRows,
       by_designation: designationSummary,
+      surplus_designations: surplusDesignations,
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
