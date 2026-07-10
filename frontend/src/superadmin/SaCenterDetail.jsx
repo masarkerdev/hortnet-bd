@@ -971,7 +971,13 @@ function TabTarget({ d, slug }) {
 
   const salesT = targets.filter((t) => t.target_type === "sales");
   const annSales = salesT.find((t) => parseInt(t.target_month || 0) === 0);
-  const tProd = d.category_target_total ?? 0;
+  const categoryT = targets.filter(
+    (t) => t.target_type && t.target_type.startsWith("category_"),
+  );
+  const tProd = categoryT.reduce(
+    (s, t) => s + (parseInt(t.target_quantity) || 0),
+    0,
+  );
   const tSales = annSales
     ? parseFloat(annSales.target_amount || 0)
     : salesT.reduce(
@@ -1124,7 +1130,8 @@ function TabTarget({ d, slug }) {
               </div>
             ))}
           </div>
-          {d.category_targets && d.category_targets.length > 0 && (
+          {categoryT.filter((t) => parseInt(t.target_quantity) > 0).length >
+            0 && (
             <div style={{ marginBottom: 16 }}>
               <div
                 style={{
@@ -1138,38 +1145,18 @@ function TabTarget({ d, slug }) {
               </div>
               <TW
                 heads={["ক্যাটাগরি", "লক্ষ্যমাত্রা"]}
-                rows={d.category_targets.map((ct) => [
-                  ct.name,
-                  <span style={{ color: V.purple, fontWeight: 600 }}>
-                    {fmtN(ct.quantity)}টি
-                  </span>,
-                ])}
+                rows={categoryT
+                  .filter((t) => parseInt(t.target_quantity) > 0)
+                  .map((t) => [
+                    t.target_type.replace("category_", "").replace(/_/g, " "),
+                    <span style={{ color: V.purple, fontWeight: 600 }}>
+                      {fmtN(t.target_quantity)}টি
+                    </span>,
+                  ])}
               />
             </div>
           )}
-          {d.category_targets && d.category_targets.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: V.text,
-                  marginBottom: 8,
-                }}
-              >
-                📋 ক্যাটাগরি-ভিত্তিক লক্ষ্যমাত্রা
-              </div>
-              <TW
-                heads={["ক্যাটাগরি", "লক্ষ্যমাত্রা"]}
-                rows={d.category_targets.map((ct) => [
-                  ct.name,
-                  <span style={{ color: V.purple, fontWeight: 600 }}>
-                    {fmtN(ct.quantity)}টি
-                  </span>,
-                ])}
-              />
-            </div>
-          )}
+
           {targets.length ? (
             <TW
               heads={[
