@@ -59,7 +59,7 @@ router.get("/vacancy", saAuth, async (req, res) => {
           totalActual += actual;
           centerRows.push({
             center_slug: slug,
-            center_name: tenant.name_bn,
+            center_name: (tenant.name_bn||'').replace('হর্টিকালচার সেন্টার,','').trim() || tenant.name_bn,
             category: cat,
             designation,
             sanctioned,
@@ -75,6 +75,22 @@ router.get("/vacancy", saAuth, async (req, res) => {
       }
     }
 
+    // পদবি অনুযায়ী group — কতটা ফাঁকা মোট, কোন কোন center-এ
+    const byDesignation = {};
+    centerRows.forEach(r => {
+      if (!byDesignation[r.designation]) {
+        byDesignation[r.designation] = { designation: r.designation, total_sanctioned: 0, total_actual: 0, total_vacant: 0, centers: [] };
+      }
+      const d = byDesignation[r.designation];
+      d.total_sanctioned += r.sanctioned;
+      d.total_actual += r.actual;
+      d.total_vacant += r.vacant;
+      if (r.vacant > 0) {
+        d.centers.push({ center_name: r.center_name, center_slug: r.center_slug, sanctioned: r.sanctioned, actual: r.actual, vacant: r.vacant });
+      }
+    });
+    const designationSummary = Object.values(byDesignation).sort((a,b) => b.total_vacant - a.total_vacant);
+
     res.json({
       success: true,
       summary: {
@@ -85,6 +101,7 @@ router.get("/vacancy", saAuth, async (req, res) => {
         temporary: totalTemp,
       },
       rows: centerRows,
+      by_designation: designationSummary,
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
