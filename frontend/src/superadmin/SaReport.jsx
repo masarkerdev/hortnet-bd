@@ -507,7 +507,7 @@ function TopsheetReport() {
                   <tr>
                     <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:V.green3, textAlign:'left' }}>ক্র.নং</th>
                     <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:V.green3, textAlign:'left', minWidth:120 }}>নাম (বাংলা)</th>
-                    {selectedCat?.propagation_class === 'কলম' && <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:V.green3, textAlign:'left', minWidth:100 }}>জাত</th>}
+                    <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:V.green3, textAlign:'left', minWidth:100 }}>জাত</th>
                     <th colSpan={5} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#dcfce7', textAlign:'center' }}>উৎপাদন</th>
                     <th colSpan={4} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#fef3c7', textAlign:'center' }}>বিতরণ</th>
                     <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#dbeafe', textAlign:'right', minWidth:80 }}>নীট মজুদ</th>
@@ -526,7 +526,7 @@ function TopsheetReport() {
                     <tr key={i} onMouseEnter={e=>e.currentTarget.style.background=V.green3} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                       <td style={{ padding:'8px 10px', fontSize:12, color:V.muted }}>{toBn(i+1)}</td>
                       <td style={{ padding:'8px 10px', fontSize:13, fontWeight:600 }}>{item.common_name}</td>
-                      {selectedCat?.propagation_class === 'কলম' && <td style={{ padding:'8px 10px', fontSize:12, color:V.muted }}>{item.variety||'—'}</td>}
+                      <td style={{ padding:'8px 10px', fontSize:12, color:V.muted }}>{item.variety||'—'}</td>
                       <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{fmtN(item.production.current_month)}</td>
                       <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{fmtN(item.production.prev_months_total)}</td>
                       <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right', fontWeight:600 }}>{fmtN(item.production.subtotal)}</td>

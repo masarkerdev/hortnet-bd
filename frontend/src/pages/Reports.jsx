@@ -218,7 +218,7 @@ export default function Reports() {
                   <tr>
                     <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:'#5a7a5a', fontWeight:600, borderBottom:'1px solid #e8f5ed', background:'#f0faf3', textAlign:'left' }}>ক্র.নং</th>
                     <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:'#5a7a5a', fontWeight:600, borderBottom:'1px solid #e8f5ed', background:'#f0faf3', textAlign:'left', minWidth:120 }}>নাম (বাংলা)</th>
-                    {selectedCat?.propagation_class === 'কলম' && <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:'#5a7a5a', fontWeight:600, borderBottom:'1px solid #e8f5ed', background:'#f0faf3', textAlign:'left', minWidth:100 }}>জাত</th>}
+                    <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:'#5a7a5a', fontWeight:600, borderBottom:'1px solid #e8f5ed', background:'#f0faf3', textAlign:'left', minWidth:100 }}>জাত</th>
                     <th colSpan={5} style={{ padding:'8px 10px', fontSize:11, color:'#5a7a5a', fontWeight:600, borderBottom:'1px solid #e8f5ed', background:'#dcfce7', textAlign:'center' }}>উৎপাদন</th>
                     <th colSpan={4} style={{ padding:'8px 10px', fontSize:11, color:'#5a7a5a', fontWeight:600, borderBottom:'1px solid #e8f5ed', background:'#fef3c7', textAlign:'center' }}>বিতরণ</th>
                     <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:'#5a7a5a', fontWeight:600, borderBottom:'1px solid #e8f5ed', background:'#dbeafe', textAlign:'right', minWidth:80 }}>নীট মজুদ</th>
@@ -239,7 +239,7 @@ export default function Reports() {
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       <td style={{ padding: '8px 10px', fontSize: 12, color: '#6b7280' }}>{toBn(i + 1)}</td>
                       <td style={{ padding: '8px 10px', fontSize: 13, fontWeight: 600 }}>{item.common_name}</td>
-                      {selectedCat?.propagation_class === 'কলম' && <td style={{ padding: '8px 10px', fontSize: 12, color: '#6b7280' }}>{item.variety || '—'}</td>}
+                      <td style={{ padding: '8px 10px', fontSize: 12, color: '#6b7280' }}>{item.variety || '—'}</td>
                       <td style={{ padding: '8px 10px', fontSize: 12, textAlign:'right' }}>{fmtN(item.production.current_month)}</td>
                       <td style={{ padding: '8px 10px', fontSize: 12, textAlign:'right' }}>{fmtN(item.production.prev_months_total)}</td>
                       <td style={{ padding: '8px 10px', fontSize: 12, textAlign:'right', fontWeight:600 }}>{fmtN(item.production.subtotal)}</td>
