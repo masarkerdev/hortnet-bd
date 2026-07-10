@@ -25,6 +25,7 @@ export default function SaTargetSummary() {
   const [form, setForm] = useState({ slug:'', type:'production', period:'annual', fy:'', month:'7', qty:'', amt:'', notes:'' });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [catFilter, setCatFilter] = useState('');
 
   const curFY = new Date().getMonth()>=6 ? new Date().getFullYear() : new Date().getFullYear()-1;
   const curMonth = new Date().getMonth()+1;
@@ -36,11 +37,12 @@ export default function SaTargetSummary() {
   }, []);
 
   const ok = rows.filter(c => c.status==='ok');
-  const totalAnnual = ok.reduce((s,c)=>s+(+c.annual_prod_target||0),0);
-  const totalMonthlyTarget = ok.reduce((s,c)=>s+(+c.monthly_prod_target||0),0);
-  const totalMonthlyAchieved = ok.reduce((s,c)=>s+(+c.monthly_prod_achieved||0),0);
+  const filteredOk = catFilter ? ok.filter(c => c.category === catFilter) : ok;
+  const totalAnnual = filteredOk.reduce((s,c)=>s+(+c.annual_prod_target||0),0);
+  const totalMonthlyTarget = filteredOk.reduce((s,c)=>s+(+c.monthly_prod_target||0),0);
+  const totalMonthlyAchieved = filteredOk.reduce((s,c)=>s+(+c.monthly_prod_achieved||0),0);
   const overallPct = totalMonthlyTarget>0 ? Math.round((totalMonthlyAchieved/totalMonthlyTarget)*100) : 0;
-  const centersOnTrack = ok.filter(c=>c.monthly_prod_target>0 && c.monthly_prod_achieved/c.monthly_prod_target>=0.7).length;
+  const centersOnTrack = filteredOk.filter(c=>c.monthly_prod_target>0 && c.monthly_prod_achieved/c.monthly_prod_target>=0.7).length;
 
   function openModal() {
     setForm({ slug: centers[0]?.slug||'', type:'production', period:'annual', fy:String(curFY), month:'7', qty:'', amt:'', notes:'' });
@@ -78,7 +80,7 @@ export default function SaTargetSummary() {
           { l:'অর্থবছরের মোট লক্ষ্যমাত্রা', v:fmtN(totalAnnual)+'টি', sub:`FY ${toBn(curFY)}-${toBn(curFY+1)}`, top:C.purple, col:C.purple },
           { l:'চলতি মাসের লক্ষ্যমাত্রা', v:fmtN(totalMonthlyTarget)+'টি', sub:MONTHS[curMonth], top:C.blue, col:C.blue },
           { l:'চলতি মাসের অর্জন', v:fmtN(totalMonthlyAchieved)+'টি', sub:toBn(overallPct)+'% অগ্রগতি', top:pcColor(overallPct), col:pcColor(overallPct) },
-          { l:'লক্ষ্যমাত্রা অনুযায়ী (≥৭০%)', v:toBn(centersOnTrack), sub:`${toBn(ok.length)}টি center-এর মধ্যে`, top:C.teal, col:C.teal },
+          { l:'লক্ষ্যমাত্রা অনুযায়ী (≥৭০%)', v:toBn(centersOnTrack), sub:`${toBn(filteredOk.length)}টি center-এর মধ্যে`, top:C.teal, col:C.teal },
         ].map(k=>(
           <div key={k.l} style={{ background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:18,boxShadow:shadow,borderTop:`3px solid ${k.top}` }}>
             <div style={{ fontSize:13,color:C.muted,marginBottom:8,fontWeight:500 }}>{k.l}</div>
@@ -90,9 +92,19 @@ export default function SaTargetSummary() {
 
       {/* বিস্তারিত টেবিল */}
       <div style={{ background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:'hidden',boxShadow:shadow }}>
-        <div style={{ padding:'14px 18px',borderBottom:`1px solid ${C.border}`,fontSize:16,fontWeight:600,display:'flex',justifyContent:'space-between',alignItems:'center',background:C.card2 }}>
-          📋 প্রতিটি Center-এর লক্ষ্যমাত্রা অর্জন
-          <span style={{ fontSize:13,color:C.muted }}>FY {toBn(curFY)}-{toBn(curFY+1)} | {MONTHS[curMonth]}</span>
+        <div style={{ padding:'14px 18px',borderBottom:`1px solid ${C.border}`,fontSize:16,fontWeight:600,display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10,background:C.card2 }}>
+          <span>📋 প্রতিটি Center-এর লক্ষ্যমাত্রা অর্জন</span>
+          <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+            <div style={{ display:'flex', gap:4 }}>
+              {['', 'A', 'B', 'C'].map(c => (
+                <button key={c} onClick={()=>setCatFilter(c)}
+                  style={{ padding:'5px 12px', borderRadius:7, border:`1px solid ${C.border}`, background: catFilter===c ? C.accent : C.card, color: catFilter===c ? '#fff' : C.muted, cursor:'pointer', fontSize:12, fontFamily:FONT, fontWeight:600 }}>
+                  {c || 'সব'}
+                </button>
+              ))}
+            </div>
+            <span style={{ fontSize:13,color:C.muted }}>FY {toBn(curFY)}-{toBn(curFY+1)} | {MONTHS[curMonth]}</span>
+          </div>
         </div>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%',borderCollapse:'collapse' }}>
@@ -102,7 +114,7 @@ export default function SaTargetSummary() {
               ))}
             </tr></thead>
             <tbody>
-              {[...ok].sort((a,b)=>{ const ap=a.monthly_prod_target>0?a.monthly_prod_achieved/a.monthly_prod_target:0; const bp=b.monthly_prod_target>0?b.monthly_prod_achieved/b.monthly_prod_target:0; return bp-ap; }).map(c=>{
+              {[...filteredOk].sort((a,b)=>{ const ap=a.monthly_prod_target>0?a.monthly_prod_achieved/a.monthly_prod_target:0; const bp=b.monthly_prod_target>0?b.monthly_prod_achieved/b.monthly_prod_target:0; return bp-ap; }).map(c=>{
                 const pct=c.monthly_prod_target>0?Math.min(Math.round((c.monthly_prod_achieved/c.monthly_prod_target)*100),200):null;
                 const col=pct===null?C.muted:pcColor(pct);
                 return(
@@ -129,6 +141,9 @@ export default function SaTargetSummary() {
                   </tr>
                 );
               })}
+              {!filteredOk.length && (
+                <tr><td colSpan={7} style={{ padding:30, textAlign:'center', color:C.muted }}>এই ক্যাটাগরিতে কোনো center নেই</td></tr>
+              )}
             </tbody>
           </table>
         </div>
