@@ -158,6 +158,11 @@ export default function SaAdmins() {
   const [centers, setCenters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("sa"); // sa | center
+  const [saSubTab, setSaSubTab] = useState("director_office");
+  const CATEGORY_ADMIN_ROLES = [
+    "deputy_director",
+    "additional_deputy_director",
+  ];
   const [modal, setModal] = useState(null); // null | 'add' | 'edit' | 'assign'
   const [editId, setEditId] = useState(null);
   const [assignId, setAssignId] = useState(null);
@@ -437,6 +442,41 @@ export default function SaAdmins() {
       {/* Super Admin Users Tab */}
       {activeTab === "sa" && (
         <>
+          <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+            <button
+              onClick={() => setSaSubTab("director_office")}
+              style={{
+                padding: "7px 16px",
+                borderRadius: 7,
+                fontSize: 13,
+                fontFamily: FONT,
+                cursor: "pointer",
+                border: `1px solid ${C.border}`,
+                background: saSubTab === "director_office" ? C.accent : C.card,
+                color: saSubTab === "director_office" ? "#fff" : C.muted,
+                fontWeight: saSubTab === "director_office" ? 600 : 400,
+              }}
+            >
+              🏛️ পরিচালক অফিস
+            </button>
+            <button
+              onClick={() => setSaSubTab("category_admin")}
+              style={{
+                padding: "7px 16px",
+                borderRadius: 7,
+                fontSize: 13,
+                fontFamily: FONT,
+                cursor: "pointer",
+                border: `1px solid ${C.border}`,
+                background: saSubTab === "category_admin" ? C.accent : C.card,
+                color: saSubTab === "category_admin" ? "#fff" : C.muted,
+                fontWeight: saSubTab === "category_admin" ? 600 : 400,
+              }}
+            >
+              🗺️ ক্যাটাগরি-ভিত্তিক এডমিন
+            </button>
+          </div>
+
           <div
             style={{
               display: "flex",
@@ -476,140 +516,118 @@ export default function SaAdmins() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {admins.map((a) => {
-                const rc = ROLE_COLORS[a.role] || "#7c3aed";
-                return (
-                  <div
-                    key={a.id}
-                    style={{
-                      background: C.card,
-                      border: `1px solid ${C.border}`,
-                      borderRadius: 10,
-                      borderLeft: `4px solid ${rc}`,
-                      padding: "14px 18px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 14,
-                      boxShadow: shadow,
-                    }}
-                  >
+              {admins
+                .filter((a) =>
+                  saSubTab === "category_admin"
+                    ? CATEGORY_ADMIN_ROLES.includes(a.role)
+                    : !CATEGORY_ADMIN_ROLES.includes(a.role),
+                )
+                .map((a) => {
+                  const rc = ROLE_COLORS[a.role] || "#7c3aed";
+                  return (
                     <div
+                      key={a.id}
                       style={{
-                        width: 44,
-                        height: 44,
+                        background: C.card,
+                        border: `1px solid ${C.border}`,
                         borderRadius: 10,
-                        background: `${rc}22`,
-                        border: `1px solid ${rc}44`,
+                        borderLeft: `4px solid ${rc}`,
+                        padding: "14px 18px",
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 18,
-                        fontWeight: 700,
-                        color: rc,
-                        flexShrink: 0,
+                        gap: 14,
+                        boxShadow: shadow,
                       }}
                     >
-                      {(a.name || "A")[0].toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div
-                        style={{ fontSize: 15, fontWeight: 600, color: C.text }}
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 10,
+                          background: `${rc}22`,
+                          border: `1px solid ${rc}44`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 18,
+                          fontWeight: 700,
+                          color: rc,
+                          flexShrink: 0,
+                        }}
                       >
-                        {ROLE_LABELS[a.role] || a.role}
-                        {a.name ? ", " + a.name : ""}
+                        {(a.name || "A")[0].toUpperCase()}
                       </div>
-                      <div
-                        style={{ fontSize: 13, color: C.muted, marginTop: 2 }}
-                      >
-                        {a.email}
-                      </div>
-                      <div
-                        style={{ fontSize: 12, color: C.muted, marginTop: 2 }}
-                      >
-                        {[a.district, a.division].filter(Boolean).join(", ")}
-                      </div>
-                      {(a.assigned_centers || []).length > 0 && (
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{
-                            marginTop: 6,
-                            display: "flex",
-                            gap: 4,
-                            flexWrap: "wrap",
+                            fontSize: 15,
+                            fontWeight: 600,
+                            color: C.text,
                           }}
                         >
-                          {a.assigned_centers.map((s) => (
-                            <span
-                              key={s}
-                              style={{
-                                background: "#f0fdf4",
-                                border: `1px solid ${C.green4}`,
-                                padding: "2px 8px",
-                                borderRadius: 6,
-                                fontSize: 10,
-                                color: C.green,
-                              }}
-                            >
-                              {s}
-                            </span>
-                          ))}
+                          {ROLE_LABELS[a.role] || a.role}
+                          {a.name ? ", " + a.name : ""}
                         </div>
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <span
+                        <div
+                          style={{ fontSize: 13, color: C.muted, marginTop: 2 }}
+                        >
+                          {a.email}
+                        </div>
+                        <div
+                          style={{ fontSize: 12, color: C.muted, marginTop: 2 }}
+                        >
+                          {[a.district, a.division].filter(Boolean).join(", ")}
+                        </div>
+                        {(a.assigned_centers || []).length > 0 && (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              display: "flex",
+                              gap: 4,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {a.assigned_centers.map((s) => (
+                              <span
+                                key={s}
+                                style={{
+                                  background: "#f0fdf4",
+                                  border: `1px solid ${C.green4}`,
+                                  padding: "2px 8px",
+                                  borderRadius: 6,
+                                  fontSize: 10,
+                                  color: C.green,
+                                }}
+                              >
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div
                         style={{
-                          fontSize: 12,
-                          padding: "3px 10px",
-                          borderRadius: 20,
-                          fontWeight: 500,
-                          background: a.is_active ? C.green3 : C.red3,
-                          color: a.is_active ? "#15803d" : C.red,
-                          border: `1px solid ${a.is_active ? C.green4 : "#fecaca"}`,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          flexShrink: 0,
                         }}
                       >
-                        {a.is_active ? "সক্রিয়" : "বন্ধ"}
-                      </span>
-                      <button
-                        onClick={() => openEdit(a)}
-                        style={{
-                          padding: "7px 12px",
-                          borderRadius: 7,
-                          fontSize: 13,
-                          cursor: "pointer",
-                          fontFamily: FONT,
-                          background: C.bg,
-                          border: `1px solid ${C.border}`,
-                          color: C.muted,
-                        }}
-                      >
-                        সম্পাদনা
-                      </button>
-                      <button
-                        onClick={() => openAssign(a)}
-                        style={{
-                          padding: "7px 12px",
-                          borderRadius: 7,
-                          fontSize: 13,
-                          cursor: "pointer",
-                          fontFamily: FONT,
-                          background: C.bg,
-                          border: `1px solid ${C.border}`,
-                          color: C.accent,
-                          fontWeight: 600,
-                        }}
-                      >
-                        Center Assign
-                      </button>
-                      {a.role !== "director" && (
+                        <span
+                          style={{
+                            fontSize: 12,
+                            padding: "3px 10px",
+                            borderRadius: 20,
+                            fontWeight: 500,
+                            background: a.is_active ? C.green3 : C.red3,
+                            color: a.is_active ? "#15803d" : C.red,
+                            border: `1px solid ${a.is_active ? C.green4 : "#fecaca"}`,
+                          }}
+                        >
+                          {a.is_active ? "সক্রিয়" : "বন্ধ"}
+                        </span>
                         <button
-                          onClick={() => doDelete(a)}
+                          onClick={() => openEdit(a)}
                           style={{
                             padding: "7px 12px",
                             borderRadius: 7,
@@ -618,16 +636,48 @@ export default function SaAdmins() {
                             fontFamily: FONT,
                             background: C.bg,
                             border: `1px solid ${C.border}`,
-                            color: C.red,
+                            color: C.muted,
                           }}
                         >
-                          🗑
+                          সম্পাদনা
                         </button>
-                      )}
+                        <button
+                          onClick={() => openAssign(a)}
+                          style={{
+                            padding: "7px 12px",
+                            borderRadius: 7,
+                            fontSize: 13,
+                            cursor: "pointer",
+                            fontFamily: FONT,
+                            background: C.bg,
+                            border: `1px solid ${C.border}`,
+                            color: C.accent,
+                            fontWeight: 600,
+                          }}
+                        >
+                          Center Assign
+                        </button>
+                        {a.role !== "director" && (
+                          <button
+                            onClick={() => doDelete(a)}
+                            style={{
+                              padding: "7px 12px",
+                              borderRadius: 7,
+                              fontSize: 13,
+                              cursor: "pointer",
+                              fontFamily: FONT,
+                              background: C.bg,
+                              border: `1px solid ${C.border}`,
+                              color: C.red,
+                            }}
+                          >
+                            🗑
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           )}
 
