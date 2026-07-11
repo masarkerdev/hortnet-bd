@@ -37,6 +37,26 @@ function directorOnly(req, res, next) {
   next();
 }
 
+function directorOnly(req, res, next) {
+  if (req.saUser.role !== "director")
+    return res
+      .status(403)
+      .json({ success: false, message: "শুধু পরিচালক করতে পারবেন।" });
+  next();
+}
+
+// একাধিক role allow করার জন্য — existing directorOnly touch করা হয় নাই
+function requireRole(...allowedRoles) {
+  return (req, res, next) => {
+    if (!allowedRoles.includes(req.saUser.role)) {
+      return res
+        .status(403)
+        .json({ success: false, message: "এই কাজের অনুমতি আপনার নেই।" });
+    }
+    next();
+  };
+}
+
 async function queryTenant(dbUrl, sql, params = []) {
   const pool = new Pool({
     connectionString: dbUrl,
