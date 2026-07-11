@@ -58,18 +58,10 @@ function requireRole(...allowedRoles) {
 }
 
 async function queryTenant(dbUrl, sql, params = []) {
-  const pool = new Pool({
-    connectionString: dbUrl,
-    ssl: false,
-    max: 1,
-    connectionTimeoutMillis: 8000,
-  });
-  try {
-    const r = await pool.query(sql, params);
-    return r.rows;
-  } finally {
-    await pool.end();
-  }
+  const { getPool } = require("../config/poolManager");
+  const pool = getPool(dbUrl, dbUrl); // cached, reused pool — নতুন pool তৈরি/ধ্বংস হয় না
+  const r = await pool.query(sql, params);
+  return r.rows;
 }
 
 // ===== LOGIN =====
