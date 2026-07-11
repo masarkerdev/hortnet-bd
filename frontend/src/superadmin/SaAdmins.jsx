@@ -694,11 +694,11 @@ export default function SaAdmins() {
                 gap: 12,
               }}
             >
-              <Field label="সেন্টারের নাম*">
+              <Field label="উইং/সেন্টারের নাম*">
                 <Input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="হর্টিকালচার সেন্টার, পাঁচগাছিয়া"
+                  placeholder="হর্টিকালচার সেন্টার,কুমিল্লা"
                 />
               </Field>
               <Field label="পদবী*">
@@ -706,6 +706,7 @@ export default function SaAdmins() {
                   value={form.role}
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
                 >
+                  <option value="director">পরিচালক</option>
                   <option value="deputy_director">উপপরিচালক</option>
                   <option value="additional_deputy_director">
                     অতিরিক্ত উপপরিচালক
@@ -752,7 +753,7 @@ export default function SaAdmins() {
                   onChange={(e) =>
                     setForm({ ...form, district: e.target.value })
                   }
-                  placeholder="ফেনী"
+                  placeholder="কুমিল্লা"
                 />
               </Field>
               <Field label="বিভাগ">
