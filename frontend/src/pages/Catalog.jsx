@@ -94,9 +94,12 @@ export default function Catalog() {
     } else setView("search");
   }
 
-  async function doSearch() {
-    const q = searchQ.trim();
-    if (!q) return;
+  async function doSearch(overrideQ) {
+    const q = (overrideQ !== undefined ? overrideQ : searchQ).trim();
+    if (!q) {
+      setSearchResults([]);
+      return;
+    }
     setSearching(true);
     setView("search");
     try {
@@ -509,7 +512,15 @@ export default function Catalog() {
             <input
               ref={searchRef}
               value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
+              onChange={(e) => {
+                setSearchQ(e.target.value);
+                if (window.__searchDebounce)
+                  clearTimeout(window.__searchDebounce);
+                window.__searchDebounce = setTimeout(
+                  () => doSearch(e.target.value),
+                  400,
+                );
+              }}
               onKeyDown={(e) => e.key === "Enter" && doSearch()}
               placeholder="চারার নাম লিখুন... যেমন: আম, কলা, লিচু"
               style={{
