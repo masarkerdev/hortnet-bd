@@ -4,28 +4,23 @@ const router = express.Router();
 
 // সব public routes-এ no-cache header
 router.use((req, res, next) => {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
   next();
 });
 const { Pool } = require("pg");
 const { getTenants } = require("../lib/tenantCache");
 
 async function queryTenant(dbUrl, sql, params = []) {
-  const pool = new Pool({
-    connectionString: dbUrl,
-    ssl: false,
-    max: 1,
-    connectionTimeoutMillis: 8000,
-  });
+  const { getPool } = require("../config/poolManager");
+  const pool = getPool(dbUrl, dbUrl);
   try {
     const r = await pool.query(sql, params);
     return r.rows;
-  } catch {
+  } catch (e) {
+    console.error("public.js queryTenant error:", e.message);
     return [];
-  } finally {
-    await pool.end();
   }
 }
 
