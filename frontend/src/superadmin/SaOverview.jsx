@@ -4,7 +4,7 @@ import saApi from './saApi';
 
 const FONT = "'Noto Sans Bengali','Segoe UI',sans-serif";
 const toBn = (n) => String(n).replace(/[0-9]/g, (d) => '০১২৩৪৫৬৭৮৯'[d]);
-const fmt = (n) => Number(n || 0).toLocaleString('en-IN');
+const fmt = (n) => toBn(Number(n || 0).toLocaleString('en-IN'));
 const fmtN = (n) => toBn(Number(n || 0).toLocaleString('en-IN'));
 const fmtK = (n) => {
   const v = Number(n || 0);
@@ -195,8 +195,8 @@ export default function SaOverview() {
       `}</style>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12, marginBottom:24 }}>
-        <KpiCard label="মোট বিক্রয়"    value={`৳${fmt(totalRev)}`}   sub={`${toBn(invoices)} চালান`} borderColor={V.green}  valueColor={V.green}  />
-        <KpiCard label="আজকের বিক্রয়"  value={`৳${fmt(todayRev)}`}   sub=""                          borderColor={V.blue}   valueColor={V.blue}   />
+        <KpiCard label="মোট বিক্রয়"    value={`৳${fmtN(totalRev)}`}   sub={`${toBn(invoices)} চালান`} borderColor={V.green}  valueColor={V.green}  />
+        <KpiCard label="আজকের বিক্রয়"  value={`৳${fmtN(todayRev)}`}   sub=""                          borderColor={V.blue}   valueColor={V.blue}   />
         <KpiCard label="মোট উৎপাদন"    value={fmtN(totalProd)}        sub="টি চারা/কলম"               borderColor={V.purple} valueColor={V.purple} />
         <KpiCard label="মোট স্টক"       value={fmtN(totalStock)}       sub="টি চারা/কলম"               borderColor={V.amber}  valueColor={V.amber}  />
         <KpiCard label="সক্রিয় Center" value={toBn(ok.length)}        sub=""                          borderColor={V.teal}   valueColor={V.teal}   />
@@ -206,12 +206,12 @@ export default function SaOverview() {
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:12, marginBottom:24 }}>
           <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:14, padding:'18px 20px', borderTop:`3px solid ${V.green}` }}>
             <div style={{ fontSize:13, color:V.muted, marginBottom:6 }}>মোট লক্ষ্যমাত্রা (সব সেন্টার)</div>
-            <div className="kpi-value" style={{ fontSize:26, fontWeight:700, color:V.green }}>{toBn(targetSummary.target)}<span style={{ fontSize:14, fontWeight:500 }}> টি চারা/কলম</span></div>
+            <div className="kpi-value" style={{ fontSize:26, fontWeight:700, color:V.green }}>{fmtN(targetSummary.target)}<span style={{ fontSize:14, fontWeight:500 }}> টি চারা/কলম</span></div>
             <div style={{ fontSize:12, color:V.muted, marginTop:4 }}>({toBn(targetSummary.fy.split('-')[0])}-{toBn(targetSummary.fy.split('-')[1])} অর্থবছরে)</div>
           </div>
           <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:14, padding:'18px 20px', borderTop:`3px solid ${V.amber}` }}>
             <div style={{ fontSize:13, color:V.muted, marginBottom:6 }}>অর্জিত</div>
-            <div className="kpi-value" style={{ fontSize:26, fontWeight:700, color:V.amber }}>{toBn(targetSummary.achieved)}<span style={{ fontSize:14, fontWeight:500 }}> টি চারা/কলম</span></div>
+            <div className="kpi-value" style={{ fontSize:26, fontWeight:700, color:V.amber }}>{fmtN(targetSummary.achieved)}<span style={{ fontSize:14, fontWeight:500 }}> টি চারা/কলম</span></div>
             <div style={{ fontSize:12, color:V.muted, marginTop:4 }}>এখন অব্দি — <b style={{color:V.green}}>{toBn(targetSummary.percent)}%</b> অর্জিত</div>
           </div>
         </div>

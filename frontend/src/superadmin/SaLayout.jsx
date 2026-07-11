@@ -13,9 +13,29 @@ const THEMES = {
 const ROLE_BN = {
   director: "পরিচালক",
   deputy_director: "উপপরিচালক",
+  additional_deputy_director: "অতিরিক্ত উপপরিচালক",
+  program_officer: "প্রোগ্রাম অফিসার",
+  notice_officer: "নোটিশ অফিসার",
+  report_officer: "রিপোর্ট অফিসার",
+  viewer: "ভিউয়ার",
   horticulturist: "উদ্যানতত্ত্ববিদ",
   nursery_supervisor: "নার্সারী তত্ত্বাবধায়ক",
 };
+
+// রোল-ভিত্তিক অনুমতি — কোন role কোন menu item দেখবে
+const PERMS = {
+  director:          ["overview","catA","catB","catC","reports","compare","targetSummary","districtSummary","allCenters","admins","notices","categoryMgmt","hrm"],
+  deputy_director:   ["overview","catA","catB","catC","reports","compare","targetSummary","districtSummary","notices"],
+  additional_deputy_director: ["overview","catA","catB","catC","reports","compare","targetSummary","districtSummary","notices"],
+  program_officer:   ["overview","catA","catB","catC","reports","compare","targetSummary","districtSummary","categoryMgmt"],
+  notice_officer:    ["overview","notices"],
+  report_officer:    ["overview","reports","compare","targetSummary","districtSummary"],
+  viewer:            ["overview","catA","catB","catC","reports","compare","targetSummary","districtSummary"],
+};
+function can(role, key) {
+  if (!role) return true; // fallback: role না থাকলে সব দেখাবে (safety)
+  return (PERMS[role] || PERMS.viewer).includes(key);
+}
 const PAGE_TITLES = {
   "": "📊 Overview",
   "category/A": "🏛️ A Category — উপপরিচালক",
@@ -36,26 +56,26 @@ const NAV_SECTIONS = [
   {
     label: "মূল মেনু",
     items: [
-      { path: "", icon: "ti-layout-dashboard", text: "Overview", bkey: "overview" },
+      { path: "", icon: "ti-layout-dashboard", text: "Overview", bkey: "overview", perm: "overview" },
     ],
   },
   {
     label: "Center Category",
     divider: true,
     items: [
-      { path: "category/A", icon: "ti-building-skyscraper", text: "A — উপপরিচালক", bkey: "A", cat: "A" },
-      { path: "category/B", icon: "ti-plant", text: "B — উদ্যানতত্ত্ববিদ", bkey: "B", cat: "B" },
-      { path: "category/C", icon: "ti-leaf", text: "C — নার্সারী তত্ত্বাবধায়ক", bkey: "C", cat: "C" },
+      { path: "category/A", icon: "ti-building-skyscraper", text: "A — উপপরিচালক", bkey: "A", cat: "A", perm: "catA" },
+      { path: "category/B", icon: "ti-plant", text: "B — উদ্যানতত্ত্ববিদ", bkey: "B", cat: "B", perm: "catB" },
+      { path: "category/C", icon: "ti-leaf", text: "C — নার্সারী তত্ত্বাবধায়ক", bkey: "C", cat: "C", perm: "catC" },
     ],
   },
   {
     label: "রিপোর্ট",
     divider: true,
     items: [
-      { path: "reports", icon: "ti-file-analytics", text: "রিপোর্ট" },
-      { path: "compare", icon: "ti-chart-bar", text: "তুলনামূলক রিপোর্ট" },
-      { path: "target-summary", icon: "ti-target", text: "লক্ষ্যমাত্রা সারসংক্ষেপ" },
-      { path: "district-summary", icon: "ti-map-pin", text: "জেলাভিত্তিক সারসংক্ষেপ" },
+      { path: "reports", icon: "ti-file-analytics", text: "রিপোর্ট", perm: "reports" },
+      { path: "compare", icon: "ti-chart-bar", text: "তুলনামূলক রিপোর্ট", perm: "compare" },
+      { path: "target-summary", icon: "ti-target", text: "লক্ষ্যমাত্রা সারসংক্ষেপ", perm: "targetSummary" },
+      { path: "district-summary", icon: "ti-map-pin", text: "জেলাভিত্তিক সারসংক্ষেপ", perm: "districtSummary" },
     ],
   },
 ];
@@ -63,9 +83,9 @@ const NAV_DIR = {
   label: "পরিচালক",
   divider: true,
   items: [
-    { path: "all-centers", icon: "ti-settings", text: "সব Center পরিচালনা" },
-    { path: "admins", icon: "ti-users-group", text: "Admin পরিচালনা", bkey: "admins" },
-    { path: "notices", icon: "ti-speakerphone", text: "নোটিশ বোর্ড" },
+    { path: "all-centers", icon: "ti-settings", text: "সব Center পরিচালনা", perm: "allCenters" },
+    { path: "admins", icon: "ti-users-group", text: "Admin পরিচালনা", bkey: "admins", perm: "admins" },
+    { path: "notices", icon: "ti-speakerphone", text: "নোটিশ বোর্ড", perm: "notices" },
   ],
 };
 
@@ -160,6 +180,8 @@ export default function SaLayout() {
   }
 
   function Section({ sec }) {
+    const visibleItems = sec.items.filter((item) => can(sa?.role, item.perm));
+    if (!visibleItems.length) return null;
     return (
       <>
         {sec.divider && (
@@ -180,7 +202,7 @@ export default function SaLayout() {
             {sec.label}
           </div>
         )}
-        {sec.items.map((item) => (
+        {visibleItems.map((item) => (
           <NavItem key={item.path} item={item} />
         ))}
       </>
@@ -328,7 +350,7 @@ export default function SaLayout() {
               <div style={{ fontSize: 12, fontWeight: 600, color: "#1e293b" }}>{topbarName}</div>
               {topbarRole && <div style={{ fontSize: 10, color: "#64748b" }}>{topbarRole}</div>}
             </div>
-            <button
+            {can(sa?.role, "categoryMgmt") && <button
               className="sa-topbar-btn"
               onClick={() => navigate("categories")}
               style={{
@@ -340,8 +362,8 @@ export default function SaLayout() {
               onMouseLeave={(e) => { e.currentTarget.style.background = "#f0fdf4"; }}
             >
               <i className="ti ti-category" /> <span className="sa-topbar-btn-text">ক্যাটেগরি ম্যানেজমেন্ট</span>
-            </button>
-            <button
+            </button>}
+            {can(sa?.role, "hrm") && <button
               className="sa-topbar-btn"
               onClick={() => navigate("hrm")}
               style={{
@@ -353,7 +375,7 @@ export default function SaLayout() {
               onMouseLeave={(e) => { e.currentTarget.style.background = "#eff6ff"; }}
             >
               <i className="ti ti-users" /> <span className="sa-topbar-btn-text">HRM</span>
-            </button>
+            </button>}
             <button
               className="sa-topbar-btn"
               onClick={() => window.dispatchEvent(new CustomEvent("sa:refresh"))}
