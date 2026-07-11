@@ -250,10 +250,10 @@ export default function Catalog() {
                 lineHeight: 1.2,
               }}
             >
-              হর্টিকালচার নেটওয়ার্ক-বাংলাদেশ(HORTNET-BD)
+              HORTNET-BD
             </div>
             <div style={{ fontSize: 11, opacity: 0.8, marginTop: 1 }}>
-              হর্টিকালচার উইং,কৃষি সম্প্রসারণ অধিদপ্তর, খামারবাড়ী, ঢাকা-১২১৫
+              হর্টিকালচার উইং, কৃষি সম্প্রসারণ অধিদপ্তর
             </div>
           </div>
           <div
@@ -404,7 +404,7 @@ export default function Catalog() {
             letterSpacing: ".04em",
           }}
         >
-          🌿 কৃষি সম্প্রসারণ অধিদপ্তর (DAE)
+          🌿 হর্টিকালচার সেন্টার নেটওয়ার্ক-বাংলাদেশ
         </div>
         <h2
           style={{
@@ -423,7 +423,7 @@ export default function Catalog() {
             opacity: 0.9,
             marginBottom: 10,
             maxWidth: 680,
-            margin: "0 auto 10px",
+            margin: "0 auto 20px",
             lineHeight: 1.8,
           }}
         >
