@@ -17,7 +17,6 @@ app.use("/api/public", require("./routes/public"));
 // ★ Developer routes (hidden)
 app.use("/api/dev", require("./routes/developer"));
 app.use("/api/hrm", require("./routes/hrm"));
-app.use("/api/budget", require("./routes/budget"));
 app.use("/api/budget-admin", require("./routes/budgetAdmin"));
 
 // ★ Tenant middleware
@@ -30,6 +29,7 @@ app.use("/api/superadmin", require("./routes/superadmin"));
 app.use("/api/superadmin", require("./routes/superadminExtra"));
 app.use("/api/category-requests", require("./routes/categoryRequests"));
 app.use("/api/reports", require("./routes/reports"));
+app.use("/api/budget", require("./routes/budget"));
 
 //end of new lines
 
