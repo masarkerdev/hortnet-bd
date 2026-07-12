@@ -198,7 +198,7 @@ router.get("/stats-all", saAuth, async (req, res) => {
             ),
             queryTenant(
               tenant.db_url,
-              `SELECT COUNT(*) AS total_batches, COALESCE(SUM(produced_quantity),0) AS total_produced, COALESCE(AVG(CASE WHEN success_percent>0 THEN success_percent END),0) AS avg_success, COALESCE(SUM(available_quantity),0) AS total_available FROM production_batches`,
+              `SELECT COUNT(*) AS total_batches, COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS total_produced, COALESCE(AVG(CASE WHEN success_percent>0 THEN success_percent END),0) AS avg_success, COALESCE(SUM(available_quantity),0) AS total_available FROM production_batches`,
             ),
             queryTenant(
               tenant.db_url,
