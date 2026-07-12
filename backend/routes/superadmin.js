@@ -220,7 +220,7 @@ router.get("/stats-all", saAuth, async (req, res) => {
             ),
             queryTenant(
               tenant.db_url,
-              `SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS qty FROM production_batches WHERE EXTRACT(MONTH FROM sowing_date)=$1 AND EXTRACT(YEAR FROM sowing_date)=$2`,
+              `SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS qty FROM production_batches WHERE EXTRACT(MONTH FROM COALESCE(sowing_date,propagation_date))=$1 AND EXTRACT(YEAR FROM COALESCE(sowing_date,propagation_date))=$2`,
               [curMonth, curYear],
             ),
           ]);
