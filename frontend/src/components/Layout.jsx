@@ -357,7 +357,13 @@ export default function Layout() {
     })
       .then((r) => r.json())
       .then((d) => {
-        if (d.success && d.tenant) setTenantInfo(d.tenant);
+        if (d.success && d.tenant) {
+          setTenantInfo(d.tenant);
+          const centerName = (d.tenant.name_bn || "")
+            .replace("হর্টিকালচার সেন্টার,", "")
+            .trim();
+          document.title = `${centerName} | হর্টিকালচার সেন্টার নেটওয়ার্ক-বাংলাদেশ`;
+        }
       })
       .catch(() => {});
   }, [user]);
