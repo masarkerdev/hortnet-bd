@@ -575,7 +575,7 @@ router.get("/report/target-summary", saAuth, async (req, res) => {
           [fy],
         );
         const achievedRows = await db.query(
-          `SELECT COALESCE(SUM(produced_quantity),0) AS total FROM production_batches
+          `SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS total FROM production_batches
            WHERE COALESCE(propagation_date, sowing_date, created_at::date) >= $1
              AND COALESCE(propagation_date, sowing_date, created_at::date) <= $2`,
           [fyStart, fyEnd],
