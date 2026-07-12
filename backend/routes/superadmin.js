@@ -361,7 +361,7 @@ router.get("/center/:slug", saAuth, async (req, res) => {
       ),
       queryTenant(
         tenant.db_url,
-        `SELECT production_type, COUNT(*) AS batches, COALESCE(SUM(produced_quantity),0) AS total_qty FROM production_batches GROUP BY production_type ORDER BY total_qty DESC`,
+        `SELECT production_type, COUNT(*) AS batches, COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS total_qty FROM production_batches GROUP BY production_type ORDER BY total_qty DESC`,
       ),
       queryTenant(
         tenant.db_url,
