@@ -18,6 +18,7 @@ app.use("/api/public", require("./routes/public"));
 app.use("/api/dev", require("./routes/developer"));
 app.use("/api/hrm", require("./routes/hrm"));
 app.use("/api/budget", require("./routes/budget"));
+app.use("/api/budget-admin", require("./routes/budgetAdmin"));
 
 // ★ Tenant middleware
 app.use(tenantMiddleware);
