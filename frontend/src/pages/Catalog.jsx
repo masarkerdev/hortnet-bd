@@ -1527,7 +1527,7 @@ export default function Catalog() {
         }}
       >
         <div style={{ marginBottom: 6 }}>
-          🌿 হর্টিকালচার উইং, কৃষি সম্প্রসারণ অধিদপ্তর, বাংলাদেশ
+          🌿 হর্টিকালচার উইং, কৃষি সম্প্রসারণ অধিদপ্তর, খামারবাড়ি, ঢাকা-১২১৫।
         </div>
         <div style={{ opacity: 0.6 }}>
           © {new Date().getFullYear()} HortNet-BD — সর্বস্বত্ব সংরক্ষিত
