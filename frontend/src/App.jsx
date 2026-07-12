@@ -37,6 +37,7 @@ import SaNotices from "./superadmin/SaNotices";
 import SaReport from "./superadmin/SaReport";
 import SaCategories from "./superadmin/SaCategories";
 import SaHRM from "./superadmin/SaHRM";
+import SaBudget from "./superadmin/SaBudget";
 import SaCompare from "./superadmin/SaCompare";
 import SaTargetSummary from "./superadmin/SaTargetSummary";
 import SaDistrictSummary from "./superadmin/SaDistrictSummary";
@@ -127,6 +128,7 @@ export default function App() {
         <Route path="reports" element={<SaReport />} />
         <Route path="categories" element={<SaCategories />} />
         <Route path="hrm" element={<SaHRM />} />
+        <Route path="budget" element={<SaBudget />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
