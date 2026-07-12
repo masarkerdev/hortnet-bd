@@ -186,7 +186,7 @@ router.get("/target-summary", authenticate, async (req, res) => {
       [fy],
     );
     const achievedRows = await db.query(
-      `SELECT COALESCE(SUM(produced_quantity),0) AS total FROM production_batches
+      `SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS total FROM production_batches
        WHERE COALESCE(propagation_date, sowing_date, created_at::date) >= $1
          AND COALESCE(propagation_date, sowing_date, created_at::date) <= $2`,
       [fyStart, fyEnd],
@@ -232,7 +232,7 @@ router.get("/category-detail", authenticate, async (req, res) => {
     );
 
     const prodCur = await db.query(
-      `SELECT pb.seedling_id, COALESCE(SUM(pb.produced_quantity),0) AS qty
+      `SELECT pb.seedling_id, COALESCE(SUM(CASE WHEN pb.production_type='seed' THEN pb.produced_quantity ELSE COALESCE(pb.success_quantity,pb.produced_quantity) END),0) AS qty
        FROM production_batches pb JOIN seedlings s ON pb.seedling_id=s.id JOIN categories c ON s.category_id=c.id
        WHERE c.name_bn=$1
          AND COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date)>=$2
@@ -242,7 +242,7 @@ router.get("/category-detail", authenticate, async (req, res) => {
     );
 
     const prodPrev = await db.query(
-      `SELECT pb.seedling_id, COALESCE(SUM(pb.produced_quantity),0) AS qty
+      `SELECT pb.seedling_id, COALESCE(SUM(CASE WHEN pb.production_type='seed' THEN pb.produced_quantity ELSE COALESCE(pb.success_quantity,pb.produced_quantity) END),0) AS qty
        FROM production_batches pb JOIN seedlings s ON pb.seedling_id=s.id JOIN categories c ON s.category_id=c.id
        WHERE c.name_bn=$1
          AND COALESCE(pb.propagation_date, pb.sowing_date, pb.created_at::date)>=$2
