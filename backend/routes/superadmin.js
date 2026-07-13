@@ -175,6 +175,7 @@ router.get("/stats-all", saAuth, async (req, res) => {
             annualProdTarget,
             monthlyProdTarget,
             monthlyProdAchieved,
+            otherIncomeTotal,
           ] = await Promise.all([
             queryTenant(
               tenant.db_url,
@@ -222,6 +223,10 @@ router.get("/stats-all", saAuth, async (req, res) => {
               tenant.db_url,
               `SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS qty FROM production_batches WHERE EXTRACT(MONTH FROM COALESCE(sowing_date,propagation_date))=$1 AND EXTRACT(YEAR FROM COALESCE(sowing_date,propagation_date))=$2`,
               [curMonth, curYear],
+            ),
+            queryTenant(
+              tenant.db_url,
+              `SELECT COALESCE(SUM(amount),0) AS total FROM other_income`,
             ),
           ]);
 
@@ -282,6 +287,7 @@ router.get("/stats-all", saAuth, async (req, res) => {
               perfScore >= 70 ? "green" : perfScore >= 45 ? "yellow" : "red",
             annual_prod_target: parseInt(annualProdTarget[0]?.qty || 0),
             monthly_prod_target: parseInt(monthlyProdTarget[0]?.qty || 0),
+            other_income_total: parseFloat(otherIncomeTotal[0]?.total || 0),
             monthly_prod_achieved: parseInt(monthlyProdAchieved[0]?.qty || 0),
             status: "ok",
           };
