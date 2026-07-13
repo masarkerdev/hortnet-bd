@@ -269,6 +269,10 @@
   }
 }
 /* চালান প্রিন্ট */
+@med@page {
+  size: A4;
+  margin: 15mm 12mm;
+}
 @media print {
   body * {
     visibility: hidden !important;
@@ -284,9 +288,13 @@
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
-    padding: 16px;
+    padding: 0 !important;
     background: #fff !important;
     z-index: 999999 !important;
+  }
+  #invoice-print .tbl td,
+  #invoice-print .tbl th {
+    padding: 3px 6px !important;
   }
   .no-print {
     display: none !important;

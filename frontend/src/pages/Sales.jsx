@@ -630,25 +630,26 @@ function InvoiceModal({ sale, onClose, office, location, phone, autoPrint }) {
             </div>
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
+                position: "relative",
                 borderBottom: "3px solid var(--g600)",
                 paddingBottom: 12,
                 marginBottom: 14,
+                minHeight: 60,
               }}
             >
               <img
                 src="/dae-logo.png"
                 alt="DAE Logo"
                 style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
                   width: 56,
                   height: 56,
                   objectFit: "contain",
-                  flexShrink: 0,
                 }}
               />
-              <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ textAlign: "center", padding: "0 64px" }}>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>
                   গণপ্রজাতন্ত্রী বাংলাদেশ সরকার
                 </div>
@@ -659,7 +660,7 @@ function InvoiceModal({ sale, onClose, office, location, phone, autoPrint }) {
                     color: "var(--g600)",
                   }}
                 >
-                  কৃষি সম্প্রসারণ অধিদপ্তর, <br /> হর্টিকালচার উইং
+                  কৃষি সম্প্রসারণ অধিদপ্তর <br /> হর্টিকালচার উইং
                 </div>
                 <div style={{ fontSize: 13, color: "#444", marginTop: 2 }}>
                   হর্টিকালচার সেন্টার, {location}
@@ -671,7 +672,6 @@ function InvoiceModal({ sale, onClose, office, location, phone, autoPrint }) {
                   )}
                 </div>
               </div>
-              <div style={{ width: 56, flexShrink: 0 }}></div>
             </div>
             <div className="mb-3 flex justify-between text-[13px]">
               <div>
