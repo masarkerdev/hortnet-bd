@@ -262,6 +262,7 @@ export default function Sales() {
         }}
         office={office}
         location={loc}
+        phone={center?.mobile || ""}
       />
     </div>
   );
@@ -591,7 +592,7 @@ export function SaleModal({ open, onClose, seedlings, sale, onSaved }) {
   );
 }
 
-function InvoiceModal({ sale, onClose, office, location, autoPrint }) {
+function InvoiceModal({ sale, onClose, office, location, phone, autoPrint }) {
   useEffect(() => {
     if (sale && autoPrint) {
       const t = setTimeout(() => window.print(), 350);
@@ -607,90 +608,150 @@ function InvoiceModal({ sale, onClose, office, location, autoPrint }) {
       title={`চালান — ${sale.invoice_no}`}
       wide
     >
-      <div id="invoice-print">
-        <div
-          style={{
-            borderBottom: "3px solid var(--g600)",
-            paddingBottom: 12,
-            marginBottom: 14,
-            textAlign: "center",
-          }}
-        >
-          <div style={{ fontSize: 20, fontWeight: 700, color: "var(--g600)" }}>
-            {office}
-          </div>
-          <div style={{ fontSize: 13, color: "#444", marginTop: 2 }}>
-            হর্টিকালচার সেন্টার, {location}
-          </div>
-          <div style={{ fontSize: 12, color: "#666" }}>
-            কৃষি সম্প্রসারণ অধিদপ্তর, হর্টিকালচার উইং, কৃষি মন্ত্রণালয়
-          </div>
-        </div>
-        <div className="mb-3 flex justify-between text-[13px]">
-          <div>
-            <div className="font-semibold">চালান নং: {sale.invoice_no}</div>
-            <div style={{ color: "#666" }}>তারিখ: {dateBn(sale.sale_date)}</div>
-          </div>
-          <div className="text-right">
-            <div className="font-semibold">
-              গ্রাহক: {sale.customer_name || "-"}
-            </div>
-            {sale.customer_phone && (
-              <div style={{ color: "#666" }}>{sale.customer_phone}</div>
-            )}
-            {sale.customer_address && (
-              <div style={{ color: "#666" }}>{sale.customer_address}</div>
-            )}
-          </div>
-        </div>
-        <table className="tbl" style={{ border: "1px solid var(--bd)" }}>
-          <thead>
-            <tr>
-              <th>চারা</th>
-              <th>পরিমাণ</th>
-              <th>দর</th>
-              <th>মোট</th>
-            </tr>
-          </thead>
-          <tbody>
-            {its.map((it, i) => (
-              <tr key={i}>
-                <td>{it.seedling_bn || it.name_bn || "-"}</td>
-                <td>{toBn(it.quantity)}</td>
-                <td>{money(it.unit_price)}</td>
-                <td>{money(it.total_price ?? it.quantity * it.unit_price)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="mt-3 ml-auto w-56 text-[13px]">
-          <Row l="সাবটোটাল" v={money(sale.subtotal ?? sale.total_amount)} />
-          <Row l="ছাড়" v={"− " + money(sale.discount || 0)} />
+      <div id="invoice-print" style={{ padding: "0 20px" }}>
+        {["অফিস কপি", "গ্রাহক কপি"].map((copyLabel, copyIdx) => (
           <div
-            className="mt-1 flex justify-between border-t pt-1 font-semibold"
-            style={{ borderColor: "var(--bd)" }}
+            key={copyIdx}
+            style={{
+              pageBreakAfter: copyIdx === 0 ? "always" : "auto",
+              marginBottom: copyIdx === 0 ? 20 : 0,
+            }}
           >
-            <span>সর্বমোট</span>
-            <span style={{ color: "var(--g600)" }}>
-              {money(sale.total_amount)}
-            </span>
+            <div
+              style={{
+                textAlign: "right",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#888",
+                marginBottom: 6,
+              }}
+            >
+              {copyLabel}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                borderBottom: "3px solid var(--g600)",
+                paddingBottom: 12,
+                marginBottom: 14,
+              }}
+            >
+              <img
+                src="/dae-logo.png"
+                alt="DAE Logo"
+                style={{
+                  width: 56,
+                  height: 56,
+                  objectFit: "contain",
+                  flexShrink: 0,
+                }}
+              />
+              <div style={{ flex: 1, textAlign: "center" }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>
+                  গণপ্রজাতন্ত্রী বাংলাদেশ সরকার
+                </div>
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: "var(--g600)",
+                  }}
+                >
+                  কৃষি সম্প্রসারণ অধিদপ্তর, <br /> হর্টিকালচার উইং
+                </div>
+                <div style={{ fontSize: 13, color: "#444", marginTop: 2 }}>
+                  হর্টিকালচার সেন্টার, {location}
+                  {phone && (
+                    <>
+                      <br />
+                      মোবাইল নং: {phone}
+                    </>
+                  )}
+                </div>
+              </div>
+              <div style={{ width: 56, flexShrink: 0 }}></div>
+            </div>
+            <div className="mb-3 flex justify-between text-[13px]">
+              <div>
+                <div className="font-semibold">চালান নং: {sale.invoice_no}</div>
+                <div style={{ color: "#666" }}>
+                  তারিখ: {dateBn(sale.sale_date)}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-semibold">
+                  গ্রাহক: {sale.customer_name || "-"}
+                </div>
+                {sale.customer_phone && (
+                  <div style={{ color: "#666" }}>{sale.customer_phone}</div>
+                )}
+                {sale.customer_address && (
+                  <div style={{ color: "#666" }}>{sale.customer_address}</div>
+                )}
+              </div>
+            </div>
+            <table
+              className="tbl"
+              style={{ border: "1px solid var(--bd)", width: "100%" }}
+            >
+              <thead>
+                <tr>
+                  <th>নং</th>
+                  <th>নাম</th>
+                  <th>জাত</th>
+                  <th>পরিমাণ</th>
+                  <th>দর (প্রতিটি)</th>
+                  <th>মোট</th>
+                </tr>
+              </thead>
+              <tbody>
+                {its.map((it, i) => (
+                  <tr key={i}>
+                    <td>{toBn(i + 1)}</td>
+                    <td>{it.seedling_bn || it.name_bn || "-"}</td>
+                    <td>{it.variety || "-"}</td>
+                    <td>{toBn(it.quantity)}</td>
+                    <td>{money(it.unit_price)}</td>
+                    <td>
+                      {money(it.total_price ?? it.quantity * it.unit_price)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="mt-3 ml-auto w-56 text-[13px]">
+              <Row l="সাবটোটাল" v={money(sale.subtotal ?? sale.total_amount)} />
+              <Row l="ছাড়" v={"− " + money(sale.discount || 0)} />
+              <div
+                className="mt-1 flex justify-between border-t pt-1 font-semibold"
+                style={{ borderColor: "var(--bd)" }}
+              >
+                <span>সর্বমোট</span>
+                <span style={{ color: "var(--g600)" }}>
+                  {money(sale.total_amount)}
+                </span>
+              </div>
+              <div className="mt-1 flex justify-between">
+                <span style={{ color: "#666" }}>পেমেন্ট</span>
+                <span>
+                  {PN[sale.payment_method] || sale.payment_method} (
+                  {SN[sale.payment_status] || sale.payment_status})
+                </span>
+              </div>
+            </div>
+            <div
+              className="mt-10 flex justify-between text-[12px]"
+              style={{ color: "#666" }}
+            >
+              <div>গ্রাহকের স্বাক্ষর</div>
+              <div>কর্তৃপক্ষের স্বাক্ষর</div>
+            </div>
           </div>
-          <div className="mt-1 flex justify-between">
-            <span style={{ color: "#666" }}>পেমেন্ট</span>
-            <span>
-              {PN[sale.payment_method] || sale.payment_method} (
-              {SN[sale.payment_status] || sale.payment_status})
-            </span>
-          </div>
-        </div>
-        <div
-          className="mt-10 flex justify-between text-[12px]"
-          style={{ color: "#666" }}
-        >
-          <div>গ্রাহকের স্বাক্ষর</div>
-          <div>কর্তৃপক্ষের স্বাক্ষর</div>
-        </div>
+        ))}
       </div>
+
       <div className="no-print mt-4 flex justify-end gap-2">
         <button
           onClick={onClose}

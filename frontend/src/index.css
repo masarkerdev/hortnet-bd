@@ -274,18 +274,19 @@
     visibility: hidden !important;
   }
   #invoice-print,
-  #invoice-print *,
-  #print-area,
-  #print-area * {
+  #invoice-print * {
     visibility: visible !important;
   }
-  #invoice-print,
-  #print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+  #invoice-print {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
     padding: 16px;
+    background: #fff !important;
+    z-index: 999999 !important;
   }
   .no-print {
     display: none !important;
