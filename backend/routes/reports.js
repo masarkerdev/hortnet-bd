@@ -101,7 +101,7 @@ router.get("/topsheet", authenticate, async (req, res) => {
        FROM stock_transactions st
        JOIN seedlings s ON st.seedling_id=s.id
        JOIN categories c ON s.category_id=c.id
-       WHERE st.txn_type='opening_balance' AND st.created_at<$1
+       WHERE st.txn_type='opening_balance'
        GROUP BY c.name_bn`,
       [fyStart],
     );
@@ -279,7 +279,7 @@ router.get("/category-detail", authenticate, async (req, res) => {
        FROM stock_transactions st
        JOIN seedlings s ON st.seedling_id=s.id
        JOIN categories c ON s.category_id=c.id
-       WHERE c.name_bn=$1 AND st.txn_type='opening_balance' AND st.created_at<$2
+       WHERE c.name_bn=$1 AND st.txn_type='opening_balance'
        GROUP BY st.seedling_id`,
       [mother_category, fyStart],
     );
