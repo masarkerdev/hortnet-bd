@@ -282,15 +282,18 @@
     visibility: visible !important;
   }
   #invoice-print {
-    position: fixed !important;
-    inset: 0 !important;
+    position: static !important;
     width: 100% !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
     padding: 0 !important;
     background: #fff !important;
-    z-index: 999999 !important;
+  }
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
   }
   #invoice-print .tbl td,
   #invoice-print .tbl th {
