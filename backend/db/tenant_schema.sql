@@ -186,7 +186,16 @@ CREATE TABLE IF NOT EXISTS other_income (
   income_date DATE NOT NULL,
   description TEXT,
   created_by  INTEGER REFERENCES users(id),
-  created_at  TIMESTAMP DEFAULT now()
+  created_at  TIMESTAMP DEFAULT now(),
+  quantity          NUMERIC,
+  unit_price        NUMERIC,
+  produce_price_id  INTEGER,
+  room_category_id  INTEGER,
+  check_in          DATE,
+  check_out         DATE,
+  guest_name        VARCHAR(200),
+  guest_mobile      VARCHAR(20),
+  guest_occupation  VARCHAR(200)
 );
 
 CREATE TABLE IF NOT EXISTS recycle_bin (
