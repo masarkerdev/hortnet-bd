@@ -92,6 +92,7 @@ async function tenantMiddleware(req, res, next) {
     division: tenant.division,
     location: tenant.location,
     currency: tenant.currency || "BDT",
+    mobile: tenant.mobile,
   };
 
   db.run(pool, next);
