@@ -484,9 +484,11 @@ router.get("/report/topsheet", saAuth, async (req, res) => {
         );
 
         const prevYearBalance = await db.query(
-          `SELECT c.name_bn, COALESCE(SUM(latest.balance_after),0) AS qty
-           FROM seedlings s JOIN categories c ON s.category_id=c.id
-           LEFT JOIN LATERAL (SELECT balance_after FROM stock_transactions st WHERE st.seedling_id=s.id AND st.created_at<$1 ORDER BY st.created_at DESC LIMIT 1) latest ON true
+          `SELECT c.name_bn, COALESCE(SUM(st.quantity),0) AS qty
+           FROM stock_transactions st
+           JOIN seedlings s ON st.seedling_id=s.id
+           JOIN categories c ON s.category_id=c.id
+           WHERE st.txn_type='opening_balance' AND st.created_at<$1
            GROUP BY c.name_bn`,
           [fyStart],
         );
@@ -698,13 +700,12 @@ router.get("/report/category-detail", saAuth, async (req, res) => {
         );
 
         const prevYearBal = await db.query(
-          `SELECT s.id AS seedling_id, COALESCE(latest.balance_after,0) AS qty
-           FROM seedlings s JOIN categories c ON s.category_id=c.id
-           LEFT JOIN LATERAL (
-             SELECT balance_after FROM stock_transactions st WHERE st.seedling_id=s.id AND st.created_at<$2
-             ORDER BY st.created_at DESC LIMIT 1
-           ) latest ON true
-           WHERE c.name_bn=$1`,
+          `SELECT st.seedling_id, COALESCE(SUM(st.quantity),0) AS qty
+           FROM stock_transactions st
+           JOIN seedlings s ON st.seedling_id=s.id
+           JOIN categories c ON s.category_id=c.id
+           WHERE c.name_bn=$1 AND st.txn_type='opening_balance' AND st.created_at<$2
+           GROUP BY st.seedling_id`,
           [mother_category, fyStart],
         );
 

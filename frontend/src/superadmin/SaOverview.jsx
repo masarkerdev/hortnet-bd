@@ -376,32 +376,11 @@ export default function SaOverview() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
+          gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
           gap: 12,
           marginBottom: 24,
         }}
       >
-        <KpiCard
-          label="মোট বিক্রয়"
-          value={`৳${fmtN(totalRev)}`}
-          sub={`${toBn(invoices)} চালান (আয় সহ)`}
-          borderColor={V.green}
-          valueColor={V.green}
-        />
-        <KpiCard
-          label="মোট অন্যান্য আয়"
-          value={`৳${fmtN(totalOtherIncome)}`}
-          sub="কৃষি পণ্য + ডরমিটরি + অন্যান্য"
-          borderColor={V.amber}
-          valueColor={V.amber}
-        />
-        <KpiCard
-          label="আজকের বিক্রয়"
-          value={`৳${fmtN(todayRev)}`}
-          sub=""
-          borderColor={V.blue}
-          valueColor={V.blue}
-        />
         <KpiCard
           label="মোট উৎপাদন"
           value={fmtN(totalProd)}
@@ -413,6 +392,27 @@ export default function SaOverview() {
           label="মোট স্টক"
           value={fmtN(totalStock)}
           sub="টি চারা/কলম"
+          borderColor={V.amber}
+          valueColor={V.amber}
+        />
+        <KpiCard
+          label="মোট বিক্রয়"
+          value={`৳${fmtN(totalRev)}`}
+          sub={`${toBn(invoices)} চালান (আয় সহ)`}
+          borderColor={V.green}
+          valueColor={V.green}
+        />
+        <KpiCard
+          label="আজকের বিক্রয়/ বিতরণ"
+          value={`৳${fmtN(todayRev)}`}
+          sub=""
+          borderColor={V.blue}
+          valueColor={V.blue}
+        />
+        <KpiCard
+          label="মোট অন্যান্য আয়"
+          value={`৳${fmtN(totalOtherIncome)}`}
+          sub="কৃষি পণ্য + ডরমিটরি + অন্যান্য"
           borderColor={V.amber}
           valueColor={V.amber}
         />
