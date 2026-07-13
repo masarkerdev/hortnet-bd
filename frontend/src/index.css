@@ -271,14 +271,17 @@
 /* চালান প্রিন্ট */
 @page {
   size: A4;
-  margin: 10mm;
+  margin: 8mm;
 }
 @media print {
   html,
   body {
-    width: 190mm;
+    width: auto !important;
     height: auto !important;
     overflow: visible !important;
+  }
+  * {
+    box-sizing: border-box !important;
   }
   body * {
     visibility: hidden !important;
@@ -297,8 +300,11 @@
     background: #fff !important;
   }
   .fixed.inset-0 {
+    display: block !important;
     position: static !important;
     overflow: visible !important;
+    width: auto !important;
+    height: auto !important;
   }
   .max-h-\[90vh\] {
     max-height: none !important;
