@@ -271,9 +271,15 @@
 /* চালান প্রিন্ট */
 @page {
   size: A4;
-  margin: 15mm 12mm;
+  margin: 10mm;
 }
 @media print {
+  html,
+  body {
+    width: 190mm;
+    height: auto !important;
+    overflow: visible !important;
+  }
   body * {
     visibility: hidden !important;
   }
@@ -290,10 +296,22 @@
     padding: 0 !important;
     background: #fff !important;
   }
-  html,
-  body {
-    height: auto !important;
+  .fixed.inset-0 {
+    position: static !important;
     overflow: visible !important;
+  }
+  .max-h-\[90vh\] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  #invoice-print .print-copy {
+    page-break-inside: avoid;
+  }
+  #invoice-print .print-copy:first-child {
+    page-break-after: always;
+  }
+  #invoice-print table tr {
+    page-break-inside: avoid;
   }
   #invoice-print .tbl td,
   #invoice-print .tbl th {

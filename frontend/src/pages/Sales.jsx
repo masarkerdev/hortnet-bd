@@ -612,8 +612,8 @@ function InvoiceModal({ sale, onClose, office, location, phone, autoPrint }) {
         {["অফিস কপি", "গ্রাহক কপি"].map((copyLabel, copyIdx) => (
           <div
             key={copyIdx}
+            className="print-copy"
             style={{
-              pageBreakAfter: copyIdx === 0 ? "always" : "auto",
               marginBottom: copyIdx === 0 ? 20 : 0,
             }}
           >
