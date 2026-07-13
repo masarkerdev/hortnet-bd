@@ -91,6 +91,7 @@ router.get("/center-info", authenticate, (req, res) => {
       location: t.location,
       district: t.district,
       division: t.division,
+      mobile: t.mobile,
     },
   });
 });
@@ -2044,12 +2045,10 @@ router.post(
       const { email, role } = ur.rows[0];
       const stored = otpStore["pc:" + email];
       if (!stored)
-        return res
-          .status(401)
-          .json({
-            success: false,
-            message: "OTP পাওয়া যায়নি। আবার চেষ্টা করুন।",
-          });
+        return res.status(401).json({
+          success: false,
+          message: "OTP পাওয়া যায়নি। আবার চেষ্টা করুন।",
+        });
       if (Date.now() > stored.expires) {
         delete otpStore["pc:" + email];
         return res
