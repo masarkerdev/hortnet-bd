@@ -534,6 +534,7 @@ router.get("/report/topsheet", saAuth, async (req, res) => {
         });
       } catch (e) {
         console.error(`[${tslug}] topsheet fetch error:`, e.message);
+        agg["ফলদ চারা"].debug_error = `${tslug}: ${e.message}`;
       }
     }
 
