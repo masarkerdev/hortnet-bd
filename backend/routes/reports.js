@@ -103,7 +103,6 @@ router.get("/topsheet", authenticate, async (req, res) => {
        JOIN categories c ON s.category_id=c.id
        WHERE st.txn_type='opening_balance'
        GROUP BY c.name_bn`,
-      [fyStart],
     );
 
     const netStock = await db.query(
@@ -281,7 +280,7 @@ router.get("/category-detail", authenticate, async (req, res) => {
        JOIN categories c ON s.category_id=c.id
        WHERE c.name_bn=$1 AND st.txn_type='opening_balance'
        GROUP BY st.seedling_id`,
-      [mother_category, fyStart],
+      [mother_category],
     );
 
     const findQty = (rows, id) => {

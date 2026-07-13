@@ -490,7 +490,6 @@ router.get("/report/topsheet", saAuth, async (req, res) => {
            JOIN categories c ON s.category_id=c.id
            WHERE st.txn_type='opening_balance'
            GROUP BY c.name_bn`,
-          [fyStart],
         );
 
         const netStock = await db.query(
@@ -534,7 +533,6 @@ router.get("/report/topsheet", saAuth, async (req, res) => {
         });
       } catch (e) {
         console.error(`[${tslug}] topsheet fetch error:`, e.message);
-        agg["ফলদ চারা"].debug_error = `${tslug}: ${e.message}`;
       }
     }
 
@@ -707,7 +705,7 @@ router.get("/report/category-detail", saAuth, async (req, res) => {
            JOIN categories c ON s.category_id=c.id
            WHERE c.name_bn=$1 AND st.txn_type='opening_balance'
            GROUP BY st.seedling_id`,
-          [mother_category, fyStart],
+          [mother_category],
         );
 
         const findQty = (rows, id) => {
