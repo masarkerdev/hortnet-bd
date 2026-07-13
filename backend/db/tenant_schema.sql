@@ -285,3 +285,20 @@ CREATE TABLE IF NOT EXISTS employees (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS produce_prices (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(200) NOT NULL,
+  unit VARCHAR(50),
+  price NUMERIC DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS room_categories (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(200) NOT NULL,
+  daily_rate NUMERIC DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
