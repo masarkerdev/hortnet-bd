@@ -4,11 +4,13 @@
 --     targets, other_income, recycle_bin + stock_summary view
 
 CREATE TABLE IF NOT EXISTS categories (
-  id          SERIAL PRIMARY KEY,
-  name_bn     VARCHAR(100) NOT NULL,
-  name_en     VARCHAR(100) NOT NULL,
-  description TEXT,
-  created_at  TIMESTAMP DEFAULT now()
+  id                  SERIAL PRIMARY KEY,
+  name_bn             VARCHAR(100) NOT NULL,
+  name_en             VARCHAR(100) NOT NULL,
+  description         TEXT,
+  category_master_id  INTEGER,
+  base_group          VARCHAR(50),
+  created_at          TIMESTAMP DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS users (

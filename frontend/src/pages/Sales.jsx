@@ -609,14 +609,7 @@ function InvoiceModal({ sale, onClose, office, location, phone, autoPrint }) {
       wide
     >
       <div id="invoice-print" style={{ padding: "0 20px" }}>
-        {["অফিস কপি", "গ্রাহক কপি"].map((copyLabel, copyIdx) => (
-          <div
-            key={copyIdx}
-            className="print-copy"
-            style={{
-              marginBottom: copyIdx === 0 ? 20 : 0,
-            }}
-          >
+          <div className="print-copy">
             <div
               style={{
                 textAlign: "right",
@@ -626,7 +619,7 @@ function InvoiceModal({ sale, onClose, office, location, phone, autoPrint }) {
                 marginBottom: 6,
               }}
             >
-              {copyLabel}
+              গ্রাহক কপি / অফিস কপি
             </div>
             <div
               style={{
@@ -749,7 +742,6 @@ function InvoiceModal({ sale, onClose, office, location, phone, autoPrint }) {
               <div>কর্তৃপক্ষের স্বাক্ষর</div>
             </div>
           </div>
-        ))}
       </div>
 
       <div className="no-print mt-4 flex justify-end gap-2">

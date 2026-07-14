@@ -2,7 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== v1-এর হুবহু রং ===== */
 :root {
   --g50: #eaf3de;
   --g100: #c0dd97;
@@ -46,7 +45,7 @@
   }
 }
 
-/* ===== dashboard widget class (v1 হুবহু) ===== */
+/* ===== dashboard widget class ===== */
 @layer components {
   .sc {
     background: var(--card);
@@ -269,20 +268,7 @@
   }
 }
 /* চালান প্রিন্ট */
-@page {
-  size: A4;
-  margin: 8mm;
-}
 @media print {
-  html,
-  body {
-    width: auto !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-  * {
-    box-sizing: border-box !important;
-  }
   body * {
     visibility: hidden !important;
   }
@@ -291,37 +277,19 @@
     visibility: visible !important;
   }
   #invoice-print {
-    position: static !important;
-    width: 100% !important;
+    position: fixed !important;
+    inset: 0 !important;
+    width: 90% !important;
+    margin: 0 auto !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
-    padding: 0 !important;
+    padding: 10px;
     background: #fff !important;
-  }
-  .fixed.inset-0 {
-    display: block !important;
-    position: static !important;
-    overflow: visible !important;
-    width: auto !important;
-    height: auto !important;
-  }
-  .max-h-\[90vh\] {
-    max-height: none !important;
-    overflow: visible !important;
-  }
-  #invoice-print .print-copy {
-    page-break-inside: avoid;
+    z-index: 999999 !important;
   }
   #invoice-print .print-copy:first-child {
     page-break-after: always;
-  }
-  #invoice-print table tr {
-    page-break-inside: avoid;
-  }
-  #invoice-print .tbl td,
-  #invoice-print .tbl th {
-    padding: 3px 6px !important;
   }
   .no-print {
     display: none !important;
