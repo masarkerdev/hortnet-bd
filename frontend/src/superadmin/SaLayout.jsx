@@ -215,6 +215,7 @@ export default function SaLayout() {
   const { sa, logout } = useSa();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [title, setTitle] = useState("📊 Overview");
   const [badges, setBadges] = useState({
@@ -733,16 +734,21 @@ export default function SaLayout() {
             )}
             <button
               className="sa-topbar-btn"
-              onClick={() =>
-                window.dispatchEvent(new CustomEvent("sa:refresh"))
-              }
+              disabled={refreshing}
+              onClick={() => {
+                setRefreshing(true);
+                window.dispatchEvent(new CustomEvent("sa:refresh"));
+                setTimeout(() => setRefreshing(false), 900);
+              }}
               style={{
-                background: "#f1f5f9",
-                color: "#1e293b",
-                border: "1px solid #e2e8f0",
+                background: refreshing ? "#dcfce7" : "#f1f5f9",
+                color: refreshing ? "#16a34a" : "#1e293b",
+                border: refreshing
+                  ? "1px solid #16a34a"
+                  : "1px solid #e2e8f0",
                 padding: "7px 14px",
                 borderRadius: 8,
-                cursor: "pointer",
+                cursor: refreshing ? "default" : "pointer",
                 fontSize: 13,
                 display: "flex",
                 alignItems: "center",
@@ -751,19 +757,36 @@ export default function SaLayout() {
                 transition: ".15s",
               }}
               onMouseEnter={(e) => {
+                if (refreshing) return;
                 e.currentTarget.style.borderColor = theme.accent;
                 e.currentTarget.style.color = "#16a34a";
                 e.currentTarget.style.background = "#f0fdf4";
               }}
               onMouseLeave={(e) => {
+                if (refreshing) return;
                 e.currentTarget.style.borderColor = "#e2e8f0";
                 e.currentTarget.style.color = "#1e293b";
                 e.currentTarget.style.background = "#f1f5f9";
               }}
             >
-              <i className="ti ti-refresh" />{" "}
-              <span className="sa-topbar-btn-text">Refresh</span>
+              <i
+                className={refreshing ? "ti ti-check" : "ti ti-refresh"}
+                style={
+                  refreshing
+                    ? {}
+                    : {
+                        display: "inline-block",
+                        animation: "sa-spin-once .6s linear",
+                      }
+                }
+              />{" "}
+              <span className="sa-topbar-btn-text">
+                {refreshing ? "সম্পন্ন" : "Refresh"}
+              </span>
             </button>
+            <style>{`
+              @keyframes sa-spin-once { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            `}</style>
           </div>
         </div>
 

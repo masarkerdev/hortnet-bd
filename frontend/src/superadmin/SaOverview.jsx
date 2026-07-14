@@ -259,7 +259,7 @@ function KpiCard({ label, value, sub, borderColor, valueColor }) {
 
 export default function SaOverview() {
   const navigate = useNavigate();
-  const { handleBadges } = useOutletContext() || {};
+  const { handleBadges, search } = useOutletContext() || {};
   const [allStats, setAllStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [targetSummary, setTargetSummary] = useState(null);
@@ -301,9 +301,17 @@ export default function SaOverview() {
       .catch(() => {});
   }, []);
 
-  const ok = allStats.filter(
-    (c) => c.status === "ok" || c.total_revenue != null,
-  );
+  const ok = allStats
+    .filter((c) => c.status === "ok" || c.total_revenue != null)
+    .filter((c) => {
+      if (!search) return true;
+      const q = search.trim().toLowerCase();
+      return (
+        (c.name_bn || "").toLowerCase().includes(q) ||
+        (c.location || "").toLowerCase().includes(q) ||
+        (c.district || "").toLowerCase().includes(q)
+      );
+    });
   const totalOtherIncome = ok.reduce(
     (s, c) => s + (+c.other_income_total || 0),
     0,
