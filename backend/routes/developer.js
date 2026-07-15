@@ -262,4 +262,113 @@ router.put("/center-admins/:slug", devAuth, async (req, res) => {
   }
 });
 
+// GET /api/dev/integrity-check — সব center-এ trailing space, missing table/column check
+router.get("/integrity-check", devAuth, async (req, res) => {
+  const { getTenants } = require("../lib/tenantCache");
+  const { getPool } = require("../config/poolManager");
+  const { Pool } = require("pg");
+
+  // প্রয়োজনীয় টেবিল ও কলাম যেগুলো প্রতিটা center DB-তে থাকা বাধ্যতামূলক
+  const REQUIRED_TABLES = [
+    "employees", "produce_prices", "room_categories",
+    "budget_demands", "mother_plants",
+  ];
+  const REQUIRED_COLUMNS = [
+    { table: "categories", column: "category_master_id" },
+    { table: "categories", column: "base_group" },
+    { table: "other_income", column: "quantity" },
+    { table: "mother_plants", column: "quantity" },
+  ];
+
+  const issues = [];
+
+  try {
+    // ১) master DB-তে tenants টেবিলে trailing space check (slug, name_bn, name_en, db_url)
+    const masterDb = require("../config/masterDb");
+    const tenantsResult = await masterDb.query(
+      "SELECT id, slug, name_bn, name_en, db_url FROM tenants"
+    );
+    tenantsResult.rows.forEach((t) => {
+      ["slug", "name_bn", "name_en", "db_url"].forEach((field) => {
+        const val = t[field];
+        if (val && val !== val.trim()) {
+          issues.push({
+            type: "trailing_space",
+            severity: "high",
+            slug: t.slug,
+            detail: `tenants.${field} — এ trailing/leading space আছে: "${val}"`,
+          });
+        }
+      });
+    });
+
+    // ২) প্রতিটা center-এর DB-তে গিয়ে টেবিল/কলাম check
+    const tenants = await getTenants();
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.db_url) {
+        issues.push({ type: "missing_db_url", severity: "critical", slug, detail: "db_url ফাঁকা" });
+        continue;
+      }
+      let pool;
+      try {
+        pool = getPool(tenant.db_url, tenant.db_url);
+        await pool.query("SELECT 1");
+      } catch (e) {
+        issues.push({
+          type: "connection_failed",
+          severity: "critical",
+          slug,
+          detail: `Database সংযোগ ব্যর্থ: ${e.message}`,
+        });
+        continue;
+      }
+
+      for (const tbl of REQUIRED_TABLES) {
+        try {
+          const r = await pool.query("SELECT to_regclass($1) AS t", [tbl]);
+          if (!r.rows[0].t) {
+            issues.push({
+              type: "missing_table",
+              severity: "high",
+              slug,
+              detail: `টেবিল "${tbl}" নেই`,
+            });
+          }
+        } catch (e) {
+          issues.push({ type: "check_error", severity: "medium", slug, detail: e.message });
+        }
+      }
+
+      for (const { table, column } of REQUIRED_COLUMNS) {
+        try {
+          const r = await pool.query(
+            "SELECT column_name FROM information_schema.columns WHERE table_name=$1 AND column_name=$2",
+            [table, column]
+          );
+          if (!r.rows.length) {
+            issues.push({
+              type: "missing_column",
+              severity: "high",
+              slug,
+              detail: `"${table}.${column}" কলাম নেই`,
+            });
+          }
+        } catch (e) {
+          issues.push({ type: "check_error", severity: "medium", slug, detail: e.message });
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      total_issues: issues.length,
+      checked_centers: Object.keys(tenants).length,
+      issues,
+    });
+  } catch (err) {
+    console.error("integrity-check error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

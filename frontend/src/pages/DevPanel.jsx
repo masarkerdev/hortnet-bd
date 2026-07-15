@@ -77,6 +77,16 @@ function Panel({ dev, onLogout }) {
   const [admins, setAdmins] = useState([]);
   const [centers, setCenters] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [integrityData, setIntegrityData] = useState(null);
+  const [integrityLoading, setIntegrityLoading] = useState(false);
+
+  async function runIntegrityCheck() {
+    setIntegrityLoading(true);
+    try {
+      const r = await devApi('/integrity-check');
+      if (r.success) setIntegrityData(r);
+    } catch (e) {} finally { setIntegrityLoading(false); }
+  }
   const [resetEmail, setResetEmail] = useState('');
   const [centerAdmins, setCenterAdmins] = useState([]);
   const [caModal, setCaModal] = useState(null);
@@ -129,7 +139,7 @@ function Panel({ dev, onLogout }) {
   }
 
   const inp = { padding:'9px 12px', background:'#0d1117', border:`1px solid ${V.border}`, borderRadius:8, color:V.text, fontSize:13, fontFamily:FONT, outline:'none', width:'100%', boxSizing:'border-box' };
-  const TABS = [['dashboard','📊 Dashboard'],['admins','👤 Super Admins'],['centers','🏛️ Centers'],['reset','🔑 Password Reset'],['logs','📋 Logs']];
+  const TABS = [['dashboard','📊 Dashboard'],['admins','👤 Super Admins'],['centers','🏛️ Centers'],['reset','🔑 Password Reset'],['integrity','🔧 Data Integrity Check'],['logs','📋 Logs']];
 
   return (
     <div style={{ minHeight:'100vh', background:V.bg, fontFamily:FONT, color:V.text }}>
@@ -339,6 +349,84 @@ function Panel({ dev, onLogout }) {
                   🔑 Password Reset করুন
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Data Integrity Check */}
+          {tab==='integrity' && (
+            <div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                <div style={{ fontSize:16, fontWeight:700 }}>🔧 Data Integrity Check</div>
+                <button onClick={runIntegrityCheck} disabled={integrityLoading}
+                  style={{ padding:'9px 18px', background:V.green, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontFamily:FONT, fontWeight:600 }}>
+                  {integrityLoading ? 'চেক হচ্ছে...' : '▶ চেক চালান'}
+                </button>
+              </div>
+
+              {!integrityData && !integrityLoading && (
+                <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, padding:40, textAlign:'center', color:V.muted }}>
+                  সব center-এ trailing space, missing table/column আছে কিনা check করতে "চেক চালান" বাটনে ক্লিক করুন
+                </div>
+              )}
+
+              {integrityLoading && (
+                <div style={{ textAlign:'center', padding:40, color:V.muted }}>
+                  <div style={{ width:32, height:32, border:`3px solid ${V.border}`, borderTopColor:V.green, borderRadius:'50%', animation:'spin .8s linear infinite', margin:'0 auto 12px' }}/>
+                  ২৮ টা center check হচ্ছে, একটু সময় লাগবে...
+                </div>
+              )}
+
+              {integrityData && !integrityLoading && (
+                <>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12, marginBottom:16 }}>
+                    <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, padding:16, borderTop:`3px solid ${integrityData.total_issues > 0 ? V.red : V.green}` }}>
+                      <div style={{ fontSize:13, color:V.muted, marginBottom:6 }}>মোট সমস্যা পাওয়া গেছে</div>
+                      <div style={{ fontSize:26, fontWeight:700, color: integrityData.total_issues > 0 ? V.red : V.green }}>{integrityData.total_issues}</div>
+                    </div>
+                    <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, padding:16, borderTop:`3px solid ${V.blue}` }}>
+                      <div style={{ fontSize:13, color:V.muted, marginBottom:6 }}>Check হয়েছে</div>
+                      <div style={{ fontSize:26, fontWeight:700, color:V.blue }}>{integrityData.checked_centers} টা center</div>
+                    </div>
+                  </div>
+
+                  {integrityData.total_issues === 0 ? (
+                    <div style={{ background:'#0d2818', border:'1px solid #16a34a44', borderRadius:10, padding:30, textAlign:'center', color:V.green, fontSize:15 }}>
+                      ✅ কোনো সমস্যা পাওয়া যায়নি — সব center-এর data সম্পূর্ণ সঠিক!
+                    </div>
+                  ) : (
+                    <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, overflow:'hidden' }}>
+                      <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                        <thead>
+                          <tr>
+                            {['সেন্টার','ধরন','গুরুত্ব','বিবরণ'].map(h=>(
+                              <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:12, color:V.muted, fontWeight:600, background:V.bg, borderBottom:`1px solid ${V.border}` }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {integrityData.issues.map((issue, i) => (
+                            <tr key={i} style={{ borderBottom:`1px solid ${V.border}` }}>
+                              <td style={{ padding:'10px 14px', fontSize:13 }}>{issue.slug}</td>
+                              <td style={{ padding:'10px 14px', fontSize:12, color:V.muted }}>{issue.type}</td>
+                              <td style={{ padding:'10px 14px' }}>
+                                <span style={{
+                                  fontSize:11, padding:'2px 8px', borderRadius:6, fontWeight:600,
+                                  background: issue.severity === 'critical' ? '#3f1414' : issue.severity === 'high' ? '#3f2a14' : '#1f2d3f',
+                                  color: issue.severity === 'critical' ? '#f87171' : issue.severity === 'high' ? V.amber : V.blue,
+                                }}>
+                                  {issue.severity}
+                                </span>
+                              </td>
+                              <td style={{ padding:'10px 14px', fontSize:13, color:V.text }}>{issue.detail}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           )}
 
