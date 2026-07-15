@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS mother_plants (
   mp_code       VARCHAR(20)  NOT NULL,
   variety       VARCHAR(150) NOT NULL,
   seedling_id   INTEGER REFERENCES seedlings(id),
+  quantity      INTEGER DEFAULT 1,
   age_years     INTEGER,
   location      VARCHAR(100),
   health_status VARCHAR(20) DEFAULT 'good',

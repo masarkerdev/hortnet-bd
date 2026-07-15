@@ -456,18 +456,19 @@ router.get("/mother-plants", authenticate, async (req, res) => {
   }
 });
 router.post("/mother-plants", authenticate, canProduce, async (req, res) => {
-  const { variety, seedling_id, age_years, location, health_status, notes } =
+  const { variety, seedling_id, quantity, age_years, location, health_status, notes } =
     req.body;
   try {
     const countResult = await db.query("SELECT COUNT(*) FROM mother_plants");
     const mp_code =
       "MP-" + String(parseInt(countResult.rows[0].count) + 1).padStart(3, "0");
     const result = await db.query(
-      `INSERT INTO mother_plants (mp_code,variety,seedling_id,age_years,location,health_status,notes,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      `INSERT INTO mother_plants (mp_code,variety,seedling_id,quantity,age_years,location,health_status,notes,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
       [
         mp_code,
         variety,
         seedling_id,
+        Number(quantity) || 1,
         age_years,
         location,
         health_status || "good",

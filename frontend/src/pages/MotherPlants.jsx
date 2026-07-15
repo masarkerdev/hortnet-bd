@@ -7,7 +7,7 @@ import { IcPlus, IcTrash } from '../components/icons';
 
 const HN = { excellent:'চমৎকার', good:'ভালো', weak:'দুর্বল' };
 const HBADGE = { excellent:'bg', good:'ba', weak:'br' };
-const EMPTY = { variety:'', seedling_id:'', age_years:'', location:'', health_status:'good', notes:'' };
+const EMPTY = { variety:'', seedling_id:'', quantity:'1', age_years:'', location:'', health_status:'good', notes:'' };
 
 export default function MotherPlants() {
   const [rows, setRows] = useState([]);
@@ -33,6 +33,7 @@ export default function MotherPlants() {
     try {
       const r = await api.post('/mother-plants', {
         variety: form.variety, seedling_id: Number(form.seedling_id) || null,
+        quantity: Number(form.quantity) || 1,
         age_years: Number(form.age_years) || null, location: form.location,
         health_status: form.health_status, notes: form.notes,
       });
@@ -56,14 +57,15 @@ export default function MotherPlants() {
 
       <div className="cd !p-0 overflow-x-auto">
         <table className="tbl">
-          <thead><tr><th>কোড</th><th>জাত</th><th>বয়স</th><th>অবস্থান</th><th>স্বাস্থ্য</th><th>অবস্থা</th><th>অ্যাকশন</th></tr></thead>
+          <thead><tr><th>কোড</th><th>জাত</th><th>সংখ্যা</th><th>বয়স</th><th>অবস্থান</th><th>স্বাস্থ্য</th><th>অবস্থা</th><th>অ্যাকশন</th></tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan={7} className="lt">লোড হচ্ছে…</td></tr> :
-             rows.length === 0 ? <tr><td colSpan={7} className="lt">মাদার প্ল্যান্ট নেই</td></tr> :
+            {loading ? <tr><td colSpan={8} className="lt">লোড হচ্ছে…</td></tr> :
+             rows.length === 0 ? <tr><td colSpan={8} className="lt">মাদার প্ল্যান্ট নেই</td></tr> :
              rows.map((m) => (
                <tr key={m.id}>
                  <td><strong>{m.mp_code}</strong></td>
                  <td>{m.variety}</td>
+                 <td>{toBn(m.quantity || 1)}</td>
                  <td>{m.age_years ? toBn(m.age_years) + ' বছর' : '-'}</td>
                  <td>{m.location || '-'}</td>
                  <td><span className={`b ${HBADGE[m.health_status] || 'ba'}`}>{HN[m.health_status] || m.health_status}</span></td>
@@ -87,7 +89,10 @@ export default function MotherPlants() {
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
+            <Field label="সংখ্যা*"><input type="text" inputMode="numeric" className="field-input" value={form.quantity} onChange={(e)=>setForm({...form,quantity:e.target.value.replace(/[^0-9]/g,'')})} /></Field>
             <Field label="বয়স (বছর)"><input type="text" inputMode="decimal" className="field-input" value={form.age_years} onChange={(e)=>setForm({...form,age_years:e.target.value})} /></Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <Field label="অবস্থান*"><input className="field-input" value={form.location} onChange={(e)=>setForm({...form,location:e.target.value})} /></Field>
           </div>
           <Field label="স্বাস্থ্য">
