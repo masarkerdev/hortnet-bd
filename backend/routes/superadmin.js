@@ -507,7 +507,7 @@ router.get("/center/:slug", saAuth, async (req, res) => {
 
 // ===== TENANT CRUD (Director only) =====
 router.post("/tenants", saAuth, directorOnly, async (req, res) => {
-  const {
+  let {
     slug,
     name_bn,
     name_en,
@@ -520,6 +520,9 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
     currency,
     mobile,
   } = req.body;
+  slug = (slug || "").trim().toLowerCase();
+  name_bn = (name_bn || "").trim();
+  name_en = (name_en || "").trim();
   if (!slug || !name_bn || !name_en || !db_url)
     return res.status(400).json({ success: false, message: "সব তথ্য দিন।" });
   try {
@@ -619,7 +622,7 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
 });
 
 router.put("/tenants/:id", saAuth, directorOnly, async (req, res) => {
-  const {
+  let {
     name_bn,
     name_en,
     location,
@@ -632,6 +635,8 @@ router.put("/tenants/:id", saAuth, directorOnly, async (req, res) => {
     active,
     mobile,
   } = req.body;
+  name_bn = (name_bn || "").trim();
+  name_en = (name_en || "").trim();
   try {
     // db_url খালি হলে পুরোনো URL রাখব
     let finalDbUrl = db_url;
