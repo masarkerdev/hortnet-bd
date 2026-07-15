@@ -523,6 +523,7 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
   slug = (slug || "").trim().toLowerCase();
   name_bn = (name_bn || "").trim();
   name_en = (name_en || "").trim();
+  db_url = (db_url || "").trim();
   if (!slug || !name_bn || !name_en || !db_url)
     return res.status(400).json({ success: false, message: "সব তথ্য দিন।" });
   try {
@@ -637,6 +638,7 @@ router.put("/tenants/:id", saAuth, directorOnly, async (req, res) => {
   } = req.body;
   name_bn = (name_bn || "").trim();
   name_en = (name_en || "").trim();
+  db_url = (db_url || "").trim();
   try {
     // db_url খালি হলে পুরোনো URL রাখব
     let finalDbUrl = db_url;
