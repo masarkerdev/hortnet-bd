@@ -637,17 +637,17 @@ export default function SaCompare() {
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: 13,
-                    fontWeight: 700,
+                    fontWeight: 500,
                     flexShrink: 0,
                     background:
                       i === 0
-                        ? "#f59e0b"
+                        ? "#16a34a"
                         : i === 1
                           ? "#94a3b8"
                           : i === 2
-                            ? "#b45309"
+                            ? "#ec4899"
                             : "#334155",
-                    color: i < 3 ? "#000" : "#94a3b8",
+                    color: i < 3 ? "#ffffff" : "#000000",
                   }}
                 >
                   <RankBadge i={i} />
