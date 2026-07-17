@@ -7,54 +7,172 @@ const toBn = n => String(n).replace(/[0-9]/g, d=>'০১২৩৪৫৬৭৮৯
 const fmtN = n => toBn(Math.round(n || 0).toLocaleString('en-IN'));
 const curFY = () => { const now=new Date(); return now.getMonth()>=6 ? now.getFullYear() : now.getFullYear()-1; };
 
+function apiBase() { return (import.meta.env.VITE_API_URL || '/api'); }
+function authHeader() { return { Authorization: `Bearer ${sessionStorage.getItem('sa_tk')}` }; }
+
 export default function SaBudget() {
   const [fy, setFy] = useState(curFY());
+  const [periods, setPeriods] = useState([]);
+  const [periodId, setPeriodId] = useState('');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState({});
-  const [editing, setEditing] = useState(null); // {center_slug, leaf_code, current}
+  const [editing, setEditing] = useState(null);
   const [allocValue, setAllocValue] = useState('');
   const [saving, setSaving] = useState(false);
 
-  async function load() {
-    setLoading(true);
-    const base = (import.meta.env.VITE_API_URL || '/api');
-    const token = sessionStorage.getItem('sa_tk');
+  const [periodModal, setPeriodModal] = useState(false);
+  const [newPeriodName, setNewPeriodName] = useState('');
+  const [periodSaving, setPeriodSaving] = useState(false);
+  const [periodMsg, setPeriodMsg] = useState('');
+
+  async function loadPeriods() {
     try {
-      const r = await axios.get(`${base}/budget-admin/consolidated?fy=${fy}`, { headers: { Authorization: `Bearer ${token}` } });
+      const r = await axios.get(`${apiBase()}/budget-admin/periods?fy=${fy}`, { headers: authHeader() });
+      if (r.data?.success) {
+        const list = r.data.data || [];
+        setPeriods(list);
+        // যদি আগের selected period এই FY-তে না থাকে, প্রথমটা (সর্বশেষ) বেছে নিই
+        if (list.length && !list.find(p => p.id === periodId)) {
+          setPeriodId(list[0].id);
+        } else if (!list.length) {
+          setPeriodId('');
+        }
+      }
+    } catch (e) {}
+  }
+
+  async function load() {
+    if (!periodId) { setData(null); setLoading(false); return; }
+    setLoading(true);
+    try {
+      const r = await axios.get(`${apiBase()}/budget-admin/consolidated?fy=${fy}&period_id=${periodId}`, { headers: authHeader() });
       if (r.data?.success) setData(r.data);
     } catch (e) {} finally { setLoading(false); }
   }
 
-  useEffect(() => { load(); }, [fy]);
+  useEffect(() => { loadPeriods(); }, [fy]);
+  useEffect(() => { load(); }, [periodId]);
+
+  async function createPeriod() {
+    if (!newPeriodName.trim()) return;
+    setPeriodSaving(true); setPeriodMsg('');
+    try {
+      const r = await axios.post(`${apiBase()}/budget-admin/periods`, { fiscal_year: fy, name: newPeriodName.trim() }, { headers: authHeader() });
+      if (r.data?.success) {
+        setPeriodMsg('✓ কিস্তি তৈরি হয়েছে');
+        setNewPeriodName('');
+        await loadPeriods();
+        setPeriodId(r.data.data.id);
+        setTimeout(() => { setPeriodModal(false); setPeriodMsg(''); }, 1000);
+      } else {
+        setPeriodMsg(r.data?.message || 'সমস্যা হয়েছে');
+      }
+    } catch (e) {
+      setPeriodMsg(e?.response?.data?.message || 'সমস্যা হয়েছে');
+    } finally { setPeriodSaving(false); }
+  }
 
   async function saveAllocation() {
     if (!editing) return;
     setSaving(true);
-    const base = (import.meta.env.VITE_API_URL || '/api');
-    const token = sessionStorage.getItem('sa_tk');
     try {
-      await axios.post(`${base}/budget-admin/allocate`, {
+      await axios.post(`${apiBase()}/budget-admin/allocate`, {
         tenant_slug: editing.center_slug,
         leaf_code: editing.leaf_code,
         fiscal_year: fy,
+        period_id: periodId,
         allocated_amount: Number(allocValue) || 0,
-      }, { headers: { Authorization: `Bearer ${token}` } });
+      }, { headers: authHeader() });
       setEditing(null);
       load();
     } catch (e) {} finally { setSaving(false); }
   }
 
-  if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200 }}>
-      <div style={{ width:36, height:36, border:`3px solid ${V.border}`, borderTopColor:V.green, borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+  const selectStyle = { padding:'8px 12px', border:`1px solid ${V.border}`, borderRadius:8, fontSize:14, fontFamily:FONT, outline:'none', background:V.card };
+
+  return (
+    <div style={{ fontFamily: FONT }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, flexWrap:'wrap', gap:10 }}>
+        <div>
+          <h2 style={{ fontSize:18, fontWeight:700, marginBottom:4 }}>💰 বরাদ্দ চাহিদাপত্র — Consolidated</h2>
+          <p style={{ fontSize:13, color:V.muted }}>সব সেন্টারের চাহিদা ও বরাদ্দ একসাথে</p>
+        </div>
+        <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+          <select value={fy} onChange={e=>setFy(Number(e.target.value))} style={selectStyle}>
+            {[curFY(), curFY()-1, curFY()-2].map(y => <option key={y} value={y}>FY {toBn(y)}-{toBn(y+1)}</option>)}
+          </select>
+          <select value={periodId} onChange={e=>setPeriodId(Number(e.target.value))} style={{ ...selectStyle, minWidth:180 }}>
+            {!periods.length && <option value="">কোনো কিস্তি নেই</option>}
+            {periods.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <button onClick={()=>{ setPeriodModal(true); setNewPeriodName(''); setPeriodMsg(''); }}
+            style={{ padding:'8px 14px', borderRadius:8, background:V.green, color:'#fff', border:'none', cursor:'pointer', fontSize:13, fontFamily:FONT, fontWeight:600 }}>
+            + নতুন কিস্তি
+          </button>
+        </div>
+      </div>
+
+      {!periodId ? (
+        <div style={{ textAlign:'center', color:V.muted, padding:50, background:V.card, borderRadius:12 }}>
+          এই অর্থবছরে এখনো কোনো কিস্তি তৈরি করা হয়নি। "+ নতুন কিস্তি" বাটনে ক্লিক করে একটা তৈরি করুন — যেমন "জুলাই-সেপ্টেম্বর (১ম কিস্তি)"।
+        </div>
+      ) : loading ? (
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200 }}>
+          <div style={{ width:36, height:36, border:`3px solid ${V.border}`, borderTopColor:V.green, borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        </div>
+      ) : !data ? (
+        <div style={{ padding:20, color:V.muted }}>ডেটা আনা যায়নি।</div>
+      ) : (
+        <BudgetContent data={data} expanded={expanded} setExpanded={setExpanded} setEditing={setEditing} setAllocValue={setAllocValue} />
+      )}
+
+      {/* নতুন কিস্তি তৈরি Modal */}
+      {periodModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+          <div style={{ background:V.card, borderRadius:14, padding:24, width:380 }}>
+            <div style={{ fontSize:15, fontWeight:700, marginBottom:6 }}>🗓️ নতুন কিস্তি তৈরি করুন</div>
+            <div style={{ fontSize:12, color:V.muted, marginBottom:16 }}>FY {toBn(fy)}-{toBn(fy+1)}</div>
+            <input type="text" value={newPeriodName} onChange={e=>setNewPeriodName(e.target.value)}
+              placeholder="যেমন: জুলাই-সেপ্টেম্বর (১ম কিস্তি)"
+              style={{ width:'100%', padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:14, outline:'none', boxSizing:'border-box', marginBottom:12 }}
+            />
+            {periodMsg && <div style={{ color: periodMsg.startsWith('✓') ? V.green : V.red, fontSize:13, marginBottom:10 }}>{periodMsg}</div>}
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+              <button onClick={()=>setPeriodModal(false)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${V.border}`, background:V.bg, cursor:'pointer', fontSize:13, fontFamily:FONT }}>বাতিল</button>
+              <button onClick={createPeriod} disabled={periodSaving} style={{ padding:'8px 16px', borderRadius:8, background:V.green, color:'#fff', border:'none', cursor:'pointer', fontSize:13, fontFamily:FONT, fontWeight:600 }}>
+                {periodSaving ? 'তৈরি হচ্ছে...' : '✓ তৈরি করুন'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Allocation Modal */}
+      {editing && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+          <div style={{ background:V.card, borderRadius:14, padding:24, width:340 }}>
+            <div style={{ fontSize:15, fontWeight:700, marginBottom:16 }}>বরাদ্দের পরিমাণ নির্ধারণ করুন</div>
+            <input type="text" inputMode="numeric" value={allocValue}
+              onChange={e=>setAllocValue(e.target.value.replace(/[^0-9]/g,''))}
+              placeholder="টাকার পরিমাণ"
+              style={{ width:'100%', padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:14, outline:'none', boxSizing:'border-box', marginBottom:16 }}
+            />
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+              <button onClick={()=>setEditing(null)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${V.border}`, background:V.bg, cursor:'pointer', fontSize:13, fontFamily:FONT }}>বাতিল</button>
+              <button onClick={saveAllocation} disabled={saving} style={{ padding:'8px 16px', borderRadius:8, background:V.green, color:'#fff', border:'none', cursor:'pointer', fontSize:13, fontFamily:FONT, fontWeight:600 }}>
+                {saving ? 'সংরক্ষণ হচ্ছে...' : '✓ সংরক্ষণ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
 
-  if (!data) return <div style={{ padding:20, color:V.muted, fontFamily:FONT }}>ডেটা আনা যায়নি।</div>;
-
-  // leaf_code অনুযায়ী center-wise rows group করি
+function BudgetContent({ data, expanded, setExpanded, setEditing, setAllocValue }) {
   const byLeafCode = {};
   data.center_rows.forEach(r => {
     if (!byLeafCode[r.leaf_code]) byLeafCode[r.leaf_code] = [];
@@ -65,18 +183,7 @@ export default function SaBudget() {
   const totalAllocated = data.by_mother.reduce((s, m) => s + m.total_allocated, 0);
 
   return (
-    <div style={{ fontFamily: FONT }}>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, flexWrap:'wrap', gap:10 }}>
-        <div>
-          <h2 style={{ fontSize:18, fontWeight:700, marginBottom:4 }}>💰 বরাদ্দ চাহিদাপত্র — Consolidated</h2>
-          <p style={{ fontSize:13, color:V.muted }}>সব সেন্টারের চাহিদা ও বরাদ্দ একসাথে</p>
-        </div>
-        <select value={fy} onChange={e=>setFy(Number(e.target.value))}
-          style={{ padding:'8px 12px', border:`1px solid ${V.border}`, borderRadius:8, fontSize:14, fontFamily:FONT, outline:'none', background:V.card }}>
-          {[curFY(), curFY()-1, curFY()-2].map(y => <option key={y} value={y}>FY {toBn(y)}-{toBn(y+1)}</option>)}
-        </select>
-      </div>
-
+    <>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:12, marginBottom:20 }}>
         {[
           { label:'মোট চাহিদা (সব সেন্টার)', value:fmtN(totalDemand), color:V.green },
@@ -154,29 +261,9 @@ export default function SaBudget() {
           );
         })}
         {!Object.keys(byLeafCode).length && (
-          <div style={{ textAlign:'center', color:V.muted, padding:30, background:V.card, borderRadius:10 }}>কোনো চাহিদা এখনো জমা পড়েনি</div>
+          <div style={{ textAlign:'center', color:V.muted, padding:30, background:V.card, borderRadius:10 }}>এই কিস্তিতে কোনো চাহিদা এখনো জমা পড়েনি</div>
         )}
       </div>
-
-      {/* Allocation Modal */}
-      {editing && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
-          <div style={{ background:V.card, borderRadius:14, padding:24, width:340 }}>
-            <div style={{ fontSize:15, fontWeight:700, marginBottom:16 }}>বরাদ্দের পরিমাণ নির্ধারণ করুন</div>
-            <input type="text" inputMode="numeric" value={allocValue}
-              onChange={e=>setAllocValue(e.target.value.replace(/[^0-9]/g,''))}
-              placeholder="টাকার পরিমাণ"
-              style={{ width:'100%', padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:14, outline:'none', boxSizing:'border-box', marginBottom:16 }}
-            />
-            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
-              <button onClick={()=>setEditing(null)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${V.border}`, background:V.bg, cursor:'pointer', fontSize:13, fontFamily:FONT }}>বাতিল</button>
-              <button onClick={saveAllocation} disabled={saving} style={{ padding:'8px 16px', borderRadius:8, background:V.green, color:'#fff', border:'none', cursor:'pointer', fontSize:13, fontFamily:FONT, fontWeight:600 }}>
-                {saving ? 'সংরক্ষণ হচ্ছে...' : '✓ সংরক্ষণ'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }

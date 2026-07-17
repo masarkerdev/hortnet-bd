@@ -314,3 +314,16 @@ CREATE TABLE IF NOT EXISTS room_categories (
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS budget_demands (
+  id SERIAL PRIMARY KEY,
+  leaf_code VARCHAR(10) NOT NULL,
+  fiscal_year INTEGER NOT NULL,
+  period_id INTEGER,
+  demanded_amount NUMERIC NOT NULL DEFAULT 0,
+  remarks TEXT,
+  created_by INTEGER,
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now(),
+  UNIQUE(leaf_code, fiscal_year, period_id)
+);
