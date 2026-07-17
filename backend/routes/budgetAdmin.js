@@ -1,7 +1,6 @@
 // ============================================================
-// backend/routes/budgetAdmin.js — সম্পূর্ণ নতুন ফাইল।
-// existing superadmin.js / superadminExtra.js এর একটা অক্ষরও
-// টাচ করা হয় নাই। Super Admin-এর জন্য: consolidated view + বরাদ্দ।
+// backend/routes/budgetAdmin.js — Super Admin-এর জন্য:
+// কিস্তি (period) তৈরি, consolidated view + বরাদ্দ
 // ============================================================
 
 const express = require("express");
@@ -30,30 +29,91 @@ function directorOnly(req, res, next) {
   next();
 }
 
-// GET /api/budget-admin/consolidated?fy=2026 — সব center-এর চাহিদা একসাথে (মাদার-কোড অনুযায়ী KPI)
-router.get("/consolidated", saAuth, async (req, res) => {
+async function ensurePeriodsTable() {
+  await masterDb.query(`
+    CREATE TABLE IF NOT EXISTS budget_periods (
+      id SERIAL PRIMARY KEY,
+      fiscal_year INTEGER NOT NULL,
+      name VARCHAR(200) NOT NULL,
+      is_active BOOLEAN DEFAULT true,
+      created_by INTEGER,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+  `);
+}
+
+// GET /api/budget-admin/periods?fy=2026 — এই অর্থবছরের সব কিস্তির তালিকা
+router.get("/periods", saAuth, async (req, res) => {
   const fy = parseInt(req.query.fy);
   if (!fy) return res.status(400).json({ success: false, message: "অর্থবছর দিন।" });
+  try {
+    await ensurePeriodsTable();
+    const r = await masterDb.query(
+      "SELECT * FROM budget_periods WHERE fiscal_year=$1 ORDER BY created_at DESC",
+      [fy]
+    );
+    res.json({ success: true, data: r.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/budget-admin/periods — নতুন কিস্তি তৈরি (শুধু director)
+router.post("/periods", saAuth, directorOnly, async (req, res) => {
+  const { fiscal_year, name } = req.body;
+  if (!fiscal_year || !name || !name.trim()) {
+    return res.status(400).json({ success: false, message: "অর্থবছর ও কিস্তির নাম দিন।" });
+  }
+  try {
+    await ensurePeriodsTable();
+    const r = await masterDb.query(
+      "INSERT INTO budget_periods (fiscal_year, name, created_by) VALUES ($1,$2,$3) RETURNING *",
+      [fiscal_year, name.trim(), req.saUser.id]
+    );
+    res.json({ success: true, data: r.rows[0], message: "নতুন কিস্তি তৈরি হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/budget-admin/periods/:id/toggle — কিস্তি খোলা/বন্ধ করা (শুধু director)
+router.put("/periods/:id/toggle", saAuth, directorOnly, async (req, res) => {
+  try {
+    const r = await masterDb.query(
+      "UPDATE budget_periods SET is_active = NOT is_active WHERE id=$1 RETURNING *",
+      [req.params.id]
+    );
+    res.json({ success: true, data: r.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/budget-admin/consolidated?fy=2026&period_id=3 — নির্দিষ্ট কিস্তির সব center-এর চাহিদা (মাদার-কোড KPI)
+router.get("/consolidated", saAuth, async (req, res) => {
+  const fy = parseInt(req.query.fy);
+  const periodId = parseInt(req.query.period_id);
+  if (!fy) return res.status(400).json({ success: false, message: "অর্থবছর দিন।" });
+  if (!periodId) return res.status(400).json({ success: false, message: "কিস্তি বেছে নিন।" });
   try {
     const codes = await masterDb.query("SELECT * FROM budget_codes ORDER BY display_order");
     const tenants = await getTenants();
 
-    // সব center-এর allocation একবারে নিয়ে নিই
     const allocRows = await masterDb.query(
-      "SELECT tenant_slug, leaf_code, allocated_amount FROM budget_allocations WHERE fiscal_year=$1",
-      [fy]
+      "SELECT tenant_slug, leaf_code, allocated_amount FROM budget_allocations WHERE fiscal_year=$1 AND period_id=$2",
+      [fy, periodId]
     );
-    const allocMap = {}; // slug|leaf_code -> amount
+    const allocMap = {};
     allocRows.rows.forEach(a => { allocMap[`${a.tenant_slug}|${a.leaf_code}`] = Number(a.allocated_amount); });
 
-    const centerRows = []; // প্রতিটা center + leaf_code combination
+    const centerRows = [];
     for (const [slug, tenant] of Object.entries(tenants)) {
       if (!tenant.active || !tenant.db_url) continue;
       try {
         const db = getPool(tenant.db_url, slug);
         const demands = await db.query(
-          "SELECT leaf_code, demanded_amount, remarks FROM budget_demands WHERE fiscal_year=$1",
-          [fy]
+          "SELECT leaf_code, demanded_amount, remarks FROM budget_demands WHERE fiscal_year=$1 AND period_id=$2",
+          [fy, periodId]
         );
         demands.rows.forEach(d => {
           centerRows.push({
@@ -70,7 +130,6 @@ router.get("/consolidated", saAuth, async (req, res) => {
       }
     }
 
-    // মাদার কোড অনুযায়ী KPI (সব center মিলিয়ে যোগফল)
     const byMother = {};
     codes.rows.forEach(c => {
       if (!byMother[c.mother_code]) {
@@ -87,6 +146,7 @@ router.get("/consolidated", saAuth, async (req, res) => {
     res.json({
       success: true,
       fy,
+      period_id: periodId,
       codes: codes.rows,
       by_mother: Object.values(byMother),
       center_rows: centerRows,
@@ -97,26 +157,26 @@ router.get("/consolidated", saAuth, async (req, res) => {
   }
 });
 
-// POST /api/budget-admin/allocate — একটা center-এর একটা leaf_code-এ বরাদ্দ নির্ধারণ (শুধু director)
+// POST /api/budget-admin/allocate — নির্দিষ্ট কিস্তির বরাদ্দ নির্ধারণ (শুধু director)
 router.post("/allocate", saAuth, directorOnly, async (req, res) => {
-  const { tenant_slug, leaf_code, fiscal_year, allocated_amount } = req.body;
-  if (!tenant_slug || !leaf_code || !fiscal_year) {
-    return res.status(400).json({ success: false, message: "সেন্টার, কোড ও অর্থবছর দিন।" });
+  const { tenant_slug, leaf_code, fiscal_year, period_id, allocated_amount } = req.body;
+  if (!tenant_slug || !leaf_code || !fiscal_year || !period_id) {
+    return res.status(400).json({ success: false, message: "সেন্টার, কোড, কিস্তি ও অর্থবছর দিন।" });
   }
   try {
     const existing = await masterDb.query(
-      "SELECT id FROM budget_allocations WHERE tenant_slug=$1 AND leaf_code=$2 AND fiscal_year=$3",
-      [tenant_slug, leaf_code, fiscal_year]
+      "SELECT id FROM budget_allocations WHERE tenant_slug=$1 AND leaf_code=$2 AND fiscal_year=$3 AND period_id=$4",
+      [tenant_slug, leaf_code, fiscal_year, period_id]
     );
     if (existing.rows.length) {
       await masterDb.query(
-        "UPDATE budget_allocations SET allocated_amount=$1, allocated_by=$2, updated_at=now() WHERE tenant_slug=$3 AND leaf_code=$4 AND fiscal_year=$5",
-        [Number(allocated_amount) || 0, req.saUser.id, tenant_slug, leaf_code, fiscal_year]
+        "UPDATE budget_allocations SET allocated_amount=$1, allocated_by=$2, updated_at=now() WHERE tenant_slug=$3 AND leaf_code=$4 AND fiscal_year=$5 AND period_id=$6",
+        [Number(allocated_amount) || 0, req.saUser.id, tenant_slug, leaf_code, fiscal_year, period_id]
       );
     } else {
       await masterDb.query(
-        "INSERT INTO budget_allocations (tenant_slug, leaf_code, fiscal_year, allocated_amount, allocated_by) VALUES ($1,$2,$3,$4,$5)",
-        [tenant_slug, leaf_code, fiscal_year, Number(allocated_amount) || 0, req.saUser.id]
+        "INSERT INTO budget_allocations (tenant_slug, leaf_code, fiscal_year, period_id, allocated_amount, allocated_by) VALUES ($1,$2,$3,$4,$5,$6)",
+        [tenant_slug, leaf_code, fiscal_year, period_id, Number(allocated_amount) || 0, req.saUser.id]
       );
     }
     res.json({ success: true, message: "বরাদ্দ সংরক্ষণ হয়েছে ✅" });

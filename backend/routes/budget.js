@@ -1,7 +1,6 @@
 // ============================================================
-// backend/routes/budget.js — সম্পূর্ণ নতুন ফাইল।
-// existing কোনো route/table টাচ করা হয় নাই।
-// Center App-এর জন্য: চাহিদা (demand) দেওয়া ও দেখা
+// backend/routes/budget.js — Center App-এর জন্য:
+// কিস্তি-ভিত্তিক (periodic) বরাদ্দ চাহিদা দেওয়া ও দেখা
 // ============================================================
 
 const express = require("express");
@@ -10,7 +9,7 @@ const db = require("../config/db");
 const masterDb = require("../config/masterDb");
 const { authenticate } = require("../middleware/auth");
 
-// GET /api/budget/codes — সব বাজেট কোডের তালিকা (reference, mother-code অনুযায়ী গ্রুপ করে)
+// GET /api/budget/codes — সব বাজেট কোডের তালিকা
 router.get("/codes", authenticate, async (req, res) => {
   try {
     const r = await masterDb.query(
@@ -22,26 +21,42 @@ router.get("/codes", authenticate, async (req, res) => {
   }
 });
 
-// GET /api/budget/demands?fy=2026 — এই center-এর চাহিদা + বরাদ্দ + ঘাটতি (একসাথে)
-router.get("/demands", authenticate, async (req, res) => {
+// GET /api/budget/periods?fy=2026 — এই অর্থবছরের খোলা কিস্তিগুলোর তালিকা
+router.get("/periods", authenticate, async (req, res) => {
   const fy = parseInt(req.query.fy);
   if (!fy) return res.status(400).json({ success: false, message: "অর্থবছর দিন।" });
   try {
+    const r = await masterDb.query(
+      "SELECT * FROM budget_periods WHERE fiscal_year=$1 ORDER BY created_at DESC",
+      [fy]
+    );
+    res.json({ success: true, data: r.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/budget/demands?fy=2026&period_id=3 — এই center-এর নির্দিষ্ট কিস্তির চাহিদা + বরাদ্দ + ঘাটতি
+router.get("/demands", authenticate, async (req, res) => {
+  const fy = parseInt(req.query.fy);
+  const periodId = parseInt(req.query.period_id);
+  if (!fy) return res.status(400).json({ success: false, message: "অর্থবছর দিন।" });
+  if (!periodId) return res.status(400).json({ success: false, message: "কিস্তি বেছে নিন।" });
+  try {
     const codes = await masterDb.query("SELECT * FROM budget_codes ORDER BY display_order");
     const demands = await db.query(
-      "SELECT leaf_code, demanded_amount, remarks FROM budget_demands WHERE fiscal_year=$1",
-      [fy]
+      "SELECT leaf_code, demanded_amount, remarks FROM budget_demands WHERE fiscal_year=$1 AND period_id=$2",
+      [fy, periodId]
     );
     const demandMap = {};
     demands.rows.forEach(d => { demandMap[d.leaf_code] = { amount: Number(d.demanded_amount), remarks: d.remarks }; });
 
-    // এই center-এর slug বের করি tenant middleware থেকে
     const slug = req.tenant?.slug;
     let allocMap = {};
     if (slug) {
       const allocs = await masterDb.query(
-        "SELECT leaf_code, allocated_amount FROM budget_allocations WHERE tenant_slug=$1 AND fiscal_year=$2",
-        [slug, fy]
+        "SELECT leaf_code, allocated_amount FROM budget_allocations WHERE tenant_slug=$1 AND fiscal_year=$2 AND period_id=$3",
+        [slug, fy, periodId]
       );
       allocs.rows.forEach(a => { allocMap[a.leaf_code] = Number(a.allocated_amount); });
     }
@@ -58,34 +73,34 @@ router.get("/demands", authenticate, async (req, res) => {
       };
     });
 
-    res.json({ success: true, fy, data });
+    res.json({ success: true, fy, period_id: periodId, data });
   } catch (err) {
     console.error("budget demands error:", err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// POST /api/budget/demands — চাহিদা সংরক্ষণ (bulk, একাধিক কোডের জন্য একসাথে)
+// POST /api/budget/demands — নির্দিষ্ট কিস্তির চাহিদা সংরক্ষণ (bulk)
 router.post("/demands", authenticate, async (req, res) => {
-  const { fy, demands } = req.body; // demands = [{ leaf_code, demanded_amount, remarks }]
-  if (!fy || !Array.isArray(demands)) {
-    return res.status(400).json({ success: false, message: "অর্থবছর ও চাহিদার তালিকা দিন।" });
+  const { fy, period_id, demands } = req.body;
+  if (!fy || !period_id || !Array.isArray(demands)) {
+    return res.status(400).json({ success: false, message: "অর্থবছর, কিস্তি ও চাহিদার তালিকা দিন।" });
   }
   try {
     for (const d of demands) {
       const existing = await db.query(
-        "SELECT id FROM budget_demands WHERE leaf_code=$1 AND fiscal_year=$2",
-        [d.leaf_code, fy]
+        "SELECT id FROM budget_demands WHERE leaf_code=$1 AND fiscal_year=$2 AND period_id=$3",
+        [d.leaf_code, fy, period_id]
       );
       if (existing.rows.length) {
         await db.query(
-          "UPDATE budget_demands SET demanded_amount=$1, remarks=$2, updated_at=now() WHERE leaf_code=$3 AND fiscal_year=$4",
-          [Number(d.demanded_amount) || 0, d.remarks || null, d.leaf_code, fy]
+          "UPDATE budget_demands SET demanded_amount=$1, remarks=$2, updated_at=now() WHERE leaf_code=$3 AND fiscal_year=$4 AND period_id=$5",
+          [Number(d.demanded_amount) || 0, d.remarks || null, d.leaf_code, fy, period_id]
         );
       } else {
         await db.query(
-          "INSERT INTO budget_demands (leaf_code, fiscal_year, demanded_amount, remarks) VALUES ($1,$2,$3,$4)",
-          [d.leaf_code, fy, Number(d.demanded_amount) || 0, d.remarks || null]
+          "INSERT INTO budget_demands (leaf_code, fiscal_year, period_id, demanded_amount, remarks) VALUES ($1,$2,$3,$4,$5)",
+          [d.leaf_code, fy, period_id, Number(d.demanded_amount) || 0, d.remarks || null]
         );
       }
     }

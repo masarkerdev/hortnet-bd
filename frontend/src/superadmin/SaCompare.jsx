@@ -8,9 +8,7 @@ const tlLabel = (t) =>
   t === "green" ? "ভালো" : t === "yellow" ? "মাঝারি" : "দুর্বল";
 
 function RankBadge({ i }) {
-  return (
-    <span style={{ color: "#ffffff", fontWeight: 700 }}>#{toBn(i + 1)}</span>
-  );
+  return <span style={{ fontWeight: 700 }}>#{toBn(i + 1)}</span>;
 }
 
 function CatBadge({ cat }) {
@@ -644,7 +642,7 @@ export default function SaCompare() {
                           : i === 2
                             ? "#ec4899"
                             : "#334155",
-                    color: i < 3 ? "#ffffff" : "#000000",
+                    color: "#ffffff",
                   }}
                 >
                   <RankBadge i={i} />
