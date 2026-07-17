@@ -115,6 +115,12 @@ app.listen(PORT, () => {
   } catch (e) {
     console.error("centerStatsCache startup error:", e.message);
   }
+  try {
+    const { startCatalogRefresh } = require("./lib/catalogCache");
+    startCatalogRefresh();
+  } catch (e) {
+    console.error("catalogCache startup error:", e.message);
+  }
 });
 
 module.exports = app;
