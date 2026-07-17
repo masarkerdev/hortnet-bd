@@ -747,80 +747,104 @@ function ProductionReport() {
                     </tr>
                   </thead>
                   <tbody>
-                    {center.data.map((s, i) => (
-                      <tr
-                        key={i}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = V.green3)
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.background = "transparent")
-                        }
-                      >
-                        <td
-                          style={{
-                            padding: "8px 14px",
-                            fontSize: 12,
-                            borderBottom: `1px solid ${V.border}`,
-                            color: V.muted,
-                          }}
-                        >
-                          {s.category_bn || "—"}
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px 14px",
-                            fontSize: 13,
-                            borderBottom: `1px solid ${V.border}`,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {s.name_bn}
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px 14px",
-                            fontSize: 12,
-                            borderBottom: `1px solid ${V.border}`,
-                            color: V.muted,
-                          }}
-                        >
-                          {s.variety || "সাধারণ"}
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px 14px",
-                            fontSize: 13,
-                            borderBottom: `1px solid ${V.border}`,
-                            color: V.purple,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {fmtN(s.total_produced)}টি
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px 14px",
-                            fontSize: 13,
-                            borderBottom: `1px solid ${V.border}`,
-                            color: V.red,
-                          }}
-                        >
-                          {fmtN(s.total_failed)}টি
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px 14px",
-                            fontSize: 13,
-                            borderBottom: `1px solid ${V.border}`,
-                            color: V.amber,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {fmtN(s.current_stock)}টি
-                        </td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      // ক্যাটাগরি > চারার নাম > জাত — Stock Report-এর মতো group করি
+                      const grouped = {};
+                      center.data.forEach((s) => {
+                        const cat = s.category_bn || "—";
+                        const name = s.name_bn;
+                        if (!grouped[cat]) grouped[cat] = {};
+                        if (!grouped[cat][name]) grouped[cat][name] = [];
+                        grouped[cat][name].push(s);
+                      });
+                      const rows = [];
+                      Object.entries(grouped).forEach(([cat, names]) => {
+                        Object.entries(names).forEach(
+                          ([name, varieties], ni) => {
+                            varieties.forEach((s, vi) => {
+                              rows.push(
+                                <tr
+                                  key={`${cat}-${name}-${vi}`}
+                                  onMouseEnter={(e) =>
+                                    (e.currentTarget.style.background =
+                                      V.green3)
+                                  }
+                                  onMouseLeave={(e) =>
+                                    (e.currentTarget.style.background =
+                                      "transparent")
+                                  }
+                                >
+                                  <td
+                                    style={{
+                                      padding: "8px 14px",
+                                      fontSize: 12,
+                                      borderBottom: `1px solid ${V.border}`,
+                                      color: V.muted,
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {ni === 0 && vi === 0 ? cat : ""}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 14px",
+                                      fontSize: 13,
+                                      borderBottom: `1px solid ${V.border}`,
+                                      fontWeight: vi === 0 ? 600 : 400,
+                                    }}
+                                  >
+                                    {vi === 0 ? name : ""}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 14px",
+                                      fontSize: 12,
+                                      borderBottom: `1px solid ${V.border}`,
+                                      color: V.muted,
+                                    }}
+                                  >
+                                    {s.variety || "সাধারণ"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 14px",
+                                      fontSize: 13,
+                                      borderBottom: `1px solid ${V.border}`,
+                                      color: V.purple,
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {fmtN(s.total_produced)}টি
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 14px",
+                                      fontSize: 13,
+                                      borderBottom: `1px solid ${V.border}`,
+                                      color: V.red,
+                                    }}
+                                  >
+                                    {fmtN(s.total_failed)}টি
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 14px",
+                                      fontSize: 13,
+                                      borderBottom: `1px solid ${V.border}`,
+                                      color: V.amber,
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {fmtN(s.current_stock)}টি
+                                  </td>
+                                </tr>,
+                              );
+                            });
+                          },
+                        );
+                      });
+                      return rows;
+                    })()}
                   </tbody>
                 </table>
               </div>
