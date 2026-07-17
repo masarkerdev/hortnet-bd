@@ -290,7 +290,18 @@ function StockReport() {
                 boxShadow: V.shadow,
               }}
             >
-              <div style={{ overflowX: "auto" }}>
+              <div
+                style={{
+                  padding: "6px 14px",
+                  fontSize: 11,
+                  color: V.muted,
+                  borderBottom: `1px solid ${V.border}`,
+                  background: V.card2,
+                }}
+              >
+                ↔ প্রথম ৩টি কলাম (ক্যাটাগরি/নাম/জাত) স্থির থাকবে, সেন্টার কলামগুলো স্ক্রল করুন
+              </div>
+              <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
                 <table
                   style={{
                     width: "100%",
@@ -302,7 +313,30 @@ function StockReport() {
                     <tr>
                       <th
                         style={{
-                          padding: "10px 14px",
+                          position: "sticky",
+                          left: 0,
+                          zIndex: 2,
+                          padding: "10px 10px",
+                          textAlign: "left",
+                          fontSize: 12,
+                          color: V.muted,
+                          fontWeight: 600,
+                          background: V.card2,
+                          borderBottom: `1px solid ${V.border}`,
+                          borderRight: `1px solid ${V.border}`,
+                          whiteSpace: "nowrap",
+                          minWidth: 70,
+                          maxWidth: 70,
+                        }}
+                      >
+                        ক্যাটাগরি
+                      </th>
+                      <th
+                        style={{
+                          position: "sticky",
+                          left: 70,
+                          zIndex: 2,
+                          padding: "10px 10px",
                           textAlign: "left",
                           fontSize: 12,
                           color: V.muted,
@@ -310,32 +344,28 @@ function StockReport() {
                           background: V.card2,
                           borderBottom: `1px solid ${V.border}`,
                           whiteSpace: "nowrap",
-                        }}
-                      >
-                        ক্যাটাগরি
-                      </th>
-                      <th
-                        style={{
-                          padding: "10px 14px",
-                          textAlign: "left",
-                          fontSize: 12,
-                          color: V.muted,
-                          fontWeight: 600,
-                          background: V.card2,
-                          borderBottom: `1px solid ${V.border}`,
+                          minWidth: 90,
+                          maxWidth: 90,
                         }}
                       >
                         চারার নাম
                       </th>
                       <th
                         style={{
-                          padding: "10px 14px",
+                          position: "sticky",
+                          left: 160,
+                          zIndex: 2,
+                          padding: "10px 10px",
                           textAlign: "left",
                           fontSize: 12,
                           color: V.muted,
                           fontWeight: 600,
                           background: V.card2,
                           borderBottom: `1px solid ${V.border}`,
+                          borderRight: `2px solid ${V.border}`,
+                          whiteSpace: "nowrap",
+                          minWidth: 80,
+                          maxWidth: 80,
                         }}
                       >
                         জাত
@@ -390,31 +420,55 @@ function StockReport() {
                           >
                             <td
                               style={{
-                                padding: "10px 14px",
-                                fontSize: 13,
+                                position: "sticky",
+                                left: 0,
+                                zIndex: 1,
+                                padding: "10px 10px",
+                                fontSize: 12,
                                 borderBottom: `1px solid ${V.border}`,
+                                borderRight: `1px solid ${V.border}`,
                                 color: V.muted,
                                 whiteSpace: "nowrap",
+                                background: V.card,
+                                minWidth: 70,
+                                maxWidth: 70,
                               }}
                             >
                               {ni === 0 && vi === 0 ? cat : ""}
                             </td>
                             <td
                               style={{
-                                padding: "10px 14px",
+                                position: "sticky",
+                                left: 70,
+                                zIndex: 1,
+                                padding: "10px 10px",
                                 fontSize: 13,
                                 borderBottom: `1px solid ${V.border}`,
                                 fontWeight: vi === 0 ? 600 : 400,
+                                background: V.card,
+                                minWidth: 90,
+                                maxWidth: 90,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
                               }}
                             >
                               {vi === 0 ? name : ""}
                             </td>
                             <td
                               style={{
-                                padding: "10px 14px",
+                                position: "sticky",
+                                left: 160,
+                                zIndex: 1,
+                                padding: "10px 10px",
                                 fontSize: 12,
                                 borderBottom: `1px solid ${V.border}`,
+                                borderRight: `2px solid ${V.border}`,
                                 color: V.muted,
+                                background: V.card,
+                                minWidth: 80,
+                                maxWidth: 80,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
                               }}
                             >
                               {variety}
