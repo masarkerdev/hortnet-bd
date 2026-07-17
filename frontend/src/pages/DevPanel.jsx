@@ -109,6 +109,22 @@ function Panel({ dev, onLogout }) {
   const [resetEmail, setResetEmail] = useState('');
   const [centerAdmins, setCenterAdmins] = useState([]);
   const [caModal, setCaModal] = useState(null);
+  const [migrationSql, setMigrationSql] = useState('');
+  const [migrationTarget, setMigrationTarget] = useState('all');
+  const [migrationRunning, setMigrationRunning] = useState(false);
+  const [migrationResult, setMigrationResult] = useState(null);
+
+  async function runMigration() {
+    if (!migrationSql.trim()) return;
+    if (!window.confirm(`এই SQL "${migrationTarget}" এর সব DB-তে চালাতে চান? এটা ফেরানো যাবে না।`)) return;
+    setMigrationRunning(true); setMigrationResult(null);
+    try {
+      const r = await devApi('/run-migration', { method: 'POST', body: JSON.stringify({ sql: migrationSql, target: migrationTarget }) });
+      setMigrationResult(r);
+    } catch (e) {
+      setMigrationResult({ success: false, message: 'সমস্যা হয়েছে' });
+    } finally { setMigrationRunning(false); }
+  }
   const [slugModal, setSlugModal] = useState(null);
   const [newSlugValue, setNewSlugValue] = useState('');
   const [slugMsg, setSlugMsg] = useState('');
@@ -179,7 +195,7 @@ function Panel({ dev, onLogout }) {
   }
 
   const inp = { padding:'9px 12px', background:'#0d1117', border:`1px solid ${V.border}`, borderRadius:8, color:V.text, fontSize:13, fontFamily:FONT, outline:'none', width:'100%', boxSizing:'border-box' };
-  const TABS = [['dashboard','📊 Dashboard'],['admins','👤 Super Admins'],['centers','🏛️ Centers'],['reset','🔑 Password Reset'],['integrity','🔧 Data Integrity Check'],['logs','📋 Logs']];
+  const TABS = [['dashboard','📊 Dashboard'],['admins','👤 Super Admins'],['centers','🏛️ Centers'],['reset','🔑 Password Reset'],['integrity','🔧 Data Integrity Check'],['migration','🗄️ Migration Runner'],['logs','📋 Logs']];
 
   return (
     <div style={{ minHeight:'100vh', background:V.bg, fontFamily:FONT, color:V.text }}>
@@ -430,6 +446,58 @@ function Panel({ dev, onLogout }) {
                   🔑 Password Reset করুন
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Migration Runner */}
+          {tab==='migration' && (
+            <div style={{ maxWidth:700 }}>
+              <div style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>🗄️ Bulk Migration Runner</div>
+              <div style={{ background:'#2d1a00', border:`1px solid ${V.amber}`, borderRadius:8, padding:'10px 12px', fontSize:12, color:V.amber, marginBottom:14 }}>
+                ⚠️ শুধু CREATE TABLE / ALTER TABLE অনুমতি আছে (নিরাপত্তার জন্য)। এই action audit log-এ রেকর্ড হবে।
+              </div>
+              <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, padding:20 }}>
+                <div style={{ marginBottom:14 }}>
+                  <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>কোথায় চালাবেন?</label>
+                  <select value={migrationTarget} onChange={e=>setMigrationTarget(e.target.value)} style={inp}>
+                    <option value="all">সব সেন্টার (Tenant DB)</option>
+                    <option value="master">শুধু Master DB</option>
+                    {centers.map(t=><option key={t.slug} value={t.slug}>শুধু {t.name_bn}</option>)}
+                  </select>
+                </div>
+                <div style={{ marginBottom:14 }}>
+                  <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>SQL Statement</label>
+                  <textarea value={migrationSql} onChange={e=>setMigrationSql(e.target.value)} rows={6}
+                    placeholder={'CREATE TABLE IF NOT EXISTS ...\nALTER TABLE ... ADD COLUMN IF NOT EXISTS ...'}
+                    style={{ ...inp, fontFamily:'monospace', fontSize:13, resize:'vertical' }}/>
+                </div>
+                <button onClick={runMigration} disabled={migrationRunning}
+                  style={{ width:'100%', padding:'10px', background:V.red, border:'none', borderRadius:8, color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:FONT }}>
+                  {migrationRunning ? 'চালানো হচ্ছে...' : '▶ চালান'}
+                </button>
+              </div>
+
+              {migrationResult && (
+                <div style={{ marginTop:16 }}>
+                  {migrationResult.success ? (
+                    <>
+                      <div style={{ fontSize:14, color:V.text, marginBottom:10 }}>
+                        ফলাফল: <b style={{color:V.green}}>{migrationResult.success_count}</b> / {migrationResult.total} সফল
+                      </div>
+                      <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, overflow:'hidden', maxHeight:300, overflowY:'auto' }}>
+                        {migrationResult.results.map((r,i)=>(
+                          <div key={i} style={{ padding:'8px 14px', borderBottom:`1px solid ${V.border}`, display:'flex', justifyContent:'space-between', fontSize:13 }}>
+                            <span>{r.target}</span>
+                            <span style={{ color: r.success ? V.green : V.red }}>{r.success ? '✅ সফল' : `❌ ${r.error}`}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ color:V.red, fontSize:13 }}>{migrationResult.message}</div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

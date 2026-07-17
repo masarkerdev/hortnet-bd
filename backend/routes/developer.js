@@ -415,4 +415,67 @@ router.post("/change-slug", devAuth, async (req, res) => {
   }
 });
 
+// POST /api/dev/run-migration — সব center DB-তে একসাথে SQL চালানো (শুধু CREATE/ALTER, safety-checked)
+router.post("/run-migration", devAuth, async (req, res) => {
+  const { sql, target } = req.body;
+  if (!sql || !sql.trim()) {
+    return res.status(400).json({ success: false, message: "SQL দিন।" });
+  }
+
+  const upperSql = sql.toUpperCase();
+  const forbidden = ["DROP ", "DELETE ", "TRUNCATE ", "UPDATE ", "GRANT ", "REVOKE "];
+  const found = forbidden.find((f) => upperSql.includes(f));
+  if (found) {
+    return res.status(400).json({
+      success: false,
+      message: `নিরাপত্তার কারণে "${found.trim()}" ধরনের কমান্ড অনুমতি নেই। শুধু CREATE TABLE / ALTER TABLE ব্যবহার করুন।`,
+    });
+  }
+  if (!upperSql.includes("CREATE TABLE") && !upperSql.includes("ALTER TABLE")) {
+    return res.status(400).json({
+      success: false,
+      message: "শুধু CREATE TABLE বা ALTER TABLE জাতীয় statement অনুমতি আছে।",
+    });
+  }
+
+  const { getTenants } = require("../lib/tenantCache");
+  const { getPool } = require("../config/poolManager");
+  const results = [];
+
+  try {
+    if (target === "master") {
+      try {
+        await masterDb.query(sql);
+        results.push({ target: "master", success: true });
+      } catch (e) {
+        results.push({ target: "master", success: false, error: e.message });
+      }
+    } else {
+      const tenants = await getTenants();
+      const targetList = target === "all" ? Object.entries(tenants) : Object.entries(tenants).filter(([slug]) => slug === target);
+      for (const [slug, tenant] of targetList) {
+        if (!tenant.db_url) { results.push({ target: slug, success: false, error: "db_url নেই" }); continue; }
+        try {
+          const pool = getPool(tenant.db_url, tenant.db_url);
+          await pool.query(sql);
+          results.push({ target: slug, success: true });
+        } catch (e) {
+          results.push({ target: slug, success: false, error: e.message });
+        }
+      }
+    }
+
+    const successCount = results.filter((r) => r.success).length;
+    await masterDb.query(
+      "INSERT INTO dev_logs (developer_id, action, details) VALUES ($1,$2,$3)",
+      [req.dev.id, "run_migration", `SQL চালানো হয়েছে (${target}): ${successCount}/${results.length} সফল — SQL: ${sql.slice(0, 200)}`]
+    );
+
+    res.json({ success: true, results, success_count: successCount, total: results.length });
+  } catch (err) {
+    console.error("run-migration error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
