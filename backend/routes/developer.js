@@ -371,4 +371,48 @@ router.get("/integrity-check", devAuth, async (req, res) => {
   }
 });
 
+// POST /api/dev/change-slug — center-এর slug পরিবর্তন (শুধু Dev Panel-এ, খুবই সতর্কতার সাথে)
+router.post("/change-slug", devAuth, async (req, res) => {
+  const { oldSlug, newSlug } = req.body;
+  if (!oldSlug || !newSlug) {
+    return res.status(400).json({ success: false, message: "পুরনো ও নতুন slug দিন।" });
+  }
+  const cleanNewSlug = newSlug.trim().toLowerCase();
+  if (!/^[a-z0-9_-]+$/.test(cleanNewSlug)) {
+    return res.status(400).json({
+      success: false,
+      message: "Slug-এ শুধু ছোট হাতের ইংরেজি অক্ষর, সংখ্যা, - এবং _ ব্যবহার করা যাবে।",
+    });
+  }
+  try {
+    const existing = await masterDb.query("SELECT id FROM tenants WHERE slug=$1", [cleanNewSlug]);
+    if (existing.rows.length) {
+      return res.status(400).json({ success: false, message: "এই slug ইতিমধ্যে অন্য center ব্যবহার করছে।" });
+    }
+    const r = await masterDb.query(
+      "UPDATE tenants SET slug=$1 WHERE slug=$2 RETURNING id, name_bn",
+      [cleanNewSlug, oldSlug.trim().toLowerCase()]
+    );
+    if (!r.rows.length) {
+      return res.status(404).json({ success: false, message: "পুরনো slug-এর center পাওয়া যায়নি।" });
+    }
+
+    const { clearCache } = require("../lib/tenantCache");
+    clearCache();
+
+    await masterDb.query(
+      "INSERT INTO dev_logs (developer_id, action, details) VALUES ($1,$2,$3)",
+      [req.dev.id, "change_slug", `"${oldSlug}" → "${cleanNewSlug}" (${r.rows[0].name_bn})`]
+    );
+
+    res.json({
+      success: true,
+      message: `Slug পরিবর্তন হয়েছে ✅ নতুন Login URL: hortnet-bd.com/${cleanNewSlug}/login`,
+    });
+  } catch (err) {
+    console.error("change-slug error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

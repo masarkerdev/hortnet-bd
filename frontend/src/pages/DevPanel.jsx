@@ -109,6 +109,27 @@ function Panel({ dev, onLogout }) {
   const [resetEmail, setResetEmail] = useState('');
   const [centerAdmins, setCenterAdmins] = useState([]);
   const [caModal, setCaModal] = useState(null);
+  const [slugModal, setSlugModal] = useState(null);
+  const [newSlugValue, setNewSlugValue] = useState('');
+  const [slugMsg, setSlugMsg] = useState('');
+  const [slugSaving, setSlugSaving] = useState(false);
+
+  async function saveSlugChange() {
+    if (!slugModal || !newSlugValue.trim()) return;
+    if (!window.confirm(`"${slugModal.slug}" থেকে "${newSlugValue.trim().toLowerCase()}"-এ পরিবর্তন করবেন? এতে center-এর Login URL বদলে যাবে, পুরনো URL কাজ করবে না।`)) return;
+    setSlugSaving(true); setSlugMsg('');
+    try {
+      const r = await devApi('/change-slug', { method: 'POST', body: JSON.stringify({ oldSlug: slugModal.slug, newSlug: newSlugValue }) });
+      if (r.success) {
+        setSlugMsg(r.message);
+        setTimeout(() => { setSlugModal(null); loadAll(); }, 2000);
+      } else {
+        setSlugMsg(r.message || 'সমস্যা হয়েছে');
+      }
+    } catch (e) {
+      setSlugMsg('সমস্যা হয়েছে');
+    } finally { setSlugSaving(false); }
+  }
   const [caForm, setCaForm] = useState({name:'',email:'',password:''});
   const [caMsg, setCaMsg] = useState('');
   const [showPass, setShowPass] = useState({});
@@ -319,10 +340,16 @@ function Panel({ dev, onLogout }) {
                             <span style={{ color:c.active?V.green:V.red, fontSize:12 }}>{c.active?'✅':'❌'}</span>
                           </td>
                           <td style={{ padding:'12px 14px', borderBottom:`1px solid ${V.border}` }}>
-                            <button onClick={()=>{ setCaModal(c); setCaForm({name:c.admin?.name||'',email:c.admin?.email||'',password:''}); setCaMsg(''); }}
-                              style={{ background:'#1f2d3f', border:`1px solid ${V.blue}`, color:V.blue, padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:FONT, whiteSpace:'nowrap' }}>
-                              ✏️ এডিট
-                            </button>
+                            <div style={{ display:'flex', gap:6 }}>
+                              <button onClick={()=>{ setCaModal(c); setCaForm({name:c.admin?.name||'',email:c.admin?.email||'',password:''}); setCaMsg(''); }}
+                                style={{ background:'#1f2d3f', border:`1px solid ${V.blue}`, color:V.blue, padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:FONT, whiteSpace:'nowrap' }}>
+                                ✏️ এডিট
+                              </button>
+                              <button onClick={()=>{ setSlugModal(c); setNewSlugValue(c.slug); setSlugMsg(''); }}
+                                style={{ background:'#3f2a14', border:`1px solid ${V.amber}`, color:V.amber, padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:FONT, whiteSpace:'nowrap' }}>
+                                🔗 Slug
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -330,6 +357,35 @@ function Panel({ dev, onLogout }) {
                   </table>
                 </div>
               </div>
+
+              {/* Slug পরিবর্তন Modal */}
+              {slugModal && (
+                <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+                  <div style={{ background:V.card, borderRadius:14, padding:24, width:400 }}>
+                    <div style={{ fontSize:16, fontWeight:700, marginBottom:6 }}>🔗 Slug পরিবর্তন</div>
+                    <div style={{ fontSize:13, color:V.muted, marginBottom:16 }}>{slugModal.name_bn}</div>
+                    <div style={{ background:'#3f2a14', border:`1px solid ${V.amber}`, borderRadius:8, padding:'10px 12px', fontSize:12, color:V.amber, marginBottom:14 }}>
+                      ⚠️ এটা বদলালে center-এর Login URL পাল্টে যাবে। পুরনো URL আর কাজ করবে না। Center-কে নতুন URL জানিয়ে দিতে হবে।
+                    </div>
+                    <div style={{ marginBottom:10 }}>
+                      <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>বর্তমান Slug</label>
+                      <input value={slugModal.slug} disabled style={{ width:'100%', padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:14, color:V.muted, background:'#0d1117', boxSizing:'border-box' }}/>
+                    </div>
+                    <div style={{ marginBottom:16 }}>
+                      <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>নতুন Slug (শুধু ইংরেজি ছোট হাতের অক্ষর, সংখ্যা, - _ )</label>
+                      <input value={newSlugValue} onChange={e=>setNewSlugValue(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g,''))}
+                        style={{ width:'100%', padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:14, color:V.text, background:V.bg, boxSizing:'border-box' }}/>
+                    </div>
+                    {slugMsg && <div style={{ color: slugMsg.includes('হয়েছে ✅')?V.green:V.red, fontSize:13, marginBottom:12 }}>{slugMsg}</div>}
+                    <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+                      <button onClick={()=>setSlugModal(null)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${V.border}`, background:V.bg, cursor:'pointer', fontSize:13, fontFamily:FONT }}>বাতিল</button>
+                      <button onClick={saveSlugChange} disabled={slugSaving} style={{ padding:'8px 16px', borderRadius:8, background:V.amber, color:'#000', border:'none', cursor:'pointer', fontSize:13, fontFamily:FONT, fontWeight:600 }}>
+                        {slugSaving ? 'সংরক্ষণ হচ্ছে...' : '✓ পরিবর্তন করুন'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Edit Modal */}
               {caModal && (
