@@ -52,7 +52,7 @@ async function refreshOneCenter(slug, tenant) {
   if (r.rows.length) {
     const values = [];
     const placeholders = r.rows.map((row, i) => {
-      const base = i * 9;
+      const base = i * 10;
       values.push(
         slug,
         tenant.name_bn,
