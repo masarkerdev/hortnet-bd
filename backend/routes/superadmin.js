@@ -369,6 +369,7 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
     location,
     district,
     division,
+    thana,
     dae_region,
     category,
     db_url,
@@ -428,7 +429,7 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
     await tenantPool.end();
 
     const r = await masterDb.query(
-      `INSERT INTO tenants (slug,name_bn,name_en,location,district,division,dae_region,category,db_url,currency,mobile,active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true) RETURNING id,slug,name_bn`,
+      `INSERT INTO tenants (slug,name_bn,name_en,location,district,division,thana,dae_region,category,db_url,currency,mobile,active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,true) RETURNING id,slug,name_bn`,
       [
         slug.toLowerCase(),
         name_bn,
@@ -436,6 +437,7 @@ router.post("/tenants", saAuth, directorOnly, async (req, res) => {
         location || "",
         district || "",
         division || "",
+        thana || "",
         dae_region || "",
         category || "B",
         db_url,
@@ -484,6 +486,7 @@ router.put("/tenants/:id", saAuth, directorOnly, async (req, res) => {
     location,
     district,
     division,
+    thana,
     dae_region,
     category,
     db_url,
@@ -505,13 +508,14 @@ router.put("/tenants/:id", saAuth, directorOnly, async (req, res) => {
       finalDbUrl = cur.rows[0]?.db_url || "";
     }
     await masterDb.query(
-      `UPDATE tenants SET name_bn=$1,name_en=$2,location=$3,district=$4,division=$5,dae_region=$6,category=$7,db_url=$8,currency=$9,active=$10,mobile=$11,updated_at=NOW() WHERE id=$12`,
+      `UPDATE tenants SET name_bn=$1,name_en=$2,location=$3,district=$4,division=$5,thana=$6,dae_region=$7,category=$8,db_url=$9,currency=$10,active=$11,mobile=$12,updated_at=NOW() WHERE id=$13`,
       [
         name_bn,
         name_en,
         location || "",
         district || "",
         division || "",
+        thana || "",
         dae_region || "",
         category || "B",
         finalDbUrl,

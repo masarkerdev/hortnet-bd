@@ -37,9 +37,11 @@ router.get("/centers", async (req, res) => {
         location: t.location,
         district: t.district,
         division: t.division,
+        thana: t.thana || "",
         category: t.category,
         mobile: t.mobile || "",
-      }));
+      }))
+      .sort((a, b) => (a.name_bn || "").localeCompare(b.name_bn || "", "bn"));
     res.json({ success: true, data: centers });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -90,34 +92,40 @@ router.get("/search", async (req, res) => {
   if (!q) return res.json({ success: true, data: [] });
 
   try {
-    const { searchCatalog } = require("../lib/catalogCache");
-    const rows = await searchCatalog(q);
+    const tenants = await getTenants();
+    const results = await Promise.all(
+      Object.entries(tenants)
+        .filter(([, t]) => t.active !== false)
+        .map(async ([slug, tenant]) => {
+          const rows = await queryTenant(
+            tenant.db_url,
+            `
+                        SELECT s.name_bn, s.variety, s.seedling_code,
+                               s.unit_price, s.current_stock,
+                               c.name_bn AS category_bn
+                        FROM seedlings s
+                        LEFT JOIN categories c ON s.category_id = c.id
+                        WHERE s.is_active = true
+                          AND s.current_stock > 0
+                          AND (s.name_bn ILIKE $1 OR s.variety ILIKE $1)
+                        ORDER BY s.name_bn
+                    `,
+            [`%${q}%`],
+          );
 
-    // frontend আগের মতোই center-ভিত্তিক grouped format পায় (কিছু বদলাতে হয় না)
-    const byCenter = {};
-    rows.forEach((r) => {
-      if (!byCenter[r.center_slug]) {
-        byCenter[r.center_slug] = {
-          slug: r.center_slug,
-          name_bn: r.center_name,
-          location: r.location,
-          district: r.district,
-          seedlings: [],
-        };
-      }
-      byCenter[r.center_slug].seedlings.push({
-        name_bn: r.seedling_name,
-        variety: r.variety,
-        seedling_code: r.seedling_code,
-        unit_price: r.unit_price,
-        current_stock: r.current_stock,
-        category_bn: r.category_bn,
-      });
-    });
+          if (!rows.length) return null;
+          return {
+            slug,
+            name_bn: tenant.name_bn,
+            location: tenant.location,
+            district: tenant.district,
+            seedlings: rows,
+          };
+        }),
+    );
 
-    res.json({ success: true, data: Object.values(byCenter) });
+    res.json({ success: true, data: results.filter(Boolean) });
   } catch (err) {
-    console.error("search error:", err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

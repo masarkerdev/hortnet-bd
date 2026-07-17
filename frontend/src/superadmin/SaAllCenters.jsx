@@ -55,6 +55,7 @@ export default function SaAllCenters() {
     location: "",
     district: "",
     division: "",
+    thana: "",
     dae_region: "",
     category: "B",
     db_url: "",
@@ -83,6 +84,7 @@ export default function SaAllCenters() {
       location: "",
       district: "",
       division: "",
+      thana: "",
       dae_region: "",
       category: "B",
       db_url: "",
@@ -101,6 +103,7 @@ export default function SaAllCenters() {
       location: c.location || "",
       district: c.district || "",
       division: c.division || "",
+      thana: c.thana || "",
       dae_region: c.dae_region || "",
       category: c.category || "B",
       db_url: "",
@@ -130,6 +133,7 @@ export default function SaAllCenters() {
         location: form.location,
         district: form.district,
         division: form.division,
+        thana: form.thana,
         dae_region: form.dae_region,
         category: form.category,
         mobile: form.mobile || "",
@@ -547,6 +551,27 @@ export default function SaAllCenters() {
                     setForm({ ...form, division: e.target.value })
                   }
                   placeholder="ঢাকা"
+                  style={inp}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 13,
+                    color: C.muted,
+                    marginBottom: 6,
+                    fontWeight: 500,
+                  }}
+                >
+                  থানা/উপজেলা
+                </label>
+                <input
+                  value={form.thana}
+                  onChange={(e) =>
+                    setForm({ ...form, thana: e.target.value })
+                  }
+                  placeholder="যেমন: সদর"
                   style={inp}
                 />
               </div>
