@@ -231,7 +231,7 @@ function KpiCard({ label, value, sub, borderColor, valueColor }) {
     >
       <div
         style={{
-          fontSize: 18,
+          fontSize: 14,
           color: V.muted,
           marginBottom: 8,
           fontWeight: 500,
@@ -242,7 +242,7 @@ function KpiCard({ label, value, sub, borderColor, valueColor }) {
       <div
         className="kpi-value"
         style={{
-          fontSize: 28,
+          fontSize: 23,
           fontWeight: 700,
           lineHeight: 1,
           color: valueColor,

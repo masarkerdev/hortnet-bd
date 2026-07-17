@@ -316,7 +316,7 @@ function StockReport() {
                           position: "sticky",
                           left: 0,
                           zIndex: 2,
-                          padding: "10px 10px",
+                          padding: "6px 8px",
                           textAlign: "left",
                           fontSize: 12,
                           color: V.muted,
@@ -325,8 +325,8 @@ function StockReport() {
                           borderBottom: `1px solid ${V.border}`,
                           borderRight: `1px solid ${V.border}`,
                           whiteSpace: "nowrap",
-                          minWidth: 70,
-                          maxWidth: 70,
+                          minWidth: 126,
+                          maxWidth: 126,
                         }}
                       >
                         ক্যাটাগরি
@@ -334,9 +334,9 @@ function StockReport() {
                       <th
                         style={{
                           position: "sticky",
-                          left: 70,
+                          left: 126,
                           zIndex: 2,
-                          padding: "10px 10px",
+                          padding: "6px 8px",
                           textAlign: "left",
                           fontSize: 12,
                           color: V.muted,
@@ -353,9 +353,9 @@ function StockReport() {
                       <th
                         style={{
                           position: "sticky",
-                          left: 160,
+                          left: 216,
                           zIndex: 2,
-                          padding: "10px 10px",
+                          padding: "6px 8px",
                           textAlign: "left",
                           fontSize: 12,
                           color: V.muted,
@@ -364,8 +364,8 @@ function StockReport() {
                           borderBottom: `1px solid ${V.border}`,
                           borderRight: `2px solid ${V.border}`,
                           whiteSpace: "nowrap",
-                          minWidth: 80,
-                          maxWidth: 80,
+                          minWidth: 100,
+                          maxWidth: 100,
                         }}
                       >
                         জাত
@@ -377,7 +377,7 @@ function StockReport() {
                         <th
                           key={c.slug}
                           style={{
-                            padding: "10px 14px",
+                            padding: "6px 10px",
                             textAlign: "right",
                             fontSize: 12,
                             color: V.green2,
@@ -392,7 +392,7 @@ function StockReport() {
                       ))}
                       <th
                         style={{
-                          padding: "10px 14px",
+                          padding: "6px 10px",
                           textAlign: "right",
                           fontSize: 12,
                           color: V.amber,
@@ -423,15 +423,15 @@ function StockReport() {
                                 position: "sticky",
                                 left: 0,
                                 zIndex: 1,
-                                padding: "10px 10px",
+                                padding: "6px 8px",
                                 fontSize: 12,
                                 borderBottom: `1px solid ${V.border}`,
                                 borderRight: `1px solid ${V.border}`,
                                 color: V.muted,
                                 whiteSpace: "nowrap",
                                 background: V.card,
-                                minWidth: 70,
-                                maxWidth: 70,
+                                minWidth: 126,
+                                maxWidth: 126,
                               }}
                             >
                               {ni === 0 && vi === 0 ? cat : ""}
@@ -439,9 +439,9 @@ function StockReport() {
                             <td
                               style={{
                                 position: "sticky",
-                                left: 70,
+                                left: 126,
                                 zIndex: 1,
-                                padding: "10px 10px",
+                                padding: "6px 8px",
                                 fontSize: 13,
                                 borderBottom: `1px solid ${V.border}`,
                                 fontWeight: vi === 0 ? 600 : 400,
@@ -457,16 +457,16 @@ function StockReport() {
                             <td
                               style={{
                                 position: "sticky",
-                                left: 160,
+                                left: 216,
                                 zIndex: 1,
-                                padding: "10px 10px",
+                                padding: "6px 8px",
                                 fontSize: 12,
                                 borderBottom: `1px solid ${V.border}`,
                                 borderRight: `2px solid ${V.border}`,
                                 color: V.muted,
                                 background: V.card,
-                                minWidth: 80,
-                                maxWidth: 80,
+                                minWidth: 100,
+                                maxWidth: 100,
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
                               }}
@@ -480,7 +480,7 @@ function StockReport() {
                               <td
                                 key={c.slug}
                                 style={{
-                                  padding: "10px 14px",
+                                  padding: "6px 10px",
                                   textAlign: "right",
                                   fontSize: 13,
                                   borderBottom: `1px solid ${V.border}`,
@@ -495,7 +495,7 @@ function StockReport() {
                             ))}
                             <td
                               style={{
-                                padding: "10px 14px",
+                                padding: "6px 10px",
                                 textAlign: "right",
                                 fontSize: 13,
                                 fontWeight: 700,
