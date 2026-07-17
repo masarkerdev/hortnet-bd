@@ -1,14 +1,24 @@
-import { useEffect, useState, useMemo } from 'react';
-import saApi from './saApi';
-import { toBn, fmt, fmtN, V, FONT } from './saUtils';
+import { useEffect, useState, useMemo } from "react";
+import saApi from "./saApi";
+import { toBn, fmt, fmtN, V, FONT } from "./saUtils";
 
-const curFY = () => { const n=new Date(); return n.getMonth()>=6?n.getFullYear():n.getFullYear()-1; };
+const curFY = () => {
+  const n = new Date();
+  return n.getMonth() >= 6 ? n.getFullYear() : n.getFullYear() - 1;
+};
 
 function exportCSV(rows, filename) {
-  const csv = rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const csv = rows
+    .map((r) =>
+      r.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(","),
+    )
+    .join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -21,165 +31,430 @@ function exportPDF(title, tableHTML) {
     td{padding:6px 7px;border-bottom:1px solid #e5e7eb;font-size:10px}
     tr:nth-child(even)td{background:#f9fafb}</style></head><body>
     <h1>🌿 ${title}</h1>
-    <div class="sub">তৈরির তারিখ: ${new Date().toLocaleDateString('bn-BD')}</div>
+    <div class="sub">তৈরির তারিখ: ${new Date().toLocaleDateString("bn-BD")}</div>
     ${tableHTML}</body></html>`;
-  const w = window.open('','_blank'); w.document.write(html); w.document.close();
-  setTimeout(()=>w.print(),600);
+  const w = window.open("", "_blank");
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 600);
 }
 
 // ── STOCK REPORT ──
 // সেন্টারের নাম ছোট করে দেখায় — "হর্টিকালচার সেন্টার, বনরূপা" → "বনরূপা"
 function shortName(name) {
-  return (name || '').replace('হর্টিকালচার সেন্টার,', '').replace('হর্টিকালচার সেন্টার', '').trim();
+  return (name || "")
+    .replace("হর্টিকালচার সেন্টার,", "")
+    .replace("হর্টিকালচার সেন্টার", "")
+    .trim();
 }
 
 function StockReport() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [catFilter, setCatFilter] = useState('');
-  const [centerFilter, setCenterFilter] = useState('');
-  const [varietyFilter, setVarietyFilter] = useState('');
-  const [viewMode, setViewMode] = useState('category'); // category | center | variety
+  const [catFilter, setCatFilter] = useState("");
+  const [centerFilter, setCenterFilter] = useState("");
+  const [varietyFilter, setVarietyFilter] = useState("");
+  const [viewMode, setViewMode] = useState("category"); // category | center | variety
 
   async function load() {
     setLoading(true);
     try {
-      const r = await saApi.get(`/report/stock-summary${catFilter?`?category=${encodeURIComponent(catFilter)}`:''}`);
-      if (r.data?.success) setData(r.data.data||[]);
-    } catch {} finally { setLoading(false); }
+      const r = await saApi.get(
+        `/report/stock-summary${catFilter ? `?category=${encodeURIComponent(catFilter)}` : ""}`,
+      );
+      if (r.data?.success) setData(r.data.data || []);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(()=>{ load(); },[catFilter]);
+  useEffect(() => {
+    load();
+  }, [catFilter]);
 
   // সব categories
-  const allCats = useMemo(()=>[...new Set(data.flatMap(c=>c.seedlings.map(s=>s.category_bn)).filter(Boolean))].sort(),[data]);
-  const allCenters = useMemo(()=>data.filter(c=>!centerFilter||c.slug===centerFilter),[data,centerFilter]);
+  const allCats = useMemo(
+    () =>
+      [
+        ...new Set(
+          data
+            .flatMap((c) => c.seedlings.map((s) => s.category_bn))
+            .filter(Boolean),
+        ),
+      ].sort(),
+    [data],
+  );
+  const allCenters = useMemo(
+    () => data.filter((c) => !centerFilter || c.slug === centerFilter),
+    [data, centerFilter],
+  );
 
   // Category-wise aggregation — সব center একসাথে
-  const catSummary = useMemo(()=>{
+  const catSummary = useMemo(() => {
     const map = {};
-    data.forEach(center=>{
-      center.seedlings.forEach(s=>{
-        const cat = s.category_bn||'অন্যান্য';
-        const name = s.name_bn||'—';
-        const variety = s.variety||'সাধারণ';
-        if(!map[cat]) map[cat]={};
-        if(!map[cat][name]) map[cat][name]={};
-        if(!map[cat][name][variety]) map[cat][name][variety]={total:0,centers:{}};
-        map[cat][name][variety].total += parseInt(s.current_stock)||0;
-        map[cat][name][variety].centers[center.slug] = (map[cat][name][variety].centers[center.slug]||0) + (parseInt(s.current_stock)||0);
+    data.forEach((center) => {
+      center.seedlings.forEach((s) => {
+        const cat = s.category_bn || "অন্যান্য";
+        const name = s.name_bn || "—";
+        const variety = s.variety || "সাধারণ";
+        if (!map[cat]) map[cat] = {};
+        if (!map[cat][name]) map[cat][name] = {};
+        if (!map[cat][name][variety])
+          map[cat][name][variety] = { total: 0, centers: {} };
+        map[cat][name][variety].total += parseInt(s.current_stock) || 0;
+        map[cat][name][variety].centers[center.slug] =
+          (map[cat][name][variety].centers[center.slug] || 0) +
+          (parseInt(s.current_stock) || 0);
       });
     });
     return map;
-  },[data]);
+  }, [data]);
 
   // Export CSV — category view
   function exportCatCSV() {
-    const rows = [['ক্যাটাগরি','চারার নাম','জাত',...data.map(c=>c.name_bn),'মোট']];
-    Object.entries(catSummary).forEach(([cat,names])=>{
-      Object.entries(names).forEach(([name,varieties])=>{
-        Object.entries(varieties).forEach(([variety,v])=>{
-          rows.push([cat,name,variety,...data.map(c=>v.centers[c.slug]||0),v.total]);
+    const rows = [
+      ["ক্যাটাগরি", "চারার নাম", "জাত", ...data.map((c) => c.name_bn), "মোট"],
+    ];
+    Object.entries(catSummary).forEach(([cat, names]) => {
+      Object.entries(names).forEach(([name, varieties]) => {
+        Object.entries(varieties).forEach(([variety, v]) => {
+          rows.push([
+            cat,
+            name,
+            variety,
+            ...data.map((c) => v.centers[c.slug] || 0),
+            v.total,
+          ]);
         });
       });
     });
-    exportCSV(rows, `Stock_Report_${new Date().toISOString().slice(0,10)}.csv`);
+    exportCSV(
+      rows,
+      `Stock_Report_${new Date().toISOString().slice(0, 10)}.csv`,
+    );
   }
 
   function exportCatPDF() {
-    let html = `<table><thead><tr><th>ক্যাটাগরি</th><th>চারার নাম</th><th>জাত</th>${data.map(c=>`<th>${c.name_bn}</th>`).join('')}<th>মোট</th></tr></thead><tbody>`;
-    Object.entries(catSummary).forEach(([cat,names])=>{
-      Object.entries(names).forEach(([name,varieties])=>{
-        Object.entries(varieties).forEach(([variety,v])=>{
-          html+=`<tr><td>${cat}</td><td>${name}</td><td>${variety}</td>${data.map(c=>`<td>${v.centers[c.slug]||0}</td>`).join('')}<td><b>${v.total}</b></td></tr>`;
+    let html = `<table><thead><tr><th>ক্যাটাগরি</th><th>চারার নাম</th><th>জাত</th>${data.map((c) => `<th>${c.name_bn}</th>`).join("")}<th>মোট</th></tr></thead><tbody>`;
+    Object.entries(catSummary).forEach(([cat, names]) => {
+      Object.entries(names).forEach(([name, varieties]) => {
+        Object.entries(varieties).forEach(([variety, v]) => {
+          html += `<tr><td>${cat}</td><td>${name}</td><td>${variety}</td>${data.map((c) => `<td>${v.centers[c.slug] || 0}</td>`).join("")}<td><b>${v.total}</b></td></tr>`;
         });
       });
     });
-    html+=`</tbody></table>`;
-    exportPDF('স্টক রিপোর্ট', html);
+    html += `</tbody></table>`;
+    exportPDF("স্টক রিপোর্ট", html);
   }
 
-  const inp = { padding:'8px 12px', border:`1px solid ${V.border}`, borderRadius:8, fontSize:13, fontFamily:FONT, color:V.text, background:V.bg, outline:'none', cursor:'pointer' };
+  const inp = {
+    padding: "8px 12px",
+    border: `1px solid ${V.border}`,
+    borderRadius: 8,
+    fontSize: 13,
+    fontFamily: FONT,
+    color: V.text,
+    background: V.bg,
+    outline: "none",
+    cursor: "pointer",
+  };
 
   return (
     <div>
       {/* Filter bar */}
-      <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, padding:'14px 16px', marginBottom:16, display:'flex', gap:10, flexWrap:'wrap', alignItems:'center', boxShadow:V.shadow }}>
-        <select value={catFilter} onChange={e=>setCatFilter(e.target.value)} style={inp}>
+      <div
+        style={{
+          background: V.card,
+          border: `1px solid ${V.border}`,
+          borderRadius: 12,
+          padding: "14px 16px",
+          marginBottom: 16,
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          alignItems: "center",
+          boxShadow: V.shadow,
+        }}
+      >
+        <select
+          value={catFilter}
+          onChange={(e) => setCatFilter(e.target.value)}
+          style={inp}
+        >
           <option value="">সব ক্যাটাগরি</option>
-          {allCats.map(c=><option key={c} value={c}>{c}</option>)}
+          {allCats.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
         </select>
-        <select value={centerFilter} onChange={e=>setCenterFilter(e.target.value)} style={inp}>
+        <select
+          value={centerFilter}
+          onChange={(e) => setCenterFilter(e.target.value)}
+          style={inp}
+        >
           <option value="">সব সেন্টার</option>
-          {data.map(c=><option key={c.slug} value={c.slug}>{c.name_bn}</option>)}
+          {data.map((c) => (
+            <option key={c.slug} value={c.slug}>
+              {c.name_bn}
+            </option>
+          ))}
         </select>
-        <div style={{ display:'flex', gap:4, marginLeft:'auto' }}>
-          {[['category','ক্যাটাগরি ভিউ'],['center','সেন্টার ভিউ']].map(([m,l])=>(
-            <button key={m} onClick={()=>setViewMode(m)}
-              style={{ padding:'7px 14px', borderRadius:8, border:`1px solid ${V.border}`, background:viewMode===m?V.green:V.card, color:viewMode===m?'#fff':V.muted, cursor:'pointer', fontSize:13, fontFamily:FONT }}>
+        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+          {[
+            ["category", "ক্যাটাগরি ভিউ"],
+            ["center", "সেন্টার ভিউ"],
+          ].map(([m, l]) => (
+            <button
+              key={m}
+              onClick={() => setViewMode(m)}
+              style={{
+                padding: "7px 14px",
+                borderRadius: 8,
+                border: `1px solid ${V.border}`,
+                background: viewMode === m ? V.green : V.card,
+                color: viewMode === m ? "#fff" : V.muted,
+                cursor: "pointer",
+                fontSize: 13,
+                fontFamily: FONT,
+              }}
+            >
               {l}
             </button>
           ))}
-          <button onClick={exportCatCSV}
-            style={{ padding:'7px 14px', borderRadius:8, border:`1px solid ${V.border}`, background:V.green, color:'#fff', cursor:'pointer', fontSize:13, fontFamily:FONT, display:'flex', alignItems:'center', gap:5 }}>
-            <i className="ti ti-file-spreadsheet"/> Excel
+          <button
+            onClick={exportCatCSV}
+            style={{
+              padding: "7px 14px",
+              borderRadius: 8,
+              border: `1px solid ${V.border}`,
+              background: V.green,
+              color: "#fff",
+              cursor: "pointer",
+              fontSize: 13,
+              fontFamily: FONT,
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <i className="ti ti-file-spreadsheet" /> Excel
           </button>
-          <button onClick={exportCatPDF}
-            style={{ padding:'7px 14px', borderRadius:8, border:'1px solid #c084fc44', background:'#c084fc22', color:'#c084fc', cursor:'pointer', fontSize:13, fontFamily:FONT, display:'flex', alignItems:'center', gap:5 }}>
-            <i className="ti ti-file-type-pdf"/> PDF
+          <button
+            onClick={exportCatPDF}
+            style={{
+              padding: "7px 14px",
+              borderRadius: 8,
+              border: "1px solid #c084fc44",
+              background: "#c084fc22",
+              color: "#c084fc",
+              cursor: "pointer",
+              fontSize: 13,
+              fontFamily: FONT,
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <i className="ti ti-file-type-pdf" /> PDF
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div style={{ textAlign:'center', padding:60, color:V.muted }}>
-          <div style={{ width:32, height:32, border:`3px solid ${V.border}`, borderTopColor:V.green, borderRadius:'50%', animation:'spin .8s linear infinite', margin:'0 auto 12px' }}/>
+        <div style={{ textAlign: "center", padding: 60, color: V.muted }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              border: `3px solid ${V.border}`,
+              borderTopColor: V.green,
+              borderRadius: "50%",
+              animation: "spin .8s linear infinite",
+              margin: "0 auto 12px",
+            }}
+          />
           লোড হচ্ছে...
         </div>
       ) : (
         <>
           {/* Category View */}
-          {viewMode==='category' && (
-            <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, overflow:'hidden', boxShadow:V.shadow }}>
-              <div style={{ overflowX:'auto' }}>
-                <table style={{ width:'100%', borderCollapse:'collapse', minWidth:600 }}>
+          {viewMode === "category" && (
+            <div
+              style={{
+                background: V.card,
+                border: `1px solid ${V.border}`,
+                borderRadius: 12,
+                overflow: "hidden",
+                boxShadow: V.shadow,
+              }}
+            >
+              <div style={{ overflowX: "auto" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    minWidth: 600,
+                  }}
+                >
                   <thead>
                     <tr>
-                      <th style={{ padding:'10px 14px', textAlign:'left', fontSize:12, color:V.muted, fontWeight:600, background:V.card2, borderBottom:`1px solid ${V.border}`, whiteSpace:'nowrap' }}>ক্যাটাগরি</th>
-                      <th style={{ padding:'10px 14px', textAlign:'left', fontSize:12, color:V.muted, fontWeight:600, background:V.card2, borderBottom:`1px solid ${V.border}` }}>চারার নাম</th>
-                      <th style={{ padding:'10px 14px', textAlign:'left', fontSize:12, color:V.muted, fontWeight:600, background:V.card2, borderBottom:`1px solid ${V.border}` }}>জাত</th>
-                      {(centerFilter ? data.filter(c=>c.slug===centerFilter) : data).map(c=>(
-                        <th key={c.slug} style={{ padding:'10px 14px', textAlign:'right', fontSize:12, color:V.green2, fontWeight:600, background:V.card2, borderBottom:`1px solid ${V.border}`, whiteSpace:'nowrap' }}>{shortName(c.name_bn)}</th>
+                      <th
+                        style={{
+                          padding: "10px 14px",
+                          textAlign: "left",
+                          fontSize: 12,
+                          color: V.muted,
+                          fontWeight: 600,
+                          background: V.card2,
+                          borderBottom: `1px solid ${V.border}`,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        ক্যাটাগরি
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 14px",
+                          textAlign: "left",
+                          fontSize: 12,
+                          color: V.muted,
+                          fontWeight: 600,
+                          background: V.card2,
+                          borderBottom: `1px solid ${V.border}`,
+                        }}
+                      >
+                        চারার নাম
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 14px",
+                          textAlign: "left",
+                          fontSize: 12,
+                          color: V.muted,
+                          fontWeight: 600,
+                          background: V.card2,
+                          borderBottom: `1px solid ${V.border}`,
+                        }}
+                      >
+                        জাত
+                      </th>
+                      {(centerFilter
+                        ? data.filter((c) => c.slug === centerFilter)
+                        : data
+                      ).map((c) => (
+                        <th
+                          key={c.slug}
+                          style={{
+                            padding: "10px 14px",
+                            textAlign: "right",
+                            fontSize: 12,
+                            color: V.green2,
+                            fontWeight: 600,
+                            background: V.card2,
+                            borderBottom: `1px solid ${V.border}`,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {shortName(c.name_bn)}
+                        </th>
                       ))}
-                      <th style={{ padding:'10px 14px', textAlign:'right', fontSize:12, color:V.amber, fontWeight:700, background:V.card2, borderBottom:`1px solid ${V.border}` }}>মোট</th>
+                      <th
+                        style={{
+                          padding: "10px 14px",
+                          textAlign: "right",
+                          fontSize: 12,
+                          color: V.amber,
+                          fontWeight: 700,
+                          background: V.card2,
+                          borderBottom: `1px solid ${V.border}`,
+                        }}
+                      >
+                        মোট
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(catSummary).map(([cat,names])=>(
-                      Object.entries(names).map(([name,varieties],ni)=>(
-                        Object.entries(varieties).map(([variety,v],vi)=>(
-                          <tr key={`${cat}-${name}-${variety}`}
-                            onMouseEnter={e=>e.currentTarget.style.background=V.green3}
-                            onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                            <td style={{ padding:'10px 14px', fontSize:13, borderBottom:`1px solid ${V.border}`, color:V.muted, whiteSpace:'nowrap' }}>
-                              {ni===0&&vi===0?cat:''}
+                    {Object.entries(catSummary).map(([cat, names]) =>
+                      Object.entries(names).map(([name, varieties], ni) =>
+                        Object.entries(varieties).map(([variety, v], vi) => (
+                          <tr
+                            key={`${cat}-${name}-${variety}`}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.background = V.green3)
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.background = "transparent")
+                            }
+                          >
+                            <td
+                              style={{
+                                padding: "10px 14px",
+                                fontSize: 13,
+                                borderBottom: `1px solid ${V.border}`,
+                                color: V.muted,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {ni === 0 && vi === 0 ? cat : ""}
                             </td>
-                            <td style={{ padding:'10px 14px', fontSize:13, borderBottom:`1px solid ${V.border}`, fontWeight:vi===0?600:400 }}>
-                              {vi===0?name:''}
+                            <td
+                              style={{
+                                padding: "10px 14px",
+                                fontSize: 13,
+                                borderBottom: `1px solid ${V.border}`,
+                                fontWeight: vi === 0 ? 600 : 400,
+                              }}
+                            >
+                              {vi === 0 ? name : ""}
                             </td>
-                            <td style={{ padding:'10px 14px', fontSize:12, borderBottom:`1px solid ${V.border}`, color:V.muted }}>{variety}</td>
-                            {(centerFilter ? data.filter(c=>c.slug===centerFilter) : data).map(c=>(
-                              <td key={c.slug} style={{ padding:'10px 14px', textAlign:'right', fontSize:13, borderBottom:`1px solid ${V.border}`, color:v.centers[c.slug]>0?V.text:V.muted }}>
-                                {v.centers[c.slug]>0?fmtN(v.centers[c.slug]):'—'}
+                            <td
+                              style={{
+                                padding: "10px 14px",
+                                fontSize: 12,
+                                borderBottom: `1px solid ${V.border}`,
+                                color: V.muted,
+                              }}
+                            >
+                              {variety}
+                            </td>
+                            {(centerFilter
+                              ? data.filter((c) => c.slug === centerFilter)
+                              : data
+                            ).map((c) => (
+                              <td
+                                key={c.slug}
+                                style={{
+                                  padding: "10px 14px",
+                                  textAlign: "right",
+                                  fontSize: 13,
+                                  borderBottom: `1px solid ${V.border}`,
+                                  color:
+                                    v.centers[c.slug] > 0 ? V.text : V.muted,
+                                }}
+                              >
+                                {v.centers[c.slug] > 0
+                                  ? fmtN(v.centers[c.slug])
+                                  : "—"}
                               </td>
                             ))}
-                            <td style={{ padding:'10px 14px', textAlign:'right', fontSize:13, fontWeight:700, borderBottom:`1px solid ${V.border}`, color:V.amber }}>
+                            <td
+                              style={{
+                                padding: "10px 14px",
+                                textAlign: "right",
+                                fontSize: 13,
+                                fontWeight: 700,
+                                borderBottom: `1px solid ${V.border}`,
+                                color: V.amber,
+                              }}
+                            >
                               {fmtN(v.total)}
                             </td>
                           </tr>
-                        ))
-                      ))
-                    ))}
+                        )),
+                      ),
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -187,29 +462,135 @@ function StockReport() {
           )}
 
           {/* Center View */}
-          {viewMode==='center' && (
-            <div style={{ display:'grid', gap:14 }}>
-              {allCenters.map(center=>(
-                <div key={center.slug} style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, overflow:'hidden', boxShadow:V.shadow }}>
-                  <div style={{ padding:'12px 16px', borderBottom:`1px solid ${V.border}`, background:V.card2, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontSize:15, fontWeight:600 }}>{center.name_bn}</span>
-                    <span style={{ fontSize:12, color:V.muted }}>{center.district} • মোট: {fmtN(center.seedlings.reduce((s,i)=>s+(+i.current_stock||0),0))}টি</span>
+          {viewMode === "center" && (
+            <div style={{ display: "grid", gap: 14 }}>
+              {allCenters.map((center) => (
+                <div
+                  key={center.slug}
+                  style={{
+                    background: V.card,
+                    border: `1px solid ${V.border}`,
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    boxShadow: V.shadow,
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "12px 16px",
+                      borderBottom: `1px solid ${V.border}`,
+                      background: V.card2,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span style={{ fontSize: 15, fontWeight: 600 }}>
+                      {center.name_bn}
+                    </span>
+                    <span style={{ fontSize: 12, color: V.muted }}>
+                      {center.district} • মোট:{" "}
+                      {fmtN(
+                        center.seedlings.reduce(
+                          (s, i) => s + (+i.current_stock || 0),
+                          0,
+                        ),
+                      )}
+                      টি
+                    </span>
                   </div>
-                  <div style={{ overflowX:'auto' }}>
-                    <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                  <div style={{ overflowX: "auto" }}>
+                    <table
+                      style={{ width: "100%", borderCollapse: "collapse" }}
+                    >
                       <thead>
-                        <tr>{['ক্যাটাগরি','চারার নাম','জাত','স্টক','মূল্য'].map(h=>(
-                          <th key={h} style={{ padding:'8px 14px', textAlign:'left', fontSize:12, color:V.muted, fontWeight:600, background:V.card2, borderBottom:`1px solid ${V.border}` }}>{h}</th>
-                        ))}</tr>
+                        <tr>
+                          {[
+                            "ক্যাটাগরি",
+                            "চারার নাম",
+                            "জাত",
+                            "স্টক",
+                            "মূল্য",
+                          ].map((h) => (
+                            <th
+                              key={h}
+                              style={{
+                                padding: "8px 14px",
+                                textAlign: "left",
+                                fontSize: 12,
+                                color: V.muted,
+                                fontWeight: 600,
+                                background: V.card2,
+                                borderBottom: `1px solid ${V.border}`,
+                              }}
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
                       </thead>
                       <tbody>
-                        {center.seedlings.map((s,i)=>(
-                          <tr key={i} onMouseEnter={e=>e.currentTarget.style.background=V.green3} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                            <td style={{ padding:'8px 14px', fontSize:12, borderBottom:`1px solid ${V.border}`, color:V.muted }}>{s.category_bn||'—'}</td>
-                            <td style={{ padding:'8px 14px', fontSize:13, borderBottom:`1px solid ${V.border}`, fontWeight:600 }}>{s.name_bn}</td>
-                            <td style={{ padding:'8px 14px', fontSize:12, borderBottom:`1px solid ${V.border}`, color:V.muted }}>{s.variety||'সাধারণ'}</td>
-                            <td style={{ padding:'8px 14px', fontSize:13, borderBottom:`1px solid ${V.border}`, fontWeight:600, color:V.amber }}>{fmtN(s.current_stock)}টি</td>
-                            <td style={{ padding:'8px 14px', fontSize:12, borderBottom:`1px solid ${V.border}`, color:V.green }}>৳{fmtN(s.unit_price)}</td>
+                        {center.seedlings.map((s, i) => (
+                          <tr
+                            key={i}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.background = V.green3)
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.background = "transparent")
+                            }
+                          >
+                            <td
+                              style={{
+                                padding: "8px 14px",
+                                fontSize: 12,
+                                borderBottom: `1px solid ${V.border}`,
+                                color: V.muted,
+                              }}
+                            >
+                              {s.category_bn || "—"}
+                            </td>
+                            <td
+                              style={{
+                                padding: "8px 14px",
+                                fontSize: 13,
+                                borderBottom: `1px solid ${V.border}`,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {s.name_bn}
+                            </td>
+                            <td
+                              style={{
+                                padding: "8px 14px",
+                                fontSize: 12,
+                                borderBottom: `1px solid ${V.border}`,
+                                color: V.muted,
+                              }}
+                            >
+                              {s.variety || "সাধারণ"}
+                            </td>
+                            <td
+                              style={{
+                                padding: "8px 14px",
+                                fontSize: 13,
+                                borderBottom: `1px solid ${V.border}`,
+                                fontWeight: 600,
+                                color: V.amber,
+                              }}
+                            >
+                              {fmtN(s.current_stock)}টি
+                            </td>
+                            <td
+                              style={{
+                                padding: "8px 14px",
+                                fontSize: 12,
+                                borderBottom: `1px solid ${V.border}`,
+                                color: V.green,
+                              }}
+                            >
+                              ৳{fmtN(s.unit_price)}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -230,60 +611,214 @@ function ProductionReport() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fy, setFy] = useState(curFY());
-  const [centerFilter, setCenterFilter] = useState('');
-  const fyOpts = [curFY(), curFY()-1, curFY()-2];
+  const [centerFilter, setCenterFilter] = useState("");
+  const fyOpts = [curFY(), curFY() - 1, curFY() - 2];
 
   async function load() {
     setLoading(true);
     try {
-      const r = await saApi.get(`/report/production-summary?fy=${fy}${centerFilter?`&center=${centerFilter}`:''}`);
-      if (r.data?.success) setData(r.data.data||[]);
-    } catch {} finally { setLoading(false); }
+      const r = await saApi.get(
+        `/report/production-summary?fy=${fy}${centerFilter ? `&center=${centerFilter}` : ""}`,
+      );
+      if (r.data?.success) setData(r.data.data || []);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(()=>{ load(); },[fy, centerFilter]);
+  useEffect(() => {
+    load();
+  }, [fy, centerFilter]);
 
-  const inp = { padding:'8px 12px', border:`1px solid ${V.border}`, borderRadius:8, fontSize:13, fontFamily:FONT, color:V.text, background:V.bg, outline:'none', cursor:'pointer' };
+  const inp = {
+    padding: "8px 12px",
+    border: `1px solid ${V.border}`,
+    borderRadius: 8,
+    fontSize: 13,
+    fontFamily: FONT,
+    color: V.text,
+    background: V.bg,
+    outline: "none",
+    cursor: "pointer",
+  };
 
   return (
     <div>
       {/* Filter */}
-      <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, padding:'14px 16px', marginBottom:16, display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
-        <select value={fy} onChange={e=>setFy(parseInt(e.target.value))} style={inp}>
-          {fyOpts.map(y=><option key={y} value={y}>FY {toBn(y)}-{toBn(y+1)}</option>)}
+      <div
+        style={{
+          background: V.card,
+          border: `1px solid ${V.border}`,
+          borderRadius: 12,
+          padding: "14px 16px",
+          marginBottom: 16,
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <select
+          value={fy}
+          onChange={(e) => setFy(parseInt(e.target.value))}
+          style={inp}
+        >
+          {fyOpts.map((y) => (
+            <option key={y} value={y}>
+              FY {toBn(y)}-{toBn(y + 1)}
+            </option>
+          ))}
         </select>
-        <select value={centerFilter} onChange={e=>setCenterFilter(e.target.value)} style={inp}>
+        <select
+          value={centerFilter}
+          onChange={(e) => setCenterFilter(e.target.value)}
+          style={inp}
+        >
           <option value="">সব সেন্টার</option>
-          {data.map(c=><option key={c.slug} value={c.slug}>{c.name_bn}</option>)}
+          {data.map((c) => (
+            <option key={c.slug} value={c.slug}>
+              {c.name_bn}
+            </option>
+          ))}
         </select>
       </div>
 
       {loading ? (
-        <div style={{ textAlign:'center', padding:60, color:V.muted }}>লোড হচ্ছে...</div>
+        <div style={{ textAlign: "center", padding: 60, color: V.muted }}>
+          লোড হচ্ছে...
+        </div>
       ) : (
-        <div style={{ display:'grid', gap:14 }}>
-          {data.map(center=>(
-            <div key={center.slug} style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, overflow:'hidden', boxShadow:V.shadow }}>
-              <div style={{ padding:'12px 16px', borderBottom:`1px solid ${V.border}`, background:V.card2, display:'flex', justifyContent:'space-between' }}>
-                <span style={{ fontSize:15, fontWeight:600 }}>{center.name_bn}</span>
-                <span style={{ fontSize:12, color:V.muted }}>FY {toBn(fy)}-{toBn(fy+1)}</span>
+        <div style={{ display: "grid", gap: 14 }}>
+          {data.map((center) => (
+            <div
+              key={center.slug}
+              style={{
+                background: V.card,
+                border: `1px solid ${V.border}`,
+                borderRadius: 12,
+                overflow: "hidden",
+                boxShadow: V.shadow,
+              }}
+            >
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderBottom: `1px solid ${V.border}`,
+                  background: V.card2,
+                  display: "flex",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span style={{ fontSize: 15, fontWeight: 600 }}>
+                  {center.name_bn}
+                </span>
+                <span style={{ fontSize: 12, color: V.muted }}>
+                  FY {toBn(fy)}-{toBn(fy + 1)}
+                </span>
               </div>
-              <div style={{ overflowX:'auto' }}>
-                <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr>{['ক্যাটাগরি','চারার নাম','জাত','মোট উৎপাদন','মৃত/বিনষ্ট','বর্তমান স্টক'].map(h=>(
-                      <th key={h} style={{ padding:'8px 14px', textAlign:'left', fontSize:12, color:V.muted, fontWeight:600, background:V.card2, borderBottom:`1px solid ${V.border}` }}>{h}</th>
-                    ))}</tr>
+                    <tr>
+                      {[
+                        "ক্যাটাগরি",
+                        "চারার নাম",
+                        "জাত",
+                        "মোট উৎপাদন",
+                        "ব্যর্থ/ অসফল",
+                        "বর্তমান স্টক",
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          style={{
+                            padding: "8px 14px",
+                            textAlign: "left",
+                            fontSize: 12,
+                            color: V.muted,
+                            fontWeight: 600,
+                            background: V.card2,
+                            borderBottom: `1px solid ${V.border}`,
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
                   </thead>
                   <tbody>
-                    {center.data.map((s,i)=>(
-                      <tr key={i} onMouseEnter={e=>e.currentTarget.style.background=V.green3} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                        <td style={{ padding:'8px 14px', fontSize:12, borderBottom:`1px solid ${V.border}`, color:V.muted }}>{s.category_bn||'—'}</td>
-                        <td style={{ padding:'8px 14px', fontSize:13, borderBottom:`1px solid ${V.border}`, fontWeight:600 }}>{s.name_bn}</td>
-                        <td style={{ padding:'8px 14px', fontSize:12, borderBottom:`1px solid ${V.border}`, color:V.muted }}>{s.variety||'সাধারণ'}</td>
-                        <td style={{ padding:'8px 14px', fontSize:13, borderBottom:`1px solid ${V.border}`, color:V.purple, fontWeight:600 }}>{fmtN(s.total_produced)}টি</td>
-                        <td style={{ padding:'8px 14px', fontSize:13, borderBottom:`1px solid ${V.border}`, color:V.red }}>{fmtN(s.total_failed)}টি</td>
-                        <td style={{ padding:'8px 14px', fontSize:13, borderBottom:`1px solid ${V.border}`, color:V.amber, fontWeight:600 }}>{fmtN(s.current_stock)}টি</td>
+                    {center.data.map((s, i) => (
+                      <tr
+                        key={i}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = V.green3)
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background = "transparent")
+                        }
+                      >
+                        <td
+                          style={{
+                            padding: "8px 14px",
+                            fontSize: 12,
+                            borderBottom: `1px solid ${V.border}`,
+                            color: V.muted,
+                          }}
+                        >
+                          {s.category_bn || "—"}
+                        </td>
+                        <td
+                          style={{
+                            padding: "8px 14px",
+                            fontSize: 13,
+                            borderBottom: `1px solid ${V.border}`,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {s.name_bn}
+                        </td>
+                        <td
+                          style={{
+                            padding: "8px 14px",
+                            fontSize: 12,
+                            borderBottom: `1px solid ${V.border}`,
+                            color: V.muted,
+                          }}
+                        >
+                          {s.variety || "সাধারণ"}
+                        </td>
+                        <td
+                          style={{
+                            padding: "8px 14px",
+                            fontSize: 13,
+                            borderBottom: `1px solid ${V.border}`,
+                            color: V.purple,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {fmtN(s.total_produced)}টি
+                        </td>
+                        <td
+                          style={{
+                            padding: "8px 14px",
+                            fontSize: 13,
+                            borderBottom: `1px solid ${V.border}`,
+                            color: V.red,
+                          }}
+                        >
+                          {fmtN(s.total_failed)}টি
+                        </td>
+                        <td
+                          style={{
+                            padding: "8px 14px",
+                            fontSize: 13,
+                            borderBottom: `1px solid ${V.border}`,
+                            color: V.amber,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {fmtN(s.current_stock)}টি
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -297,16 +832,28 @@ function ProductionReport() {
   );
 }
 
-
 // ── TOPSHEET REPORT (Consolidated / Center-wise) ──
-const MONTHS = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+const MONTHS = [
+  "জানুয়ারি",
+  "ফেব্রুয়ারি",
+  "মার্চ",
+  "এপ্রিল",
+  "মে",
+  "জুন",
+  "জুলাই",
+  "আগস্ট",
+  "সেপ্টেম্বর",
+  "অক্টোবর",
+  "নভেম্বর",
+  "ডিসেম্বর",
+];
 
 function TopsheetReport() {
   const [fy, setFy] = useState(curFY());
-  const [month, setMonth] = useState(new Date().getMonth()+1);
-  const [scope, setScope] = useState('consolidated');
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [scope, setScope] = useState("consolidated");
   const [centers, setCenters] = useState([]);
-  const [slug, setSlug] = useState('');
+  const [slug, setSlug] = useState("");
   const [data, setData] = useState([]);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -316,177 +863,627 @@ function TopsheetReport() {
 
   async function loadCatDetail(row) {
     setSelectedCat(row);
-    setCatLoading(true); setCatDetail([]);
+    setCatLoading(true);
+    setCatDetail([]);
     try {
       let url = `/report/category-detail?mother_category=${encodeURIComponent(row.mother_category)}&fy=${fy}&month=${month}&scope=${scope}`;
-      if (scope==='center' && slug) url += `&slug=${slug}`;
+      if (scope === "center" && slug) url += `&slug=${slug}`;
       const r = await saApi.get(url);
-      if (r.data?.success) { setCatDetail(r.data.data||[]); setSelectedCat({...row, propagation_class: r.data.propagation_class}); }
-    } catch {} finally { setCatLoading(false); }
+      if (r.data?.success) {
+        setCatDetail(r.data.data || []);
+        setSelectedCat({ ...row, propagation_class: r.data.propagation_class });
+      }
+    } catch {
+    } finally {
+      setCatLoading(false);
+    }
   }
 
-  useEffect(()=>{ saApi.get('/tenants').then(r=>{ const list=r.data?.data||[]; setCenters(list); if(list.length) setSlug(list[0].slug); }); },[]);
+  useEffect(() => {
+    saApi.get("/tenants").then((r) => {
+      const list = r.data?.data || [];
+      setCenters(list);
+      if (list.length) setSlug(list[0].slug);
+    });
+  }, []);
 
   async function load() {
     setLoading(true);
     try {
       let url = `/report/topsheet?fy=${fy}&month=${month}&scope=${scope}`;
-      if (scope==='center' && slug) url += `&slug=${slug}`;
+      if (scope === "center" && slug) url += `&slug=${slug}`;
       const r = await saApi.get(url);
-      if (r.data?.success) { setData(r.data.data||[]); setMeta({fy:r.data.fy, month:r.data.month}); }
-    } catch {} finally { setLoading(false); }
+      if (r.data?.success) {
+        setData(r.data.data || []);
+        setMeta({ fy: r.data.fy, month: r.data.month });
+      }
+    } catch {
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(()=>{ load(); },[fy, month, scope, slug]);
+  useEffect(() => {
+    load();
+  }, [fy, month, scope, slug]);
 
-  const totals = data.reduce((acc,r)=>({
-    target: acc.target + r.divisional_target,
-    prodCur: acc.prodCur + r.production.current_month,
-    prodPrev: acc.prodPrev + r.production.prev_months_total,
-    prodSub: acc.prodSub + r.production.subtotal,
-    prodDae: acc.prodDae + r.production.dae_challan_received,
-    prodJer: acc.prodJer + r.production.prev_year_balance,
-    prodTotal: acc.prodTotal + r.production.grand_total,
-    distTarget: acc.distTarget + r.distribution.target,
-    distCur: acc.distCur + r.distribution.current_month,
-    distPrev: acc.distPrev + r.distribution.prev_months_total,
-    distSub: acc.distSub + r.distribution.subtotal,
-    distDae: acc.distDae + r.distribution.dae_challan_sent,
-    distDamaged: acc.distDamaged + r.distribution.damaged,
-    distTotal: acc.distTotal + r.distribution.grand_total,
-    netStock: acc.netStock + r.net_stock,
-  }), {target:0,prodCur:0,prodPrev:0,prodSub:0,prodDae:0,prodJer:0,prodTotal:0,distTarget:0,distCur:0,distPrev:0,distSub:0,distDae:0,distDamaged:0,distTotal:0,netStock:0});
+  const totals = data.reduce(
+    (acc, r) => ({
+      target: acc.target + r.divisional_target,
+      prodCur: acc.prodCur + r.production.current_month,
+      prodPrev: acc.prodPrev + r.production.prev_months_total,
+      prodSub: acc.prodSub + r.production.subtotal,
+      prodDae: acc.prodDae + r.production.dae_challan_received,
+      prodJer: acc.prodJer + r.production.prev_year_balance,
+      prodTotal: acc.prodTotal + r.production.grand_total,
+      distTarget: acc.distTarget + r.distribution.target,
+      distCur: acc.distCur + r.distribution.current_month,
+      distPrev: acc.distPrev + r.distribution.prev_months_total,
+      distSub: acc.distSub + r.distribution.subtotal,
+      distDae: acc.distDae + r.distribution.dae_challan_sent,
+      distDamaged: acc.distDamaged + r.distribution.damaged,
+      distTotal: acc.distTotal + r.distribution.grand_total,
+      netStock: acc.netStock + r.net_stock,
+    }),
+    {
+      target: 0,
+      prodCur: 0,
+      prodPrev: 0,
+      prodSub: 0,
+      prodDae: 0,
+      prodJer: 0,
+      prodTotal: 0,
+      distTarget: 0,
+      distCur: 0,
+      distPrev: 0,
+      distSub: 0,
+      distDae: 0,
+      distDamaged: 0,
+      distTotal: 0,
+      netStock: 0,
+    },
+  );
 
   function exportTopsheetCSV() {
-    const rows = [['ক্র.নং','বিবরণ','বিভাগীয় লক্ষ্যমাত্রা','উৎ-চলতি মাস','উৎ-পূর্বমাস','উৎ-মোট','উৎ-ডিএই','উৎ-পূর্ববছর জের','উৎ-সর্বমোট','বিত-লক্ষ্য','বিত-চলতি','বিত-পূর্বমাস','বিত-মোট','বিত-ডিএই','বিত-মৃত','বিত-সর্বমোট','নীট মজুদ']];
-    data.forEach((r,i)=>rows.push([i+1,r.mother_category,r.divisional_target,r.production.current_month,r.production.prev_months_total,r.production.subtotal,r.production.dae_challan_received,r.production.prev_year_balance,r.production.grand_total,r.distribution.target,r.distribution.current_month,r.distribution.prev_months_total,r.distribution.subtotal,r.distribution.dae_challan_sent,r.distribution.damaged,r.distribution.grand_total,r.net_stock]));
-    exportCSV(rows, `Topsheet_${scope}_${fy}_${new Date().toISOString().slice(0,10)}.csv`);
+    const rows = [
+      [
+        "ক্র.নং",
+        "বিবরণ",
+        "বিভাগীয় লক্ষ্যমাত্রা",
+        "উৎ-চলতি মাস",
+        "উৎ-পূর্বমাস",
+        "উৎ-মোট",
+        "উৎ-ডিএই",
+        "উৎ-পূর্ববছর জের",
+        "উৎ-সর্বমোট",
+        "বিত-লক্ষ্য",
+        "বিত-চলতি",
+        "বিত-পূর্বমাস",
+        "বিত-মোট",
+        "বিত-ডিএই",
+        "বিত-মৃত",
+        "বিত-সর্বমোট",
+        "নীট মজুদ",
+      ],
+    ];
+    data.forEach((r, i) =>
+      rows.push([
+        i + 1,
+        r.mother_category,
+        r.divisional_target,
+        r.production.current_month,
+        r.production.prev_months_total,
+        r.production.subtotal,
+        r.production.dae_challan_received,
+        r.production.prev_year_balance,
+        r.production.grand_total,
+        r.distribution.target,
+        r.distribution.current_month,
+        r.distribution.prev_months_total,
+        r.distribution.subtotal,
+        r.distribution.dae_challan_sent,
+        r.distribution.damaged,
+        r.distribution.grand_total,
+        r.net_stock,
+      ]),
+    );
+    exportCSV(
+      rows,
+      `Topsheet_${scope}_${fy}_${new Date().toISOString().slice(0, 10)}.csv`,
+    );
   }
 
   function exportTopsheetPDF() {
     let html = `<table><thead><tr><th>ক্র.নং</th><th>বিবরণ</th><th>লক্ষ্যমাত্রা</th><th>উৎপাদন সর্বমোট</th><th>বিতরণ সর্বমোট</th><th>নীট মজুদ</th></tr></thead><tbody>`;
-    data.forEach((r,i)=>{ html+=`<tr><td>${i+1}</td><td>${r.mother_category}</td><td>${r.divisional_target}</td><td>${r.production.grand_total}</td><td>${r.distribution.grand_total}</td><td><b>${r.net_stock}</b></td></tr>`; });
-    html+=`</tbody></table>`;
-    exportPDF(`টপশিট রিপোর্ট — ${scope==='consolidated'?'সব সেন্টার':centers.find(c=>c.slug===slug)?.name_bn||''}`, html);
+    data.forEach((r, i) => {
+      html += `<tr><td>${i + 1}</td><td>${r.mother_category}</td><td>${r.divisional_target}</td><td>${r.production.grand_total}</td><td>${r.distribution.grand_total}</td><td><b>${r.net_stock}</b></td></tr>`;
+    });
+    html += `</tbody></table>`;
+    exportPDF(
+      `টপশিট রিপোর্ট — ${scope === "consolidated" ? "সব সেন্টার" : centers.find((c) => c.slug === slug)?.name_bn || ""}`,
+      html,
+    );
   }
 
-  const inp = { padding:'8px 12px', border:`1px solid ${V.border}`, borderRadius:8, fontSize:13, fontFamily:FONT, color:V.text, background:V.bg, outline:'none', cursor:'pointer' };
-  const th = { padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, whiteSpace:'nowrap', textAlign:'center', background:V.card2 };
-  const td = { padding:'8px 10px', fontSize:12, borderBottom:`1px solid ${V.border}`, textAlign:'right', whiteSpace:'nowrap' };
+  const inp = {
+    padding: "8px 12px",
+    border: `1px solid ${V.border}`,
+    borderRadius: 8,
+    fontSize: 13,
+    fontFamily: FONT,
+    color: V.text,
+    background: V.bg,
+    outline: "none",
+    cursor: "pointer",
+  };
+  const th = {
+    padding: "8px 10px",
+    fontSize: 11,
+    color: V.muted,
+    fontWeight: 600,
+    borderBottom: `1px solid ${V.border}`,
+    whiteSpace: "nowrap",
+    textAlign: "center",
+    background: V.card2,
+  };
+  const td = {
+    padding: "8px 10px",
+    fontSize: 12,
+    borderBottom: `1px solid ${V.border}`,
+    textAlign: "right",
+    whiteSpace: "nowrap",
+  };
 
   return (
     <div>
       {/* Filter bar */}
-      <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, padding:'14px 16px', marginBottom:16, display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
-        <div style={{ display:'flex', gap:4 }}>
-          {[['consolidated','সব সেন্টার একসাথে'],['center','একটি সেন্টার']].map(([m,l])=>(
-            <button key={m} onClick={()=>setScope(m)}
-              style={{ padding:'8px 14px', borderRadius:8, border:`1px solid ${V.border}`, background:scope===m?V.green:V.card, color:scope===m?'#fff':V.muted, cursor:'pointer', fontSize:13, fontFamily:FONT }}>
+      <div
+        style={{
+          background: V.card,
+          border: `1px solid ${V.border}`,
+          borderRadius: 12,
+          padding: "14px 16px",
+          marginBottom: 16,
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ display: "flex", gap: 4 }}>
+          {[
+            ["consolidated", "সব সেন্টার একসাথে"],
+            ["center", "একটি সেন্টার"],
+          ].map(([m, l]) => (
+            <button
+              key={m}
+              onClick={() => setScope(m)}
+              style={{
+                padding: "8px 14px",
+                borderRadius: 8,
+                border: `1px solid ${V.border}`,
+                background: scope === m ? V.green : V.card,
+                color: scope === m ? "#fff" : V.muted,
+                cursor: "pointer",
+                fontSize: 13,
+                fontFamily: FONT,
+              }}
+            >
               {l}
             </button>
           ))}
         </div>
-        {scope==='center' && (
-          <select value={slug} onChange={e=>setSlug(e.target.value)} style={inp}>
-            {centers.map(c=><option key={c.slug} value={c.slug}>{c.name_bn}</option>)}
+        {scope === "center" && (
+          <select
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            style={inp}
+          >
+            {centers.map((c) => (
+              <option key={c.slug} value={c.slug}>
+                {c.name_bn}
+              </option>
+            ))}
           </select>
         )}
-        <select value={fy} onChange={e=>setFy(Number(e.target.value))} style={inp}>
-          {[curFY(), curFY()-1, curFY()-2].map(y=><option key={y} value={y}>FY {toBn(y)}-{toBn(y+1)}</option>)}
+        <select
+          value={fy}
+          onChange={(e) => setFy(Number(e.target.value))}
+          style={inp}
+        >
+          {[curFY(), curFY() - 1, curFY() - 2].map((y) => (
+            <option key={y} value={y}>
+              FY {toBn(y)}-{toBn(y + 1)}
+            </option>
+          ))}
         </select>
-        <select value={month} onChange={e=>setMonth(Number(e.target.value))} style={inp}>
-          {MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}
+        <select
+          value={month}
+          onChange={(e) => setMonth(Number(e.target.value))}
+          style={inp}
+        >
+          {MONTHS.map((m, i) => (
+            <option key={i} value={i + 1}>
+              {m}
+            </option>
+          ))}
         </select>
-        <div style={{ display:'flex', gap:4, marginLeft:'auto' }}>
-          <button onClick={exportTopsheetCSV}
-            style={{ padding:'7px 14px', borderRadius:8, border:`1px solid ${V.border}`, background:V.green, color:'#fff', cursor:'pointer', fontSize:13, fontFamily:FONT, display:'flex', alignItems:'center', gap:5 }}>
-            <i className="ti ti-file-spreadsheet"/> Excel
+        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+          <button
+            onClick={exportTopsheetCSV}
+            style={{
+              padding: "7px 14px",
+              borderRadius: 8,
+              border: `1px solid ${V.border}`,
+              background: V.green,
+              color: "#fff",
+              cursor: "pointer",
+              fontSize: 13,
+              fontFamily: FONT,
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <i className="ti ti-file-spreadsheet" /> Excel
           </button>
-          <button onClick={exportTopsheetPDF}
-            style={{ padding:'7px 14px', borderRadius:8, border:'1px solid #c084fc44', background:'#c084fc22', color:'#c084fc', cursor:'pointer', fontSize:13, fontFamily:FONT, display:'flex', alignItems:'center', gap:5 }}>
-            <i className="ti ti-file-type-pdf"/> PDF
+          <button
+            onClick={exportTopsheetPDF}
+            style={{
+              padding: "7px 14px",
+              borderRadius: 8,
+              border: "1px solid #c084fc44",
+              background: "#c084fc22",
+              color: "#c084fc",
+              cursor: "pointer",
+              fontSize: 13,
+              fontFamily: FONT,
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <i className="ti ti-file-type-pdf" /> PDF
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div style={{ textAlign:'center', padding:60, color:V.muted }}>
-          <div style={{ width:32, height:32, border:`3px solid ${V.border}`, borderTopColor:V.green, borderRadius:'50%', animation:'spin .8s linear infinite', margin:'0 auto 12px' }}/>
+        <div style={{ textAlign: "center", padding: 60, color: V.muted }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              border: `3px solid ${V.border}`,
+              borderTopColor: V.green,
+              borderRadius: "50%",
+              animation: "spin .8s linear infinite",
+              margin: "0 auto 12px",
+            }}
+          />
           লোড হচ্ছে...
         </div>
       ) : (
-        <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, overflow:'hidden' }}>
-          <div style={{ padding:'12px 16px', borderBottom:`1px solid ${V.border}`, background:V.card2 }}>
-            <span style={{ fontSize:14, fontWeight:600 }}>
-              📋 টপশিট — {scope==='consolidated'?'সব সেন্টার একসাথে':centers.find(c=>c.slug===slug)?.name_bn} — {meta?.fy||`${fy}-${String(fy+1).slice(-2)}`}, {MONTHS[month-1]} পর্যন্ত
+        <div
+          style={{
+            background: V.card,
+            border: `1px solid ${V.border}`,
+            borderRadius: 12,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "12px 16px",
+              borderBottom: `1px solid ${V.border}`,
+              background: V.card2,
+            }}
+          >
+            <span style={{ fontSize: 14, fontWeight: 600 }}>
+              📋 টপশিট —{" "}
+              {scope === "consolidated"
+                ? "সব সেন্টার একসাথে"
+                : centers.find((c) => c.slug === slug)?.name_bn}{" "}
+              — {meta?.fy || `${fy}-${String(fy + 1).slice(-2)}`},{" "}
+              {MONTHS[month - 1]} পর্যন্ত
             </span>
           </div>
-          <div style={{ overflowX:'auto' }}>
-            <table style={{ width:'100%', borderCollapse:'collapse', minWidth:1400 }}>
+          <div style={{ overflowX: "auto" }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                minWidth: 1400,
+              }}
+            >
               <thead>
                 <tr>
-                  <th rowSpan={2} style={{...th,textAlign:'left',minWidth:60}}>ক্র.নং</th>
-                  <th rowSpan={2} style={{...th,textAlign:'left',minWidth:160}}>বিবরণ</th>
-                  <th rowSpan={2} style={{...th,minWidth:90,background:V.green3}}>বিভাগীয় লক্ষ্যমাত্রা</th>
-                  <th colSpan={6} style={{...th,background:'#dcfce7'}}>উৎপাদন</th>
-                  <th colSpan={7} style={{...th,background:'#fef3c7'}}>বিতরণ</th>
-                  <th rowSpan={2} style={{...th,minWidth:90,background:'#dbeafe'}}>নীট মজুদ</th>
+                  <th
+                    rowSpan={2}
+                    style={{ ...th, textAlign: "left", minWidth: 60 }}
+                  >
+                    ক্র.নং
+                  </th>
+                  <th
+                    rowSpan={2}
+                    style={{ ...th, textAlign: "left", minWidth: 160 }}
+                  >
+                    বিবরণ
+                  </th>
+                  <th
+                    rowSpan={2}
+                    style={{ ...th, minWidth: 90, background: V.green3 }}
+                  >
+                    বিভাগীয় লক্ষ্যমাত্রা
+                  </th>
+                  <th colSpan={6} style={{ ...th, background: "#dcfce7" }}>
+                    উৎপাদন
+                  </th>
+                  <th colSpan={7} style={{ ...th, background: "#fef3c7" }}>
+                    বিতরণ
+                  </th>
+                  <th
+                    rowSpan={2}
+                    style={{ ...th, minWidth: 90, background: "#dbeafe" }}
+                  >
+                    নীট মজুদ
+                  </th>
                 </tr>
                 <tr>
-                  <th style={{...th,background:'#dcfce7'}}>চলতি মাস</th>
-                  <th style={{...th,background:'#dcfce7'}}>পূর্বমাস পর্যন্ত</th>
-                  <th style={{...th,background:'#dcfce7'}}>মোট</th>
-                  <th style={{...th,background:'#dcfce7'}}>ডিএই চালান</th>
-                  <th style={{...th,background:'#dcfce7'}}>পূর্ব বছরের জের</th>
-                  <th style={{...th,background:'#dcfce7',fontWeight:700}}>সর্বমোট</th>
-                  <th style={{...th,background:'#fef3c7'}}>লক্ষ্যমাত্রা</th>
-                  <th style={{...th,background:'#fef3c7'}}>চলতি মাস</th>
-                  <th style={{...th,background:'#fef3c7'}}>পূর্বমাস পর্যন্ত</th>
-                  <th style={{...th,background:'#fef3c7'}}>মোট</th>
-                  <th style={{...th,background:'#fef3c7'}}>ডিএই চালান</th>
-                  <th style={{...th,background:'#fef3c7'}}>মৃত/বিনষ্ট</th>
-                  <th style={{...th,background:'#fef3c7',fontWeight:700}}>সর্বমোট</th>
+                  <th style={{ ...th, background: "#dcfce7" }}>চলতি মাস</th>
+                  <th style={{ ...th, background: "#dcfce7" }}>
+                    পূর্বমাস পর্যন্ত
+                  </th>
+                  <th style={{ ...th, background: "#dcfce7" }}>মোট</th>
+                  <th style={{ ...th, background: "#dcfce7" }}>ডিএই চালান</th>
+                  <th style={{ ...th, background: "#dcfce7" }}>
+                    পূর্ব বছরের জের
+                  </th>
+                  <th style={{ ...th, background: "#dcfce7", fontWeight: 700 }}>
+                    সর্বমোট
+                  </th>
+                  <th style={{ ...th, background: "#fef3c7" }}>লক্ষ্যমাত্রা</th>
+                  <th style={{ ...th, background: "#fef3c7" }}>চলতি মাস</th>
+                  <th style={{ ...th, background: "#fef3c7" }}>
+                    পূর্বমাস পর্যন্ত
+                  </th>
+                  <th style={{ ...th, background: "#fef3c7" }}>মোট</th>
+                  <th style={{ ...th, background: "#fef3c7" }}>ডিএই চালান</th>
+                  <th style={{ ...th, background: "#fef3c7" }}>মৃত/বিনষ্ট</th>
+                  <th style={{ ...th, background: "#fef3c7", fontWeight: 700 }}>
+                    সর্বমোট
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {data.map((row,i)=>(
-                  <tr key={row.mother_category} onClick={()=>loadCatDetail(row)} style={{cursor:'pointer', background: selectedCat?.mother_category===row.mother_category?V.green3:'transparent'}} onMouseEnter={e=>e.currentTarget.style.background=V.green3} onMouseLeave={e=>e.currentTarget.style.background=selectedCat?.mother_category===row.mother_category?V.green3:'transparent'}>
-                    <td style={{...td,textAlign:'left',color:V.muted}}>{toBn(i+1)}</td>
-                    <td style={{...td,textAlign:'left',fontWeight:600}}>{row.mother_category}</td>
-                    <td style={{...td,color:V.green,fontWeight:600}}>{row.divisional_target?fmtN(row.divisional_target):'—'}</td>
+                {data.map((row, i) => (
+                  <tr
+                    key={row.mother_category}
+                    onClick={() => loadCatDetail(row)}
+                    style={{
+                      cursor: "pointer",
+                      background:
+                        selectedCat?.mother_category === row.mother_category
+                          ? V.green3
+                          : "transparent",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = V.green3)
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background =
+                        selectedCat?.mother_category === row.mother_category
+                          ? V.green3
+                          : "transparent")
+                    }
+                  >
+                    <td style={{ ...td, textAlign: "left", color: V.muted }}>
+                      {toBn(i + 1)}
+                    </td>
+                    <td style={{ ...td, textAlign: "left", fontWeight: 600 }}>
+                      {row.mother_category}
+                    </td>
+                    <td style={{ ...td, color: V.green, fontWeight: 600 }}>
+                      {row.divisional_target
+                        ? fmtN(row.divisional_target)
+                        : "—"}
+                    </td>
                     <td style={td}>{fmtN(row.production.current_month)}</td>
                     <td style={td}>{fmtN(row.production.prev_months_total)}</td>
-                    <td style={{...td,fontWeight:600}}>{fmtN(row.production.subtotal)}</td>
-                    <td style={td}>{fmtN(row.production.dae_challan_received)}</td>
+                    <td style={{ ...td, fontWeight: 600 }}>
+                      {fmtN(row.production.subtotal)}
+                    </td>
+                    <td style={td}>
+                      {fmtN(row.production.dae_challan_received)}
+                    </td>
                     <td style={td}>{fmtN(row.production.prev_year_balance)}</td>
-                    <td style={{...td,fontWeight:700,color:'#059669'}}>{fmtN(row.production.grand_total)}</td>
-                    <td style={{...td,color:V.amber}}>{row.distribution.target?fmtN(row.distribution.target):'—'}</td>
+                    <td style={{ ...td, fontWeight: 700, color: "#059669" }}>
+                      {fmtN(row.production.grand_total)}
+                    </td>
+                    <td style={{ ...td, color: V.amber }}>
+                      {row.distribution.target
+                        ? fmtN(row.distribution.target)
+                        : "—"}
+                    </td>
                     <td style={td}>{fmtN(row.distribution.current_month)}</td>
-                    <td style={td}>{fmtN(row.distribution.prev_months_total)}</td>
-                    <td style={{...td,fontWeight:600}}>{fmtN(row.distribution.subtotal)}</td>
-                    <td style={td}>{fmtN(row.distribution.dae_challan_sent)}</td>
-                    <td style={{...td,color:row.distribution.damaged>0?V.red:'inherit'}}>{fmtN(row.distribution.damaged)}</td>
-                    <td style={{...td,fontWeight:700,color:'#b45309'}}>{fmtN(row.distribution.grand_total)}</td>
-                    <td style={{...td,fontWeight:700,color:'#1d4ed8'}}>{fmtN(row.net_stock)}</td>
+                    <td style={td}>
+                      {fmtN(row.distribution.prev_months_total)}
+                    </td>
+                    <td style={{ ...td, fontWeight: 600 }}>
+                      {fmtN(row.distribution.subtotal)}
+                    </td>
+                    <td style={td}>
+                      {fmtN(row.distribution.dae_challan_sent)}
+                    </td>
+                    <td
+                      style={{
+                        ...td,
+                        color: row.distribution.damaged > 0 ? V.red : "inherit",
+                      }}
+                    >
+                      {fmtN(row.distribution.damaged)}
+                    </td>
+                    <td style={{ ...td, fontWeight: 700, color: "#b45309" }}>
+                      {fmtN(row.distribution.grand_total)}
+                    </td>
+                    <td style={{ ...td, fontWeight: 700, color: "#1d4ed8" }}>
+                      {fmtN(row.net_stock)}
+                    </td>
                   </tr>
                 ))}
-                <tr style={{ background:V.green3 }}>
-                  <td colSpan={2} style={{...td,textAlign:'left',fontWeight:700,borderTop:`2px solid ${V.border}`}}>সর্বমোট</td>
-                  <td style={{...td,fontWeight:700,color:V.green,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.target)}</td>
-                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.prodCur)}</td>
-                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.prodPrev)}</td>
-                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.prodSub)}</td>
-                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.prodDae)}</td>
-                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.prodJer)}</td>
-                  <td style={{...td,fontWeight:700,color:'#059669',borderTop:`2px solid ${V.border}`}}>{fmtN(totals.prodTotal)}</td>
-                  <td style={{...td,fontWeight:700,color:V.amber,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distTarget)}</td>
-                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distCur)}</td>
-                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distPrev)}</td>
-                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distSub)}</td>
-                  <td style={{...td,fontWeight:700,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distDae)}</td>
-                  <td style={{...td,fontWeight:700,color:V.red,borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distDamaged)}</td>
-                  <td style={{...td,fontWeight:700,color:'#b45309',borderTop:`2px solid ${V.border}`}}>{fmtN(totals.distTotal)}</td>
-                  <td style={{...td,fontWeight:700,color:'#1d4ed8',borderTop:`2px solid ${V.border}`}}>{fmtN(totals.netStock)}</td>
+                <tr style={{ background: V.green3 }}>
+                  <td
+                    colSpan={2}
+                    style={{
+                      ...td,
+                      textAlign: "left",
+                      fontWeight: 700,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    সর্বমোট
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      color: V.green,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.target)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.prodCur)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.prodPrev)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.prodSub)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.prodDae)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.prodJer)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      color: "#059669",
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.prodTotal)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      color: V.amber,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.distTarget)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.distCur)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.distPrev)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.distSub)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.distDae)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      color: V.red,
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.distDamaged)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      color: "#b45309",
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.distTotal)}
+                  </td>
+                  <td
+                    style={{
+                      ...td,
+                      fontWeight: 700,
+                      color: "#1d4ed8",
+                      borderTop: `2px solid ${V.border}`,
+                    }}
+                  >
+                    {fmtN(totals.netStock)}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -496,52 +1493,335 @@ function TopsheetReport() {
 
       {/* Category Detail */}
       {selectedCat && (
-        <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, overflow:'hidden', marginTop:16 }}>
-          <div style={{ padding:'12px 16px', borderBottom:`1px solid ${V.border}`, background:V.card2, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <span style={{ fontSize:14, fontWeight:600 }}>🌱 {selectedCat.mother_category} — বিস্তারিত ({scope==='consolidated'?'সব সেন্টার একসাথে':centers.find(c=>c.slug===slug)?.name_bn})</span>
-            <button onClick={()=>{setSelectedCat(null);setCatDetail([]);}} style={{ background:'none', border:'none', fontSize:16, cursor:'pointer', color:V.muted }}>✕</button>
+        <div
+          style={{
+            background: V.card,
+            border: `1px solid ${V.border}`,
+            borderRadius: 12,
+            overflow: "hidden",
+            marginTop: 16,
+          }}
+        >
+          <div
+            style={{
+              padding: "12px 16px",
+              borderBottom: `1px solid ${V.border}`,
+              background: V.card2,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span style={{ fontSize: 14, fontWeight: 600 }}>
+              🌱 {selectedCat.mother_category} — বিস্তারিত (
+              {scope === "consolidated"
+                ? "সব সেন্টার একসাথে"
+                : centers.find((c) => c.slug === slug)?.name_bn}
+              )
+            </span>
+            <button
+              onClick={() => {
+                setSelectedCat(null);
+                setCatDetail([]);
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                fontSize: 16,
+                cursor: "pointer",
+                color: V.muted,
+              }}
+            >
+              ✕
+            </button>
           </div>
           {catLoading ? (
-            <div style={{ textAlign:'center', padding:32, color:V.muted }}>লোড হচ্ছে...</div>
+            <div style={{ textAlign: "center", padding: 32, color: V.muted }}>
+              লোড হচ্ছে...
+            </div>
           ) : !catDetail.length ? (
-            <div style={{ textAlign:'center', padding:40, color:V.muted }}>কোনো চারা নেই</div>
+            <div style={{ textAlign: "center", padding: 40, color: V.muted }}>
+              কোনো চারা নেই
+            </div>
           ) : (
-            <div style={{ overflowX:'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:1100 }}>
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  minWidth: 1100,
+                }}
+              >
                 <thead>
                   <tr>
-                    <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:V.green3, textAlign:'left' }}>ক্র.নং</th>
-                    <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:V.green3, textAlign:'left', minWidth:120 }}>নাম (বাংলা)</th>
-                    <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:V.green3, textAlign:'left', minWidth:100 }}>জাত</th>
-                    <th colSpan={5} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#dcfce7', textAlign:'center' }}>উৎপাদন</th>
-                    <th colSpan={4} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#fef3c7', textAlign:'center' }}>বিতরণ</th>
-                    <th rowSpan={2} style={{ padding:'8px 10px', fontSize:11, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#dbeafe', textAlign:'right', minWidth:80 }}>নীট মজুদ</th>
+                    <th
+                      rowSpan={2}
+                      style={{
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        color: V.muted,
+                        fontWeight: 600,
+                        borderBottom: `1px solid ${V.border}`,
+                        background: V.green3,
+                        textAlign: "left",
+                      }}
+                    >
+                      ক্র.নং
+                    </th>
+                    <th
+                      rowSpan={2}
+                      style={{
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        color: V.muted,
+                        fontWeight: 600,
+                        borderBottom: `1px solid ${V.border}`,
+                        background: V.green3,
+                        textAlign: "left",
+                        minWidth: 120,
+                      }}
+                    >
+                      নাম (বাংলা)
+                    </th>
+                    <th
+                      rowSpan={2}
+                      style={{
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        color: V.muted,
+                        fontWeight: 600,
+                        borderBottom: `1px solid ${V.border}`,
+                        background: V.green3,
+                        textAlign: "left",
+                        minWidth: 100,
+                      }}
+                    >
+                      জাত
+                    </th>
+                    <th
+                      colSpan={5}
+                      style={{
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        color: V.muted,
+                        fontWeight: 600,
+                        borderBottom: `1px solid ${V.border}`,
+                        background: "#dcfce7",
+                        textAlign: "center",
+                      }}
+                    >
+                      উৎপাদন
+                    </th>
+                    <th
+                      colSpan={4}
+                      style={{
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        color: V.muted,
+                        fontWeight: 600,
+                        borderBottom: `1px solid ${V.border}`,
+                        background: "#fef3c7",
+                        textAlign: "center",
+                      }}
+                    >
+                      বিতরণ
+                    </th>
+                    <th
+                      rowSpan={2}
+                      style={{
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        color: V.muted,
+                        fontWeight: 600,
+                        borderBottom: `1px solid ${V.border}`,
+                        background: "#dbeafe",
+                        textAlign: "right",
+                        minWidth: 80,
+                      }}
+                    >
+                      নীট মজুদ
+                    </th>
                   </tr>
                   <tr>
-                    {['চলতি মাস','পূর্বমাস','মোট','পূর্ববছর জের','সর্বমোট'].map(h=>(
-                      <th key={h} style={{ padding:'6px 8px', fontSize:10, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#dcfce7', textAlign:'right' }}>{h}</th>
+                    {[
+                      "চলতি মাস",
+                      "পূর্বমাস",
+                      "মোট",
+                      "পূর্ববছর জের",
+                      "সর্বমোট",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        style={{
+                          padding: "6px 8px",
+                          fontSize: 10,
+                          color: V.muted,
+                          fontWeight: 600,
+                          borderBottom: `1px solid ${V.border}`,
+                          background: "#dcfce7",
+                          textAlign: "right",
+                        }}
+                      >
+                        {h}
+                      </th>
                     ))}
-                    {['চলতি মাস','পূর্বমাস','মৃত/বিনষ্ট','সর্বমোট'].map(h=>(
-                      <th key={h} style={{ padding:'6px 8px', fontSize:10, color:V.muted, fontWeight:600, borderBottom:`1px solid ${V.border}`, background:'#fef3c7', textAlign:'right' }}>{h}</th>
-                    ))}
+                    {["চলতি মাস", "পূর্বমাস", "মৃত/বিনষ্ট", "সর্বমোট"].map(
+                      (h) => (
+                        <th
+                          key={h}
+                          style={{
+                            padding: "6px 8px",
+                            fontSize: 10,
+                            color: V.muted,
+                            fontWeight: 600,
+                            borderBottom: `1px solid ${V.border}`,
+                            background: "#fef3c7",
+                            textAlign: "right",
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ),
+                    )}
                   </tr>
                 </thead>
                 <tbody>
-                  {catDetail.map((item,i)=>(
-                    <tr key={i} onMouseEnter={e=>e.currentTarget.style.background=V.green3} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                      <td style={{ padding:'8px 10px', fontSize:12, color:V.muted }}>{toBn(i+1)}</td>
-                      <td style={{ padding:'8px 10px', fontSize:13, fontWeight:600 }}>{item.common_name}</td>
-                      <td style={{ padding:'8px 10px', fontSize:12, color:V.muted }}>{item.variety||'—'}</td>
-                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{fmtN(item.production.current_month)}</td>
-                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{fmtN(item.production.prev_months_total)}</td>
-                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right', fontWeight:600 }}>{fmtN(item.production.subtotal)}</td>
-                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{fmtN(item.production.prev_year_balance)}</td>
-                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right', fontWeight:700, color:'#059669' }}>{fmtN(item.production.grand_total)}</td>
-                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{fmtN(item.distribution.current_month)}</td>
-                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right' }}>{fmtN(item.distribution.prev_months_total)}</td>
-                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right', color: item.distribution.damaged>0?V.red:'inherit' }}>{fmtN(item.distribution.damaged)}</td>
-                      <td style={{ padding:'8px 10px', fontSize:12, textAlign:'right', fontWeight:700, color:'#b45309' }}>{fmtN(item.distribution.grand_total)}</td>
-                      <td style={{ padding:'8px 10px', fontSize:13, fontWeight:700, color:'#1d4ed8', textAlign:'right' }}>{fmtN(item.current_stock)}</td>
+                  {catDetail.map((item, i) => (
+                    <tr
+                      key={i}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = V.green3)
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "transparent")
+                      }
+                    >
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          color: V.muted,
+                        }}
+                      >
+                        {toBn(i + 1)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 13,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {item.common_name}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          color: V.muted,
+                        }}
+                      >
+                        {item.variety || "—"}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          textAlign: "right",
+                        }}
+                      >
+                        {fmtN(item.production.current_month)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          textAlign: "right",
+                        }}
+                      >
+                        {fmtN(item.production.prev_months_total)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          textAlign: "right",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {fmtN(item.production.subtotal)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          textAlign: "right",
+                        }}
+                      >
+                        {fmtN(item.production.prev_year_balance)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          textAlign: "right",
+                          fontWeight: 700,
+                          color: "#059669",
+                        }}
+                      >
+                        {fmtN(item.production.grand_total)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          textAlign: "right",
+                        }}
+                      >
+                        {fmtN(item.distribution.current_month)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          textAlign: "right",
+                        }}
+                      >
+                        {fmtN(item.distribution.prev_months_total)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          textAlign: "right",
+                          color:
+                            item.distribution.damaged > 0 ? V.red : "inherit",
+                        }}
+                      >
+                        {fmtN(item.distribution.damaged)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          textAlign: "right",
+                          fontWeight: 700,
+                          color: "#b45309",
+                        }}
+                      >
+                        {fmtN(item.distribution.grand_total)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: "#1d4ed8",
+                          textAlign: "right",
+                        }}
+                      >
+                        {fmtN(item.current_stock)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -556,32 +1836,47 @@ function TopsheetReport() {
 
 // ── MAIN REPORT PAGE ──
 export default function SaReport() {
-  const [tab, setTab] = useState('stock');
+  const [tab, setTab] = useState("stock");
 
   const TABS = [
-    { id:'topsheet', label:'📋 টপশিট' },
-    { id:'stock', label:'📦 স্টক রিপোর্ট' },
-    { id:'production', label:'🌱 উৎপাদন রিপোর্ট' },
+    { id: "topsheet", label: "📋 টপশিট" },
+    { id: "stock", label: "📦 স্টক রিপোর্ট" },
+    { id: "production", label: "🌱 উৎপাদন রিপোর্ট" },
   ];
 
   return (
-    <div style={{ fontFamily:FONT }}>
+    <div style={{ fontFamily: FONT }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       {/* Tab navigation */}
-      <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
-        {TABS.map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)}
-            style={{ padding:'9px 18px', borderRadius:8, border:`1px solid ${V.border}`, cursor:'pointer', fontSize:14, fontFamily:FONT,
-              background:tab===t.id?V.green:V.card, color:tab===t.id?'#fff':V.muted, fontWeight:tab===t.id?600:400, transition:'.15s' }}>
+      <div
+        style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}
+      >
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            style={{
+              padding: "9px 18px",
+              borderRadius: 8,
+              border: `1px solid ${V.border}`,
+              cursor: "pointer",
+              fontSize: 14,
+              fontFamily: FONT,
+              background: tab === t.id ? V.green : V.card,
+              color: tab === t.id ? "#fff" : V.muted,
+              fontWeight: tab === t.id ? 600 : 400,
+              transition: ".15s",
+            }}
+          >
             {t.label}
           </button>
         ))}
       </div>
 
-      {tab==='topsheet' && <TopsheetReport/>}
-      {tab==='stock' && <StockReport/>}
-      {tab==='production' && <ProductionReport/>}
+      {tab === "topsheet" && <TopsheetReport />}
+      {tab === "stock" && <StockReport />}
+      {tab === "production" && <ProductionReport />}
     </div>
   );
 }
