@@ -28,6 +28,11 @@ function exportPDF(title, tableHTML) {
 }
 
 // ── STOCK REPORT ──
+// সেন্টারের নাম ছোট করে দেখায় — "হর্টিকালচার সেন্টার, বনরূপা" → "বনরূপা"
+function shortName(name) {
+  return (name || '').replace('হর্টিকালচার সেন্টার,', '').replace('হর্টিকালচার সেন্টার', '').trim();
+}
+
 function StockReport() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -35,7 +40,6 @@ function StockReport() {
   const [centerFilter, setCenterFilter] = useState('');
   const [varietyFilter, setVarietyFilter] = useState('');
   const [viewMode, setViewMode] = useState('category'); // category | center | variety
-  const [expandedRows, setExpandedRows] = useState({});
 
   async function load() {
     setLoading(true);
@@ -137,68 +141,43 @@ function StockReport() {
           {/* Category View */}
           {viewMode==='category' && (
             <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:12, overflow:'hidden', boxShadow:V.shadow }}>
-              {centerFilter && (
-                <div style={{ padding:'8px 16px', background:V.green3, fontSize:12, color:V.green2, borderBottom:`1px solid ${V.border}` }}>
-                  শুধু <b>{data.find(c=>c.slug===centerFilter)?.name_bn}</b> — এর তথ্য দেখানো হচ্ছে
-                </div>
-              )}
               <div style={{ overflowX:'auto' }}>
                 <table style={{ width:'100%', borderCollapse:'collapse', minWidth:600 }}>
                   <thead>
                     <tr>
-                      <th style={{ width:34, padding:'10px 8px', background:V.card2, borderBottom:`1px solid ${V.border}` }}></th>
                       <th style={{ padding:'10px 14px', textAlign:'left', fontSize:12, color:V.muted, fontWeight:600, background:V.card2, borderBottom:`1px solid ${V.border}`, whiteSpace:'nowrap' }}>ক্যাটাগরি</th>
                       <th style={{ padding:'10px 14px', textAlign:'left', fontSize:12, color:V.muted, fontWeight:600, background:V.card2, borderBottom:`1px solid ${V.border}` }}>চারার নাম</th>
                       <th style={{ padding:'10px 14px', textAlign:'left', fontSize:12, color:V.muted, fontWeight:600, background:V.card2, borderBottom:`1px solid ${V.border}` }}>জাত</th>
-                      <th style={{ padding:'10px 14px', textAlign:'right', fontSize:12, color:V.muted, fontWeight:600, background:V.card2, borderBottom:`1px solid ${V.border}` }}>যতগুলো সেন্টারে আছে</th>
-                      <th style={{ padding:'10px 14px', textAlign:'right', fontSize:12, color:V.amber, fontWeight:700, background:V.card2, borderBottom:`1px solid ${V.border}` }}>মোট (সব সেন্টার)</th>
+                      {(centerFilter ? data.filter(c=>c.slug===centerFilter) : data).map(c=>(
+                        <th key={c.slug} style={{ padding:'10px 14px', textAlign:'right', fontSize:12, color:V.green2, fontWeight:600, background:V.card2, borderBottom:`1px solid ${V.border}`, whiteSpace:'nowrap' }}>{shortName(c.name_bn)}</th>
+                      ))}
+                      <th style={{ padding:'10px 14px', textAlign:'right', fontSize:12, color:V.amber, fontWeight:700, background:V.card2, borderBottom:`1px solid ${V.border}` }}>মোট</th>
                     </tr>
                   </thead>
                   <tbody>
                     {Object.entries(catSummary).map(([cat,names])=>(
                       Object.entries(names).map(([name,varieties],ni)=>(
-                        Object.entries(varieties).map(([variety,v],vi)=>{
-                          const rowKey = `${cat}-${name}-${variety}`;
-                          const isExpanded = expandedRows[rowKey];
-                          const centersWithStock = (centerFilter ? data.filter(c=>c.slug===centerFilter) : data).filter(c=>v.centers[c.slug]>0);
-                          return (
-                            <>
-                              <tr key={rowKey}
-                                onClick={()=>setExpandedRows(p=>({...p,[rowKey]:!p[rowKey]}))}
-                                style={{ cursor:'pointer' }}
-                                onMouseEnter={e=>e.currentTarget.style.background=V.green3}
-                                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                                <td style={{ padding:'10px 8px', textAlign:'center', borderBottom:`1px solid ${V.border}` }}>
-                                  <span style={{ fontSize:11, color:V.muted, display:'inline-block', transform: isExpanded?'rotate(90deg)':'none', transition:'.15s' }}>▶</span>
-                                </td>
-                                <td style={{ padding:'10px 14px', fontSize:13, borderBottom:`1px solid ${V.border}`, color:V.muted, whiteSpace:'nowrap' }}>
-                                  {ni===0&&vi===0?cat:''}
-                                </td>
-                                <td style={{ padding:'10px 14px', fontSize:13, borderBottom:`1px solid ${V.border}`, fontWeight:vi===0?600:400 }}>
-                                  {vi===0?name:''}
-                                </td>
-                                <td style={{ padding:'10px 14px', fontSize:12, borderBottom:`1px solid ${V.border}`, color:V.muted }}>{variety}</td>
-                                <td style={{ padding:'10px 14px', textAlign:'right', fontSize:13, borderBottom:`1px solid ${V.border}`, color:V.blue }}>{centersWithStock.length}টি</td>
-                                <td style={{ padding:'10px 14px', textAlign:'right', fontSize:13, fontWeight:700, borderBottom:`1px solid ${V.border}`, color:V.amber }}>
-                                  {fmtN(v.total)}
-                                </td>
-                              </tr>
-                              {isExpanded && (
-                                <tr key={rowKey+'-detail'}>
-                                  <td colSpan={6} style={{ padding:0, borderBottom:`1px solid ${V.border}`, background:V.bg }}>
-                                    <div style={{ padding:'10px 40px', display:'flex', flexWrap:'wrap', gap:8 }}>
-                                      {centersWithStock.length ? centersWithStock.map(c=>(
-                                        <span key={c.slug} style={{ fontSize:12, padding:'4px 10px', borderRadius:8, background:V.card, border:`1px solid ${V.border}` }}>
-                                          {c.name_bn}: <b style={{color:V.amber}}>{fmtN(v.centers[c.slug])}</b>
-                                        </span>
-                                      )) : <span style={{ fontSize:12, color:V.muted }}>কোনো সেন্টারে স্টক নেই</span>}
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </>
-                          );
-                        })
+                        Object.entries(varieties).map(([variety,v],vi)=>(
+                          <tr key={`${cat}-${name}-${variety}`}
+                            onMouseEnter={e=>e.currentTarget.style.background=V.green3}
+                            onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                            <td style={{ padding:'10px 14px', fontSize:13, borderBottom:`1px solid ${V.border}`, color:V.muted, whiteSpace:'nowrap' }}>
+                              {ni===0&&vi===0?cat:''}
+                            </td>
+                            <td style={{ padding:'10px 14px', fontSize:13, borderBottom:`1px solid ${V.border}`, fontWeight:vi===0?600:400 }}>
+                              {vi===0?name:''}
+                            </td>
+                            <td style={{ padding:'10px 14px', fontSize:12, borderBottom:`1px solid ${V.border}`, color:V.muted }}>{variety}</td>
+                            {(centerFilter ? data.filter(c=>c.slug===centerFilter) : data).map(c=>(
+                              <td key={c.slug} style={{ padding:'10px 14px', textAlign:'right', fontSize:13, borderBottom:`1px solid ${V.border}`, color:v.centers[c.slug]>0?V.text:V.muted }}>
+                                {v.centers[c.slug]>0?fmtN(v.centers[c.slug]):'—'}
+                              </td>
+                            ))}
+                            <td style={{ padding:'10px 14px', textAlign:'right', fontSize:13, fontWeight:700, borderBottom:`1px solid ${V.border}`, color:V.amber }}>
+                              {fmtN(v.total)}
+                            </td>
+                          </tr>
+                        ))
                       ))
                     ))}
                   </tbody>

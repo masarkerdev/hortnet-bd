@@ -1347,12 +1347,12 @@ router.get("/report/production-summary", saAuth, async (req, res) => {
         const r = await db.query(
           `
           SELECT c.name_bn AS category_bn, s.name_bn, s.variety,
-            COALESCE(SUM(pb.produced_quantity), 0) AS total_produced,
+            COALESCE(SUM(CASE WHEN pb.production_type='seed' THEN pb.produced_quantity ELSE COALESCE(pb.success_quantity,pb.produced_quantity) END), 0) AS total_produced,
             COALESCE(SUM(pb.failed_quantity), 0) AS total_failed,
             s.current_stock
           FROM seedlings s
           LEFT JOIN categories c ON s.category_id = c.id
-          LEFT JOIN production_batches pb ON pb.seedling_id = s.id AND pb.batch_date BETWEEN $1 AND $2
+          LEFT JOIN production_batches pb ON pb.seedling_id = s.id AND COALESCE(pb.sowing_date, pb.propagation_date, pb.created_at::date) BETWEEN $1 AND $2
           WHERE s.is_active = true
           GROUP BY c.name_bn, s.name_bn, s.variety, s.current_stock
           ORDER BY c.name_bn, s.name_bn
@@ -1744,12 +1744,12 @@ router.get("/report/production-summary", saAuth, async (req, res) => {
         const r = await db.query(
           `
           SELECT c.name_bn AS category_bn, s.name_bn, s.variety,
-            COALESCE(SUM(pb.produced_quantity), 0) AS total_produced,
+            COALESCE(SUM(CASE WHEN pb.production_type='seed' THEN pb.produced_quantity ELSE COALESCE(pb.success_quantity,pb.produced_quantity) END), 0) AS total_produced,
             COALESCE(SUM(pb.failed_quantity), 0) AS total_failed,
             s.current_stock
           FROM seedlings s
           LEFT JOIN categories c ON s.category_id = c.id
-          LEFT JOIN production_batches pb ON pb.seedling_id = s.id AND pb.batch_date BETWEEN $1 AND $2
+          LEFT JOIN production_batches pb ON pb.seedling_id = s.id AND COALESCE(pb.sowing_date, pb.propagation_date, pb.created_at::date) BETWEEN $1 AND $2
           WHERE s.is_active = true
           GROUP BY c.name_bn, s.name_bn, s.variety, s.current_stock
           ORDER BY c.name_bn, s.name_bn
