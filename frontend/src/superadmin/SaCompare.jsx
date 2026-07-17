@@ -8,11 +8,8 @@ const tlLabel = (t) =>
   t === "green" ? "ভালো" : t === "yellow" ? "মাঝারি" : "দুর্বল";
 
 function RankBadge({ i }) {
-  if (i === 0) return <span>🥇</span>;
-  if (i === 1) return <span>🥈</span>;
-  if (i === 2) return <span>🥉</span>;
   return (
-    <span style={{ color: V.muted, fontWeight: 700 }}>#{toBn(i + 1)}</span>
+    <span style={{ color: "#ffffff", fontWeight: 700 }}>#{toBn(i + 1)}</span>
   );
 }
 
