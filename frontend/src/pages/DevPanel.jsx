@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 
 const API = 'https://api.hortnet-bd.com/api/dev';
 const FONT = "'Noto Sans Bengali','Segoe UI',sans-serif";
@@ -86,6 +87,24 @@ function Panel({ dev, onLogout }) {
       const r = await devApi('/integrity-check');
       if (r.success) setIntegrityData(r);
     } catch (e) {} finally { setIntegrityLoading(false); }
+  }
+
+  function exportCentersToExcel() {
+    const rows = centerAdmins.map((c, i) => ({
+      'ক্র.নং': i + 1,
+      'সেন্টার নাম': c.name_bn,
+      'ক্যাটাগরি': c.category,
+      'জেলা': c.district,
+      'URL': `https://hortnet-bd.com/${c.slug}/login`,
+      'Admin নাম': c.admin?.name || '',
+      'Admin Email': c.admin?.email || '',
+      'অবস্থা': c.active ? 'সক্রিয়' : 'বন্ধ',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:8},{wch:30},{wch:10},{wch:15},{wch:40},{wch:20},{wch:30},{wch:10}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Centers');
+    XLSX.writeFile(wb, `HortNet-BD_Centers_${new Date().toISOString().slice(0,10)}.xlsx`);
   }
   const [resetEmail, setResetEmail] = useState('');
   const [centerAdmins, setCenterAdmins] = useState([]);
@@ -244,7 +263,13 @@ function Panel({ dev, onLogout }) {
           {/* Centers */}
           {tab==='centers' && (
             <div>
-              <div style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>🏛️ Center তালিকা</div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                <div style={{ fontSize:16, fontWeight:700 }}>🏛️ Center তালিকা</div>
+                <button onClick={exportCentersToExcel}
+                  style={{ padding:'8px 16px', background:'#16a34a', color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:13, fontFamily:FONT, fontWeight:600, display:'flex', alignItems:'center', gap:6 }}>
+                  📥 Excel Export
+                </button>
+              </div>
 
               {/* Filter bar */}
               <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>

@@ -141,168 +141,23 @@ router.get("/tenants", saAuth, async (req, res) => {
 // ===== ALL CENTER STATS =====
 router.get("/stats-all", saAuth, async (req, res) => {
   try {
-    if (req.query.force === "true") clearCache();
+    const { getCachedStats, refreshAllStats } = require("../lib/centerStatsCache");
 
-    const tenants = await getTenants();
-    let tenantEntries = Object.entries(tenants);
+    if (req.query.force === "true") {
+      clearCache();
+      await refreshAllStats(); // তাৎক্ষণিক refresh (Refresh বাটনে click করলে)
+    }
+
+    let data = await getCachedStats();
 
     if (
       req.saUser.role !== "director" &&
       req.saUser.assignedCenters?.length > 0
     ) {
-      tenantEntries = tenantEntries.filter(([slug]) =>
-        req.saUser.assignedCenters.includes(slug),
-      );
+      data = data.filter((c) => req.saUser.assignedCenters.includes(c.slug));
     }
 
-    const results = await Promise.all(
-      tenantEntries.map(async ([slug, tenant]) => {
-        try {
-          const now = new Date();
-          const curMonth = now.getMonth() + 1;
-          const curYear = now.getFullYear();
-          const fyStart = curMonth >= 7 ? curYear : curYear - 1;
-
-          const [
-            sales,
-            todaySales,
-            currentMonth,
-            lastMonth,
-            monthlyTarget,
-            production,
-            stock,
-            lowStock,
-            annualProdTarget,
-            monthlyProdTarget,
-            monthlyProdAchieved,
-            otherIncomeTotal,
-          ] = await Promise.all([
-            queryTenant(
-              tenant.db_url,
-              `SELECT COALESCE(SUM(total_amount),0) AS total_revenue, COUNT(*) AS total_invoices FROM sales`,
-            ),
-            queryTenant(
-              tenant.db_url,
-              `SELECT COALESCE(SUM(total_amount),0) AS today_revenue FROM sales WHERE sale_date=CURRENT_DATE`,
-            ),
-            queryTenant(
-              tenant.db_url,
-              `SELECT COALESCE(SUM(total_amount),0) AS revenue FROM sales WHERE EXTRACT(MONTH FROM sale_date)=EXTRACT(MONTH FROM NOW()) AND EXTRACT(YEAR FROM sale_date)=EXTRACT(YEAR FROM NOW())`,
-            ),
-            queryTenant(
-              tenant.db_url,
-              `SELECT COALESCE(SUM(total_amount),0) AS revenue FROM sales WHERE EXTRACT(MONTH FROM sale_date)=EXTRACT(MONTH FROM NOW()-INTERVAL '1 month') AND EXTRACT(YEAR FROM sale_date)=EXTRACT(YEAR FROM (NOW()-INTERVAL '1 month'))`,
-            ),
-            queryTenant(
-              tenant.db_url,
-              `SELECT COALESCE(target_amount,0) AS target_amount FROM targets WHERE target_type='sales' AND target_month=EXTRACT(MONTH FROM NOW()) AND target_year=EXTRACT(YEAR FROM NOW()) LIMIT 1`,
-            ),
-            queryTenant(
-              tenant.db_url,
-              `SELECT COUNT(*) AS total_batches, COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS total_produced, COALESCE(AVG(CASE WHEN success_percent>0 THEN success_percent END),0) AS avg_success, COALESCE(SUM(available_quantity),0) AS total_available FROM production_batches`,
-            ),
-            queryTenant(
-              tenant.db_url,
-              `SELECT COALESCE(SUM(current_stock),0) AS total_stock, COALESCE(SUM(current_stock*unit_price),0) AS stock_value, COUNT(*) AS total_species FROM seedlings WHERE is_active=true`,
-            ),
-            queryTenant(
-              tenant.db_url,
-              `SELECT COUNT(*) AS low_count FROM seedlings WHERE is_active=true AND current_stock<=min_stock_alert`,
-            ),
-            queryTenant(
-              tenant.db_url,
-              `SELECT COALESCE(SUM(target_quantity),0) AS qty FROM targets WHERE target_type LIKE 'category_%' AND target_month=0 AND target_year=$1`,
-              [fyStart],
-            ),
-            queryTenant(
-              tenant.db_url,
-              `SELECT COALESCE(ROUND(SUM(target_quantity)/12.0),0) AS qty FROM targets WHERE target_type LIKE 'category_%' AND target_month=0 AND target_year=$1`,
-              [fyStart],
-            ),
-            queryTenant(
-              tenant.db_url,
-              `SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS qty FROM production_batches WHERE EXTRACT(MONTH FROM COALESCE(sowing_date,propagation_date))=$1 AND EXTRACT(YEAR FROM COALESCE(sowing_date,propagation_date))=$2`,
-              [curMonth, curYear],
-            ),
-            queryTenant(
-              tenant.db_url,
-              `SELECT COALESCE(SUM(amount),0) AS total FROM other_income`,
-            ),
-          ]);
-
-          const curRev = parseFloat(currentMonth[0].revenue);
-          const lastRev = parseFloat(lastMonth[0].revenue);
-          const growthRate =
-            lastRev > 0
-              ? ((curRev - lastRev) / lastRev) * 100
-              : curRev > 0
-                ? 100
-                : 0;
-          const targetAmt = parseFloat(monthlyTarget[0]?.target_amount || 0);
-          const targetAchv =
-            targetAmt > 0 ? Math.min((curRev / targetAmt) * 100, 200) : null;
-          const totalSpecies = parseInt(stock[0].total_species) || 1;
-          const lowCount = parseInt(lowStock[0].low_count) || 0;
-          const stockHealth = Math.max(0, 1 - lowCount / totalSpecies) * 100;
-          const successRate = parseFloat(production[0].avg_success) || 0;
-          const perfScore = Math.round(
-            Math.min(Math.max(growthRate + 50, 0), 100) * 0.3 +
-              (targetAchv !== null ? Math.min(targetAchv, 100) : stockHealth) *
-                0.3 +
-              successRate * 0.2 +
-              stockHealth * 0.2,
-          );
-
-          return {
-            slug,
-            name_bn: tenant.name_bn,
-            name_en: tenant.name_en,
-            location: tenant.location,
-            category: tenant.category,
-            district: tenant.district,
-            division: tenant.division,
-            total_revenue: parseFloat(sales[0].total_revenue),
-            total_invoices: parseInt(sales[0].total_invoices),
-            today_revenue: parseFloat(todaySales[0].today_revenue),
-            total_produced: parseInt(production[0].total_produced),
-            total_stock: parseInt(stock[0].total_stock),
-            stock_value: parseFloat(stock[0].stock_value),
-            current_month_rev: curRev,
-            last_month_rev: lastRev,
-            growth_rate: parseFloat(growthRate.toFixed(1)),
-            target_amount: targetAmt,
-            target_achieved: targetAchv,
-            avg_success: parseFloat(successRate.toFixed(1)),
-            low_stock_count: lowCount,
-            total_species: parseInt(stock[0].total_species),
-            stock_health: parseFloat(stockHealth.toFixed(1)),
-            rev_per_batch: parseFloat(
-              (
-                parseFloat(sales[0].total_revenue) /
-                (parseInt(production[0].total_batches) || 1)
-              ).toFixed(0),
-            ),
-            perf_score: perfScore,
-            traffic_light:
-              perfScore >= 70 ? "green" : perfScore >= 45 ? "yellow" : "red",
-            annual_prod_target: parseInt(annualProdTarget[0]?.qty || 0),
-            monthly_prod_target: parseInt(monthlyProdTarget[0]?.qty || 0),
-            other_income_total: parseFloat(otherIncomeTotal[0]?.total || 0),
-            monthly_prod_achieved: parseInt(monthlyProdAchieved[0]?.qty || 0),
-            status: "ok",
-          };
-        } catch (e) {
-          return {
-            slug,
-            name_en: tenant.name_en,
-            name_bn: tenant.name_bn,
-            status: "error",
-            error: e.message,
-          };
-        }
-      }),
-    );
-    res.json({ success: true, data: results });
+    res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

@@ -107,6 +107,14 @@ const PORT = process.env.PORT || 30002;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  // ৭৬+ center-এ স্কেল করার জন্য — background-এ periodically সব center-এর
+  // stats cache করে রাখে, Overview page instant load হওয়ার জন্য
+  try {
+    const { startBackgroundRefresh } = require("./lib/centerStatsCache");
+    startBackgroundRefresh();
+  } catch (e) {
+    console.error("centerStatsCache startup error:", e.message);
+  }
 });
 
 module.exports = app;
