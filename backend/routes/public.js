@@ -37,11 +37,9 @@ router.get("/centers", async (req, res) => {
         location: t.location,
         district: t.district,
         division: t.division,
-        thana: t.thana || "",
         category: t.category,
         mobile: t.mobile || "",
-      }))
-      .sort((a, b) => (a.name_bn || "").localeCompare(b.name_bn || "", "bn"));
+      }));
     res.json({ success: true, data: centers });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -58,18 +56,24 @@ router.get("/center/:slug/seedlings", async (req, res) => {
         .status(404)
         .json({ success: false, message: "সেন্টার পাওয়া যায়নি।" });
 
-    const seedlings = await queryTenant(
-      tenant.db_url,
-      `
-            SELECT s.name_bn, s.variety, s.seedling_code,
-                   s.unit_price, s.current_stock,
-                   c.name_bn AS category_bn
-            FROM seedlings s
-            LEFT JOIN categories c ON s.category_id = c.id
-            WHERE s.is_active = true AND s.current_stock > 0
-            ORDER BY c.name_bn, s.name_bn
-        `,
-    );
+    const [seedlings, salesOfficers] = await Promise.all([
+      queryTenant(
+        tenant.db_url,
+        `
+              SELECT s.name_bn, s.variety, s.seedling_code,
+                     s.unit_price, s.current_stock,
+                     c.name_bn AS category_bn
+              FROM seedlings s
+              LEFT JOIN categories c ON s.category_id = c.id
+              WHERE s.is_active = true AND s.current_stock > 0
+              ORDER BY c.name_bn, s.name_bn
+          `,
+      ),
+      queryTenant(
+        tenant.db_url,
+        `SELECT name, phone FROM users WHERE role='sales_operator' AND is_active=true AND phone IS NOT NULL AND phone != ''`,
+      ).catch(() => []),
+    ]);
 
     res.json({
       success: true,
@@ -78,6 +82,8 @@ router.get("/center/:slug/seedlings", async (req, res) => {
         name_en: tenant.name_en,
         location: tenant.location,
         district: tenant.district,
+        head_mobile: tenant.mobile || "",
+        sales_officers: salesOfficers.map((s) => ({ name: s.name, phone: s.phone })),
       },
       data: seedlings,
     });

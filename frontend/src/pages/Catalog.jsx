@@ -116,10 +116,10 @@ export default function Catalog() {
     }
   }
 
-  async function loadSeedlings(c) {
+  async function loadSeedlings(c, filterQuery) {
     setSelectedCenter(c);
     setView("seedlings");
-    setLocalSearch("");
+    setLocalSearch(filterQuery || "");
     setSeedlings([]);
     setLoadingSeedlings(true);
     try {
@@ -128,6 +128,7 @@ export default function Catalog() {
       });
       const d = await r.json();
       setSeedlings(d.data || []);
+      if (d.center) setSelectedCenter((prev) => ({ ...prev, ...d.center }));
     } catch {
       setSeedlings([]);
     } finally {
@@ -1163,13 +1164,42 @@ export default function Catalog() {
                       {selectedCenter.location && (
                         <span>• {selectedCenter.location}</span>
                       )}
-                      {selectedCenter.mobile && (
+                      {(selectedCenter.head_mobile || selectedCenter.mobile) && (
                         <span>
                           • <i className="ti ti-phone" />{" "}
-                          {selectedCenter.mobile}
+                          সেন্টার প্রধান: {selectedCenter.head_mobile || selectedCenter.mobile}
                         </span>
                       )}
                     </p>
+                    {selectedCenter.sales_officers &&
+                      selectedCenter.sales_officers.length > 0 && (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 10,
+                            marginTop: 6,
+                            fontSize: 13,
+                          }}
+                        >
+                          {selectedCenter.sales_officers.map((so, i) => (
+                            <span
+                              key={i}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <i className="ti ti-user" /> সেলস অফিসার
+                              {selectedCenter.sales_officers.length > 1
+                                ? ` (${so.name})`
+                                : ""}
+                              : {so.phone}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                   </div>
                   <div
                     style={{
@@ -1445,18 +1475,33 @@ export default function Catalog() {
                       center.seedlings.map((s) => ({
                         ...s,
                         center_name: center.name_bn,
+                        center_slug: center.slug,
+                        center_location: center.location,
+                        center_district: center.district,
                       })),
                     )
                     .map((s, i) => (
                       <div
                         key={i}
                         className="seed-row"
+                        onClick={() =>
+                          loadSeedlings(
+                            {
+                              slug: s.center_slug,
+                              name_bn: s.center_name,
+                              location: s.center_location,
+                              district: s.center_district,
+                            },
+                            s.name_bn,
+                          )
+                        }
                         style={{
                           display: "flex",
                           alignItems: "center",
                           padding: "14px 18px",
                           borderBottom: "1px solid #f5f7f5",
                           transition: ".15s",
+                          cursor: "pointer",
                         }}
                       >
                         <div style={{ flex: 1 }}>

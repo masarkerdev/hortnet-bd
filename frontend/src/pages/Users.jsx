@@ -17,7 +17,7 @@ const MATRIX = [
   ['Sales Operator',    [1,0,0,1,1]],
   ['Viewer',            [0,0,0,1,0]],
 ];
-const EMPTY = { id:'', name:'', email:'', role:'viewer', password:'' };
+const EMPTY = { id:'', name:'', email:'', role:'viewer', password:'', phone:'' };
 
 export default function Users() {
   const [rows, setRows] = useState([]);
@@ -39,13 +39,13 @@ export default function Users() {
   useEffect(() => { load(); }, []);
 
   function openNew() { setForm(EMPTY); setShowPw(false); setMsg(''); setOpen(true); }
-  function openEdit(u) { setForm({ id:u.id, name:u.name||'', email:u.email||'', role:u.role||'viewer', password:'' }); setShowPw(false); setMsg(''); setOpen(true); }
+  function openEdit(u) { setForm({ id:u.id, name:u.name||'', email:u.email||'', role:u.role||'viewer', password:'', phone:u.phone||'' }); setShowPw(false); setMsg(''); setOpen(true); }
 
   async function save() {
     if (!form.name || !form.email) { setMsg('নাম ও ইমেইল দিন'); return; }
     if (!form.id && !form.password) { setMsg('নতুন ব্যবহারকারীর পাসওয়ার্ড দিন'); return; }
     setSaving(true); setMsg('');
-    const body = { name:form.name, email:form.email, role:form.role, is_active:true };
+    const body = { name:form.name, email:form.email, role:form.role, is_active:true, phone:form.phone };
     if (form.password) body.password = form.password;
     try { if (form.id) await api.put('/users/'+form.id, body); else await api.post('/users', body); setOpen(false); load(); }
     catch (e) { setMsg(e?.response?.data?.message || e?.response?.data?.error || 'সমস্যা'); } finally { setSaving(false); }
@@ -132,6 +132,7 @@ export default function Users() {
           <div className="grid grid-cols-2 gap-3">
             <div><label className="field-label">নাম*</label><input className="field-input" placeholder="পূর্ণ নাম" value={form.name} onChange={(e)=>setForm({...form,name:e.target.value})}/></div>
             <div><label className="field-label">ইমেইল*</label><input type="email" className="field-input" placeholder="user@horticulture.bd" value={form.email} onChange={(e)=>setForm({...form,email:e.target.value})}/></div>
+            <div><label className="field-label">মোবাইল নং</label><input type="text" className="field-input" placeholder="01XXXXXXXXX" value={form.phone} onChange={(e)=>setForm({...form,phone:e.target.value})}/></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="field-label">ভূমিকা*</label>
