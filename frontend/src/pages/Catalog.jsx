@@ -195,7 +195,7 @@ export default function Catalog() {
         .search-btn:hover { background:#155a30!important; }
         .hdr-btn:hover { background:rgba(255,255,255,0.15)!important; }
         .login-btn:hover { background:#e8f5ed!important; }
-        @media(max-width:768px){ .hide-mobile{display:none!important} .mobile-btn{display:flex!important} }
+        @media(max-width:768px){ .hide-mobile{display:none!important} .mobile-btn{display:flex!important} .catalog-center-info{justify-content:center!important; text-align:center!important;} .catalog-center-banner{flex-direction:column!important; text-align:center!important; padding:18px!important; gap:10px!important;} .catalog-center-banner > div:last-child{margin-left:0!important;} }
       `}</style>
 
       {/* ── HEADER ── */}
@@ -1108,6 +1108,7 @@ export default function Catalog() {
               <div id="seedlingsContent">
                 {/* Banner */}
                 <div
+                  className="catalog-center-banner"
                   style={{
                     background: "linear-gradient(135deg,#0f4f29,#2d8a52)",
                     color: "#fff",
@@ -1146,12 +1147,13 @@ export default function Catalog() {
                       {selectedCenter.name_bn}
                     </h3>
                     <p
+                      className="catalog-center-info"
                       style={{
                         fontSize: 13,
                         opacity: 0.85,
                         display: "flex",
                         alignItems: "center",
-                        gap: 6,
+                        gap: 10,
                         flexWrap: "wrap",
                       }}
                     >
@@ -1162,22 +1164,34 @@ export default function Catalog() {
                         </span>
                       )}
                       {selectedCenter.location && (
-                        <span>• {selectedCenter.location}</span>
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <i className="ti ti-home" />
+                          {selectedCenter.location}
+                        </span>
                       )}
-                      {(selectedCenter.head_mobile || selectedCenter.mobile) && (
+                      {(selectedCenter.head_mobile ||
+                        selectedCenter.mobile) && (
                         <span>
-                          • <i className="ti ti-phone" />{" "}
-                          সেন্টার প্রধান: {selectedCenter.head_mobile || selectedCenter.mobile}
+                          <i className="ti ti-phone" /> সেন্টার প্রধান:{" "}
+                          {selectedCenter.head_mobile || selectedCenter.mobile}
                         </span>
                       )}
                     </p>
                     {selectedCenter.sales_officers &&
                       selectedCenter.sales_officers.length > 0 && (
                         <div
+                          className="catalog-center-info"
                           style={{
                             display: "flex",
-                            flexWrap: "wrap",
+                            alignItems: "center",
                             gap: 10,
+                            flexWrap: "wrap",
                             marginTop: 6,
                             fontSize: 13,
                           }}
@@ -1262,6 +1276,25 @@ export default function Catalog() {
                           background: "transparent",
                         }}
                       />
+                      {localSearch && (
+                        <button
+                          onClick={() => setLocalSearch("")}
+                          style={{
+                            border: "none",
+                            background: "#f0faf3",
+                            color: "#1a6b3a",
+                            borderRadius: 8,
+                            padding: "6px 12px",
+                            fontSize: 12,
+                            fontFamily: "inherit",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            fontWeight: 600,
+                          }}
+                        >
+                          ✕ সব চারা দেখুন
+                        </button>
+                      )}
                     </div>
 
                     {/* Seedling table */}
