@@ -118,7 +118,7 @@ router.post("/login", async (req, res) => {
 router.get("/tenants", saAuth, async (req, res) => {
   try {
     let query =
-      "SELECT id,slug,name_bn,name_en,location,district,division,dae_region,category,currency,mobile,active,created_at FROM tenants";
+      "SELECT id,slug,name_bn,name_en,location,district,division,thana,dae_region,category,currency,mobile,active,created_at FROM tenants";
     let params = [];
     if (
       req.saUser.role !== "director" &&
@@ -141,7 +141,10 @@ router.get("/tenants", saAuth, async (req, res) => {
 // ===== ALL CENTER STATS =====
 router.get("/stats-all", saAuth, async (req, res) => {
   try {
-    const { getCachedStats, refreshAllStats } = require("../lib/centerStatsCache");
+    const {
+      getCachedStats,
+      refreshAllStats,
+    } = require("../lib/centerStatsCache");
 
     if (req.query.force === "true") {
       clearCache();
