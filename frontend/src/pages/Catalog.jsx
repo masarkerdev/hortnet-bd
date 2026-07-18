@@ -78,13 +78,21 @@ export default function Catalog() {
     ),
   ].sort();
 
-  const filtered = centers.filter(
-    (c) =>
-      (!filters.division || c.division === filters.division) &&
-      (!filters.district || c.district === filters.district) &&
-      (!filters.thana || c.thana === filters.thana) &&
-      (!filters.category || c.category === filters.category),
-  );
+  const filtered = centers
+    .filter(
+      (c) =>
+        (!filters.division || c.division === filters.division) &&
+        (!filters.district || c.district === filters.district) &&
+        (!filters.thana || c.thana === filters.thana) &&
+        (!filters.category || c.category === filters.category),
+    )
+    .sort((a, b) => {
+      const catOrder = { A: 1, B: 2, C: 3 };
+      const catA = catOrder[a.category] || 9;
+      const catB = catOrder[b.category] || 9;
+      if (catA !== catB) return catA - catB;
+      return (a.name_bn || "").localeCompare(b.name_bn || "", "bn");
+    });
 
   function switchTab(t) {
     setTab(t);
@@ -984,6 +992,23 @@ export default function Catalog() {
                               style={{ fontSize: 13 }}
                             />
                             {c.location}
+                          </span>
+                        )}
+                        {c.thana && (
+                          <span
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                              fontSize: 12,
+                              color: "#5a7a5a",
+                            }}
+                          >
+                            <i
+                              className="ti ti-map-pin-2"
+                              style={{ fontSize: 13 }}
+                            />
+                            {c.thana}
                           </span>
                         )}
                         {c.mobile && (
