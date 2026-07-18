@@ -37,9 +37,11 @@ router.get("/centers", async (req, res) => {
         location: t.location,
         district: t.district,
         division: t.division,
+        thana: t.thana || "",
         category: t.category,
         mobile: t.mobile || "",
-      }));
+      }))
+      .sort((a, b) => (a.name_bn || "").localeCompare(b.name_bn || "", "bn"));
     res.json({ success: true, data: centers });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -83,7 +85,10 @@ router.get("/center/:slug/seedlings", async (req, res) => {
         location: tenant.location,
         district: tenant.district,
         head_mobile: tenant.mobile || "",
-        sales_officers: salesOfficers.map((s) => ({ name: s.name, phone: s.phone })),
+        sales_officers: salesOfficers.map((s) => ({
+          name: s.name,
+          phone: s.phone,
+        })),
       },
       data: seedlings,
     });
