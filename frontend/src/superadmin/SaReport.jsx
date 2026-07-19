@@ -664,48 +664,49 @@ function StockReport() {
 // ── রাজস্ব ট্রেন্ড (৪ অর্থবছর, trend line সহ, SVG — কোনো external library ছাড়াই) ──
 function RevenueTrendReport() {
   const [data, setData] = useState([]);
+  const [centers, setCenters] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expandedSlug, setExpandedSlug] = useState(null);
 
   useEffect(() => {
     saApi.get('/report/yearly-revenue').then(r => {
-      if (r.data?.success) setData(r.data.data || []);
+      if (r.data?.success) { setData(r.data.data || []); setCenters(r.data.centers || []); }
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div style={{ textAlign: 'center', padding: 40, color: V.muted }}>লোড হচ্ছে...</div>;
   if (!data.length) return <div style={{ padding: 20, color: V.muted }}>কোনো তথ্য পাওয়া যায়নি।</div>;
 
-  const maxVal = Math.max(...data.map((d) => d.total), 1);
-  const W = 700, H = 320, PAD_TOP = 40, PAD_BOTTOM = 65, PAD_SIDE = 50;
-  const chartH = H - PAD_TOP - PAD_BOTTOM;
-  const barGap = 30;
-  const barWidth = (W - PAD_SIDE * 2 - barGap * (data.length - 1)) / data.length;
   const fmtMoney = (n) => {
     if (n >= 100000) return toBn((n / 100000).toFixed(2)) + 'ল';
     if (n >= 1000) return toBn((n / 1000).toFixed(1)) + 'হা';
     return toBn(n);
   };
-  const points = data.map((d, i) => {
-    const barH = maxVal > 0 ? (d.total / maxVal) * chartH : 0;
-    const x = PAD_SIDE + i * (barWidth + barGap) + barWidth / 2;
-    const y = H - PAD_BOTTOM - barH;
-    return { x, y, barH, ...d };
-  });
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 
-  return (
-    <div style={{ background: V.card, border: `1px solid ${V.border}`, borderRadius: 14, padding: 24 }}>
-      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>📈 অর্থবছর অনুযায়ী সব সেন্টারের মোট রাজস্ব (গত ৪ বছর)</div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', maxHeight: 340 }}>
+  function BarChartSVG({ chartData, small }) {
+    const maxVal = Math.max(...chartData.map((d) => d.total), 1);
+    const W = 700, H = small ? 220 : 320, PAD_TOP = 30, PAD_BOTTOM = small ? 45 : 65, PAD_SIDE = 50;
+    const chartH = H - PAD_TOP - PAD_BOTTOM;
+    const barGap = 30;
+    const barWidth = (W - PAD_SIDE * 2 - barGap * (chartData.length - 1)) / chartData.length;
+    const points = chartData.map((d, i) => {
+      const barH = maxVal > 0 ? (d.total / maxVal) * chartH : 0;
+      const x = PAD_SIDE + i * (barWidth + barGap) + barWidth / 2;
+      const y = H - PAD_BOTTOM - barH;
+      return { x, y, barH, ...d };
+    });
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', maxHeight: small ? 240 : 340 }}>
         {[0, 0.33, 0.66, 1].map((f, i) => (
           <line key={i} x1={PAD_SIDE} y1={H - PAD_BOTTOM - f * chartH} x2={W - PAD_SIDE} y2={H - PAD_BOTTOM - f * chartH} stroke={V.border} strokeWidth="1" />
         ))}
         {points.map((p, i) => (
           <g key={i}>
             <rect x={p.x - barWidth / 2} y={p.y} width={barWidth} height={p.barH} rx="8" fill={p.is_manual ? '#c8d8cc' : (i === points.length - 1 ? V.green : '#7fb896')} />
-            <text x={p.x} y={p.y - 14} textAnchor="middle" fontSize="15" fontWeight="700" fill={V.green}>৳{fmtMoney(p.total)}</text>
-            <text x={p.x} y={H - PAD_BOTTOM + 22} textAnchor="middle" fontSize="13" fill={V.muted}>{toBn(p.fy)}</text>
-            <text x={p.x} y={H - PAD_BOTTOM + 40} textAnchor="middle" fontSize="11" fill={V.muted} opacity="0.7">{p.is_manual ? 'ম্যানুয়াল' : 'প্রকৃত ডেটা'}</text>
+            <text x={p.x} y={p.y - 12} textAnchor="middle" fontSize={small ? 12 : 15} fontWeight="700" fill={V.green}>৳{fmtMoney(p.total)}</text>
+            <text x={p.x} y={H - PAD_BOTTOM + 20} textAnchor="middle" fontSize={small ? 11 : 13} fill={V.muted}>{toBn(p.fy || p.fy_year)}</text>
           </g>
         ))}
         <path d={linePath} fill="none" stroke={V.green} strokeWidth="2" />
@@ -713,6 +714,60 @@ function RevenueTrendReport() {
           <circle key={i} cx={p.x} cy={p.y} r="5" fill={V.green} />
         ))}
       </svg>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ background: V.card, border: `1px solid ${V.border}`, borderRadius: 14, padding: 24 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>📈 অর্থবছর অনুযায়ী সব সেন্টারের মোট রাজস্ব (গত ৪ বছর)</div>
+        <BarChartSVG chartData={data} />
+      </div>
+
+      <div style={{ background: V.card, border: `1px solid ${V.border}`, borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 18px', fontSize: 14, fontWeight: 700, background: V.card2, borderBottom: `1px solid ${V.border}` }}>
+          🏢 সেন্টার-ভিত্তিক বিস্তারিত (ক্লিক করে গ্রাফ দেখুন)
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 12, color: V.muted, fontWeight: 600, background: V.card2, borderBottom: `1px solid ${V.border}` }}>সেন্টার</th>
+                {data.map((d) => (
+                  <th key={d.fy_year} style={{ padding: '10px 12px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600, background: V.card2, borderBottom: `1px solid ${V.border}`, whiteSpace: 'nowrap' }}>{toBn(d.fy)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {centers.map((c) => (
+                <>
+                  <tr key={c.slug}
+                    onClick={() => setExpandedSlug(expandedSlug === c.slug ? null : c.slug)}
+                    style={{ cursor: 'pointer' }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = V.green3}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <td style={{ padding: '10px 16px', fontSize: 13, borderBottom: `1px solid ${V.border}`, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 11, color: V.muted, transform: expandedSlug === c.slug ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: '.15s' }}>▶</span>
+                      {c.name}
+                    </td>
+                    {c.years.map((y) => (
+                      <td key={y.fy_year} style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13, borderBottom: `1px solid ${V.border}`, fontWeight: 600 }}>৳{fmtMoney(y.total)}</td>
+                    ))}
+                  </tr>
+                  {expandedSlug === c.slug && (
+                    <tr>
+                      <td colSpan={data.length + 1} style={{ padding: 20, background: V.bg, borderBottom: `1px solid ${V.border}` }}>
+                        <BarChartSVG chartData={c.years} small />
+                      </td>
+                    </tr>
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

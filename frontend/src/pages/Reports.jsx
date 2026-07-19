@@ -177,7 +177,6 @@ export default function Reports() {
 
   return (
     <div style={{ fontFamily: FONT }}>
-      <RevenueBarChart />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📊 রিপোর্ট ও বিশ্লেষণ — টপশিট</h2>
@@ -194,6 +193,8 @@ export default function Reports() {
           </select>
         </div>
       </div>
+
+      <RevenueBarChart />
 
       {summary && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:12, marginBottom:16 }}>

@@ -790,6 +790,16 @@ router.get("/report/yearly-revenue", saAuth, async (req, res) => {
     const tenants = await getTenants();
 
     const results = [];
+    const centerMap = {}; // slug -> { name, byYear: { fy_year: total } }
+
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      centerMap[slug] = {
+        name: (tenant.name_bn || "").replace("হর্টিকালচার সেন্টার,", "").trim() || tenant.name_bn,
+        byYear: {},
+      };
+    }
+
     for (const fy of years) {
       const fyStart = `${fy}-07-01`;
       const fyEnd = `${fy + 1}-06-30`;
@@ -803,8 +813,9 @@ router.get("/report/yearly-revenue", saAuth, async (req, res) => {
             "SELECT amount FROM historical_revenue WHERE fiscal_year=$1",
             [fy]
           );
+          let centerTotal;
           if (override.rows.length) {
-            total += Number(override.rows[0].amount);
+            centerTotal = Number(override.rows[0].amount);
             anyManual = true;
           } else {
             const [salesR, incomeR] = await Promise.all([
@@ -817,8 +828,10 @@ router.get("/report/yearly-revenue", saAuth, async (req, res) => {
                 [fyStart, fyEnd]
               ),
             ]);
-            total += Number(salesR.rows[0].total) + Number(incomeR.rows[0].total);
+            centerTotal = Number(salesR.rows[0].total) + Number(incomeR.rows[0].total);
           }
+          total += centerTotal;
+          centerMap[slug].byYear[fy] = centerTotal;
         } catch (e) {
           console.error(`[${slug}] yearly-revenue error:`, e.message);
         }
@@ -831,7 +844,13 @@ router.get("/report/yearly-revenue", saAuth, async (req, res) => {
       });
     }
 
-    res.json({ success: true, data: results });
+    const centers = Object.entries(centerMap).map(([slug, c]) => ({
+      slug,
+      name: c.name,
+      years: years.map((fy) => ({ fy_year: fy, total: c.byYear[fy] || 0 })),
+    }));
+
+    res.json({ success: true, data: results, centers });
   } catch (err) {
     console.error("superadmin yearly-revenue error:", err.message);
     res.status(500).json({ success: false, error: err.message });
