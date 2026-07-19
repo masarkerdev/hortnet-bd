@@ -807,11 +807,17 @@ router.get("/report/yearly-revenue", saAuth, async (req, res) => {
             total += Number(override.rows[0].amount);
             anyManual = true;
           } else {
-            const r = await db.query(
-              `SELECT COALESCE(SUM(total_amount),0) AS total FROM sales WHERE sale_date >= $1 AND sale_date <= $2`,
-              [fyStart, fyEnd]
-            );
-            total += Number(r.rows[0].total);
+            const [salesR, incomeR] = await Promise.all([
+              db.query(
+                `SELECT COALESCE(SUM(total_amount),0) AS total FROM sales WHERE sale_date >= $1 AND sale_date <= $2`,
+                [fyStart, fyEnd]
+              ),
+              db.query(
+                `SELECT COALESCE(SUM(amount),0) AS total FROM other_income WHERE income_date >= $1 AND income_date <= $2`,
+                [fyStart, fyEnd]
+              ),
+            ]);
+            total += Number(salesR.rows[0].total) + Number(incomeR.rows[0].total);
           }
         } catch (e) {
           console.error(`[${slug}] yearly-revenue error:`, e.message);
