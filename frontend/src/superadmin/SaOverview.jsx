@@ -404,9 +404,9 @@ export default function SaOverview() {
           valueColor={V.amber}
         />
         <KpiCard
-          label="মোট বিক্রয়"
+          label="মোট রাজস্ব আদায়"
           value={`৳${fmtN(totalRev)}`}
-          sub={`${toBn(invoices)} চালান (আয় সহ)`}
+          sub={`${toBn(invoices)} চালান ( অন্যান্য আয় সহ)`}
           borderColor={V.green}
           valueColor={V.green}
         />

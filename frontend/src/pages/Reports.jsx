@@ -8,6 +8,114 @@ const fmtN = n => toBn(Math.round(n || 0));
 const curFY = () => { const now=new Date(); return now.getMonth()>=6 ? now.getFullYear() : now.getFullYear()-1; };
 const MONTHS = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
 
+// ৪ অর্থবছরের রোলিং রাজস্ব চার্ট — SVG, trend line সহ, কোনো external library ছাড়াই
+function RevenueBarChart() {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editModal, setEditModal] = useState(null); // { fy_year, amount, notes }
+  const [saving, setSaving] = useState(false);
+
+  function load() {
+    setLoading(true);
+    api.get('/reports/yearly-revenue').then(r => {
+      if (r.data?.success) setData(r.data.data || []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function saveOverride() {
+    if (!editModal) return;
+    setSaving(true);
+    try {
+      await api.post('/reports/historical-revenue', {
+        fiscal_year: editModal.fy_year,
+        amount: Number(editModal.amount) || 0,
+        notes: editModal.notes,
+      });
+      setEditModal(null);
+      load();
+    } catch (e) {} finally { setSaving(false); }
+  }
+
+  if (loading || !data.length) return null;
+
+  const maxVal = Math.max(...data.map((d) => d.total), 1);
+  const W = 700, H = 300, PAD_TOP = 40, PAD_BOTTOM = 55, PAD_SIDE = 50;
+  const chartH = H - PAD_TOP - PAD_BOTTOM;
+  const barGap = 30;
+  const barWidth = (W - PAD_SIDE * 2 - barGap * (data.length - 1)) / data.length;
+  const fmtMoney = (n) => {
+    if (n >= 100000) return toBn((n / 100000).toFixed(2)) + 'ল';
+    if (n >= 1000) return toBn((n / 1000).toFixed(1)) + 'হা';
+    return toBn(n);
+  };
+  const points = data.map((d, i) => {
+    const barH = maxVal > 0 ? (d.total / maxVal) * chartH : 0;
+    const x = PAD_SIDE + i * (barWidth + barGap) + barWidth / 2;
+    const y = H - PAD_BOTTOM - barH;
+    return { x, y, barH, ...d };
+  });
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e8f5ed', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a18' }}>📈 অর্থবছর অনুযায়ী মোট বিক্রয়/রাজস্ব (গত ৪ বছর)</div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', maxHeight: 320 }}>
+        {[0, 0.33, 0.66, 1].map((f, i) => (
+          <line key={i} x1={PAD_SIDE} y1={H - PAD_BOTTOM - f * chartH} x2={W - PAD_SIDE} y2={H - PAD_BOTTOM - f * chartH} stroke="#f0f0ee" strokeWidth="1" />
+        ))}
+        {points.map((p, i) => (
+          <g key={i}>
+            <rect x={p.x - barWidth / 2} y={p.y} width={barWidth} height={p.barH} rx="6" fill={p.is_manual ? '#c8d8cc' : (i === points.length - 1 ? '#1a6b3a' : '#7fb896')} />
+            <text x={p.x} y={p.y - 12} textAnchor="middle" fontSize="13" fontWeight="700" fill="#1a6b3a">৳{fmtMoney(p.total)}</text>
+            <text x={p.x} y={H - PAD_BOTTOM + 20} textAnchor="middle" fontSize="12" fill="#5a7a5a">{toBn(p.fy)}</text>
+            <text x={p.x} y={H - PAD_BOTTOM + 36} textAnchor="middle" fontSize="10" fill="#94a3b8">{p.is_manual ? 'ম্যানুয়াল' : 'প্রকৃত ডেটা'}</text>
+          </g>
+        ))}
+        <path d={linePath} fill="none" stroke="#1a6b3a" strokeWidth="2" />
+        {points.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r="4" fill="#1a6b3a" />
+        ))}
+      </svg>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+        {data.map((d) => (
+          <button key={d.fy_year} onClick={() => setEditModal({ fy_year: d.fy_year, amount: String(d.total), notes: '' })}
+            style={{ padding: '5px 10px', borderRadius: 7, border: '1px solid #e0e0e0', background: '#f8fafc', color: '#6b7280', fontSize: 11, fontFamily: FONT, cursor: 'pointer' }}>
+            ✏️ {toBn(d.fy)} সংশোধন করুন
+          </button>
+        ))}
+      </div>
+
+      {editModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: 340 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>রাজস্ব ম্যানুয়াল এন্ট্রি</div>
+            <input type="text" inputMode="numeric" value={editModal.amount}
+              onChange={(e) => setEditModal({ ...editModal, amount: e.target.value.replace(/[^0-9]/g, '') })}
+              placeholder="টাকার পরিমাণ"
+              style={{ width: '100%', padding: '10px 14px', border: '1px solid #e0e0e0', borderRadius: 8, fontFamily: FONT, fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 12 }}
+            />
+            <input type="text" value={editModal.notes}
+              onChange={(e) => setEditModal({ ...editModal, notes: e.target.value })}
+              placeholder="মন্তব্য (ঐচ্ছিক)"
+              style={{ width: '100%', padding: '10px 14px', border: '1px solid #e0e0e0', borderRadius: 8, fontFamily: FONT, fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 16 }}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setEditModal(null)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e0e0e0', background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: FONT }}>বাতিল</button>
+              <button onClick={saveOverride} disabled={saving} style={{ padding: '8px 16px', borderRadius: 8, background: '#1a6b3a', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontFamily: FONT, fontWeight: 600 }}>
+                {saving ? 'সংরক্ষণ হচ্ছে...' : '✓ সংরক্ষণ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Reports() {
   const [fy, setFy] = useState(curFY());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -69,6 +177,7 @@ export default function Reports() {
 
   return (
     <div style={{ fontFamily: FONT }}>
+      <RevenueBarChart />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📊 রিপোর্ট ও বিশ্লেষণ — টপশিট</h2>

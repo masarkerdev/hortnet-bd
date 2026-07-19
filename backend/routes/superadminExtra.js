@@ -781,4 +781,55 @@ router.get("/report/category-detail", saAuth, async (req, res) => {
   }
 });
 
+// GET /api/superadmin/report/yearly-revenue — সব center মিলিয়ে গত ৪ অর্থবছরের রাজস্ব (manual override সহ)
+router.get("/report/yearly-revenue", saAuth, async (req, res) => {
+  try {
+    const now = new Date();
+    const curFY = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+    const years = [curFY - 3, curFY - 2, curFY - 1, curFY];
+    const tenants = await getTenants();
+
+    const results = [];
+    for (const fy of years) {
+      const fyStart = `${fy}-07-01`;
+      const fyEnd = `${fy + 1}-06-30`;
+      let total = 0;
+      let anyManual = false;
+      for (const [slug, tenant] of Object.entries(tenants)) {
+        if (!tenant.active || !tenant.db_url) continue;
+        try {
+          const db = getPool(tenant.db_url, slug);
+          const override = await db.query(
+            "SELECT amount FROM historical_revenue WHERE fiscal_year=$1",
+            [fy]
+          );
+          if (override.rows.length) {
+            total += Number(override.rows[0].amount);
+            anyManual = true;
+          } else {
+            const r = await db.query(
+              `SELECT COALESCE(SUM(total_amount),0) AS total FROM sales WHERE sale_date >= $1 AND sale_date <= $2`,
+              [fyStart, fyEnd]
+            );
+            total += Number(r.rows[0].total);
+          }
+        } catch (e) {
+          console.error(`[${slug}] yearly-revenue error:`, e.message);
+        }
+      }
+      results.push({
+        fy: `${fy}-${String(fy + 1).slice(-2)}`,
+        fy_year: fy,
+        total,
+        is_manual: anyManual,
+      });
+    }
+
+    res.json({ success: true, data: results });
+  } catch (err) {
+    console.error("superadmin yearly-revenue error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

@@ -330,4 +330,87 @@ router.get("/category-detail", authenticate, async (req, res) => {
   }
 });
 
+// GET /api/reports/yearly-revenue — গত ৪ অর্থবছরের রাজস্ব (rolling window)
+// প্রতিটা বছরের জন্য আগে historical_revenue (manual override) check করে,
+// না থাকলে sales টেবিল থেকে actual হিসাব করে
+router.get("/yearly-revenue", authenticate, async (req, res) => {
+  try {
+    const now = new Date();
+    const curFY = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+    const years = [curFY - 3, curFY - 2, curFY - 1, curFY]; // গত ৪ অর্থবছর (rolling)
+
+    const results = [];
+    for (const fy of years) {
+      const override = await db.query(
+        "SELECT amount FROM historical_revenue WHERE fiscal_year=$1",
+        [fy]
+      );
+      let total, isManual;
+      if (override.rows.length) {
+        total = Number(override.rows[0].amount);
+        isManual = true;
+      } else {
+        const fyStart = `${fy}-07-01`;
+        const fyEnd = `${fy + 1}-06-30`;
+        const r = await db.query(
+          `SELECT COALESCE(SUM(total_amount),0) AS total FROM sales WHERE sale_date >= $1 AND sale_date <= $2`,
+          [fyStart, fyEnd]
+        );
+        total = Number(r.rows[0].total);
+        isManual = false;
+      }
+      results.push({
+        fy: `${fy}-${String(fy + 1).slice(-2)}`,
+        fy_year: fy,
+        total,
+        is_manual: isManual,
+      });
+    }
+
+    res.json({ success: true, data: results });
+  } catch (err) {
+    console.error("yearly-revenue error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/reports/historical-revenue — manual entry করা পুরনো বছরগুলোর তালিকা
+router.get("/historical-revenue", authenticate, async (req, res) => {
+  try {
+    const r = await db.query("SELECT * FROM historical_revenue ORDER BY fiscal_year DESC");
+    res.json({ success: true, data: r.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/reports/historical-revenue — পুরনো বছরের রাজস্ব manually entry/update
+router.post("/historical-revenue", authenticate, async (req, res) => {
+  const { fiscal_year, amount, notes } = req.body;
+  if (!fiscal_year || amount === undefined) {
+    return res.status(400).json({ success: false, message: "অর্থবছর ও রাজস্বের পরিমাণ দিন।" });
+  }
+  try {
+    const existing = await db.query(
+      "SELECT id FROM historical_revenue WHERE fiscal_year=$1",
+      [fiscal_year]
+    );
+    if (existing.rows.length) {
+      await db.query(
+        "UPDATE historical_revenue SET amount=$1, notes=$2, updated_at=now() WHERE fiscal_year=$3",
+        [Number(amount) || 0, notes || null, fiscal_year]
+      );
+    } else {
+      await db.query(
+        "INSERT INTO historical_revenue (fiscal_year, amount, notes, created_by) VALUES ($1,$2,$3,$4)",
+        [fiscal_year, Number(amount) || 0, notes || null, req.user?.id || null]
+      );
+    }
+    res.json({ success: true, message: "সংরক্ষণ হয়েছে ✅" });
+  } catch (err) {
+    console.error("save historical-revenue error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
