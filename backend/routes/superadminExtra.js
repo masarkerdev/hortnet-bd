@@ -837,7 +837,7 @@ router.get("/report/yearly-revenue", saAuth, async (req, res) => {
         }
       }
       results.push({
-        fy: `${fy}-${String(fy + 1).slice(-2)}`,
+        fy: `${fy}-${fy + 1}`,
         fy_year: fy,
         total,
         is_manual: anyManual,
@@ -847,7 +847,7 @@ router.get("/report/yearly-revenue", saAuth, async (req, res) => {
     const centers = Object.entries(centerMap).map(([slug, c]) => ({
       slug,
       name: c.name,
-      years: years.map((fy) => ({ fy_year: fy, total: c.byYear[fy] || 0 })),
+      years: years.map((fy) => ({ fy: `${fy}-${fy + 1}`, fy_year: fy, total: c.byYear[fy] || 0 })),
     }));
 
     res.json({ success: true, data: results, centers });

@@ -366,7 +366,7 @@ router.get("/yearly-revenue", authenticate, async (req, res) => {
         isManual = false;
       }
       results.push({
-        fy: `${fy}-${String(fy + 1).slice(-2)}`,
+        fy: `${fy}-${fy + 1}`,
         fy_year: fy,
         total,
         is_manual: isManual,

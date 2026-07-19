@@ -194,8 +194,6 @@ export default function Reports() {
         </div>
       </div>
 
-      <RevenueBarChart />
-
       {summary && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:12, marginBottom:16 }}>
           <div style={{ background:'#fff', border:'1px solid #e8f5ed', borderRadius:14, padding:'18px 20px', borderTop:'3px solid #1a6b3a' }}>
@@ -368,6 +366,8 @@ export default function Reports() {
           )}
         </div>
       )}
+
+      <RevenueBarChart />
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
