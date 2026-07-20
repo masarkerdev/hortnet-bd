@@ -268,6 +268,7 @@ export default function Layout() {
   const [notices, setNotices] = useState([]);
   const [showNotices, setShowNotices] = useState(false);
   const [unseenCount, setUnseenCount] = useState(0);
+  const [unseenBudgetNotice, setUnseenBudgetNotice] = useState(false);
 
   // বাংলা সংখ্যা ইনপুট: inputMode numeric/decimal ফিল্ডে ০-৯ টাইপ করলে ইংরেজিতে রূপান্তর
   useEffect(() => {
@@ -338,6 +339,21 @@ export default function Layout() {
             setUnseenCount(unseen);
           } catch {
             setUnseenCount(data.length);
+          }
+          // বরাদ্দ চাহিদাপত্র সংক্রান্ত notice আছে কিনা check (আলাদা "seen" tracking)
+          try {
+            const budgetNotices = data.filter((n) =>
+              (n.title || "").includes("বরাদ্দ চাহিদাপত্র"),
+            );
+            const seenBudget = JSON.parse(
+              localStorage.getItem("seen_budget_notices") || "[]",
+            );
+            const hasUnseen = budgetNotices.some(
+              (n) => !seenBudget.includes(n.id),
+            );
+            setUnseenBudgetNotice(hasUnseen);
+          } catch {
+            setUnseenBudgetNotice(false);
           }
         }
       })
@@ -728,15 +744,45 @@ export default function Layout() {
               )}
             </div>
             <button
-              onClick={() => navigate("/dashboard/budget")}
+              onClick={() => {
+                navigate("/dashboard/budget");
+                try {
+                  const budgetNotices = notices.filter((n) =>
+                    (n.title || "").includes("বরাদ্দ চাহিদাপত্র"),
+                  );
+                  const seenBudget = JSON.parse(
+                    localStorage.getItem("seen_budget_notices") || "[]",
+                  );
+                  const newSeen = [
+                    ...new Set([...seenBudget, ...budgetNotices.map((n) => n.id)]),
+                  ];
+                  localStorage.setItem("seen_budget_notices", JSON.stringify(newSeen));
+                  setUnseenBudgetNotice(false);
+                } catch {}
+              }}
               title="বরাদ্দ চাহিদাপত্র"
               className="rounded-lg border p-2"
               style={{
+                position: "relative",
                 borderColor: "var(--bd)",
                 color: loc.pathname === "/budget" ? "var(--g600)" : "var(--tm)",
               }}
               aria-label="বরাদ্দ চাহিদাপত্র"
             >
+              {unseenBudgetNotice && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -3,
+                    right: -3,
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: "#dc2626",
+                    border: "2px solid #fff",
+                  }}
+                />
+              )}
               <svg
                 className="h-[18px] w-[18px]"
                 fill="none"
