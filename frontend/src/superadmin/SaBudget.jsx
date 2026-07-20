@@ -29,6 +29,7 @@ export default function SaBudget() {
 
   const [editPeriodModal, setEditPeriodModal] = useState(false);
   const [editPeriodName, setEditPeriodName] = useState('');
+  const [editPeriodMessage, setEditPeriodMessage] = useState('');
   const [editPeriodMsg, setEditPeriodMsg] = useState('');
   const [editPeriodSaving, setEditPeriodSaving] = useState(false);
 
@@ -36,11 +37,29 @@ export default function SaBudget() {
     if (!editPeriodName.trim() || !periodId) return;
     setEditPeriodSaving(true); setEditPeriodMsg('');
     try {
-      const r = await axios.put(`${apiBase()}/budget-admin/periods/${periodId}`, { name: editPeriodName.trim() }, { headers: authHeader() });
+      const r = await axios.put(`${apiBase()}/budget-admin/periods/${periodId}`, { name: editPeriodName.trim(), message: editPeriodMessage.trim() }, { headers: authHeader() });
       if (r.data?.success) {
         setEditPeriodMsg('✓ আপডেট হয়েছে');
         await loadPeriods();
         setTimeout(() => { setEditPeriodModal(false); setEditPeriodMsg(''); }, 1000);
+      } else {
+        setEditPeriodMsg(r.data?.message || 'সমস্যা হয়েছে');
+      }
+    } catch (e) {
+      setEditPeriodMsg(e?.response?.data?.message || 'সমস্যা হয়েছে');
+    } finally { setEditPeriodSaving(false); }
+  }
+
+  async function deletePeriod() {
+    if (!periodId) return;
+    if (!window.confirm('এই কিস্তি সম্পূর্ণভাবে মুছে ফেলতে চান? এই কিস্তির সব চাহিদা/বরাদ্দ ডেটাও দেখা বন্ধ হয়ে যাবে। এটা ফেরানো যাবে না।')) return;
+    setEditPeriodSaving(true); setEditPeriodMsg('');
+    try {
+      const r = await axios.delete(`${apiBase()}/budget-admin/periods/${periodId}`, { headers: authHeader() });
+      if (r.data?.success) {
+        setEditPeriodModal(false);
+        setPeriodId('');
+        await loadPeriods();
       } else {
         setEditPeriodMsg(r.data?.message || 'সমস্যা হয়েছে');
       }
@@ -131,11 +150,16 @@ export default function SaBudget() {
             {periods.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           {periodId && (
-            <button onClick={()=>{
+            <button onClick={async ()=>{
               const cur = periods.find(p=>p.id===periodId);
               setEditPeriodName(cur?.name || '');
+              setEditPeriodMessage('');
               setEditPeriodMsg('');
               setEditPeriodModal(true);
+              try {
+                const r = await axios.get(`${apiBase()}/budget-admin/periods/${periodId}/notice`, { headers: authHeader() });
+                if (r.data?.success && r.data.data) setEditPeriodMessage(r.data.data.content || '');
+              } catch (e) {}
             }}
               style={{ padding:'8px 14px', borderRadius:8, border:`1px solid ${V.border}`, background:V.bg, cursor:'pointer', fontSize:13, fontFamily:FONT }}>
               ✏️ নাম সংশোধন
@@ -166,17 +190,27 @@ export default function SaBudget() {
       {/* কিস্তির নাম সংশোধন Modal */}
       {editPeriodModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
-          <div style={{ background:V.card, borderRadius:14, padding:24, width:380 }}>
-            <div style={{ fontSize:15, fontWeight:700, marginBottom:16 }}>✏️ কিস্তির নাম সংশোধন করুন</div>
+          <div style={{ background:V.card, borderRadius:14, padding:24, width:400 }}>
+            <div style={{ fontSize:15, fontWeight:700, marginBottom:16 }}>✏️ কিস্তি সংশোধন করুন</div>
+            <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>কিস্তির নাম</label>
             <input type="text" value={editPeriodName} onChange={e=>setEditPeriodName(e.target.value)}
               style={{ width:'100%', padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:14, outline:'none', boxSizing:'border-box', marginBottom:12 }}
             />
+            <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>সেন্টারগুলোকে যে বার্তা পাঠাবেন (Notice হিসেবে দেখাবে)</label>
+            <textarea value={editPeriodMessage} onChange={e=>setEditPeriodMessage(e.target.value)} rows={4}
+              style={{ width:'100%', padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:13, outline:'none', boxSizing:'border-box', marginBottom:12, resize:'vertical' }}
+            />
             {editPeriodMsg && <div style={{ color: editPeriodMsg.startsWith('✓') ? V.green : V.red, fontSize:13, marginBottom:10 }}>{editPeriodMsg}</div>}
-            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
-              <button onClick={()=>setEditPeriodModal(false)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${V.border}`, background:V.bg, cursor:'pointer', fontSize:13, fontFamily:FONT }}>বাতিল</button>
-              <button onClick={saveEditPeriod} disabled={editPeriodSaving} style={{ padding:'8px 16px', borderRadius:8, background:V.green, color:'#fff', border:'none', cursor:'pointer', fontSize:13, fontFamily:FONT, fontWeight:600 }}>
-                {editPeriodSaving ? 'সংরক্ষণ হচ্ছে...' : '✓ সংরক্ষণ'}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <button onClick={deletePeriod} disabled={editPeriodSaving} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${V.red}`, background:'transparent', color:V.red, cursor:'pointer', fontSize:13, fontFamily:FONT }}>
+                🗑️ কিস্তি মুছুন
               </button>
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={()=>setEditPeriodModal(false)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${V.border}`, background:V.bg, cursor:'pointer', fontSize:13, fontFamily:FONT }}>বাতিল</button>
+                <button onClick={saveEditPeriod} disabled={editPeriodSaving} style={{ padding:'8px 16px', borderRadius:8, background:V.green, color:'#fff', border:'none', cursor:'pointer', fontSize:13, fontFamily:FONT, fontWeight:600 }}>
+                  {editPeriodSaving ? 'সংরক্ষণ হচ্ছে...' : '✓ সংরক্ষণ'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

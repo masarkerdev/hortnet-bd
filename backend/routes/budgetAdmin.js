@@ -40,6 +40,9 @@ async function ensurePeriodsTable() {
       created_at TIMESTAMPTZ DEFAULT now()
     );
   `);
+  await masterDb.query(
+    `ALTER TABLE budget_periods ADD COLUMN IF NOT EXISTS notice_id INTEGER`
+  );
 }
 
 // GET /api/budget-admin/periods?fy=2026 — এই অর্থবছরের সব কিস্তির তালিকা
@@ -77,9 +80,9 @@ router.post("/periods", saAuth, directorOnly, async (req, res) => {
         message && message.trim()
           ? message.trim()
           : `"${name.trim()}" (অর্থবছর ${fiscal_year}-${fiscal_year + 1}) কিস্তির জন্য বরাদ্দ চাহিদাপত্র জমা দিন। বরাদ্দ চাহিদাপত্র পেজে গিয়ে কিস্তি নির্বাচন করে চাহিদা লিখুন।`;
-      await masterDb.query(
+      const noticeR = await masterDb.query(
         `INSERT INTO notices (title, content, priority, created_by)
-         VALUES ($1,$2,$3,$4)`,
+         VALUES ($1,$2,$3,$4) RETURNING id`,
         [
           `💰 নতুন বরাদ্দ চাহিদাপত্র কিস্তি: ${name.trim()}`,
           noticeContent,
@@ -87,6 +90,11 @@ router.post("/periods", saAuth, directorOnly, async (req, res) => {
           req.saUser?.email || "director",
         ]
       );
+      await masterDb.query("UPDATE budget_periods SET notice_id=$1 WHERE id=$2", [
+        noticeR.rows[0].id,
+        r.rows[0].id,
+      ]);
+      r.rows[0].notice_id = noticeR.rows[0].id;
     } catch (noticeErr) {
       console.error("period-notice error:", noticeErr.message);
     }
@@ -99,7 +107,7 @@ router.post("/periods", saAuth, directorOnly, async (req, res) => {
 
 // PUT /api/budget-admin/periods/:id — কিস্তির নাম সংশোধন (শুধু director)
 router.put("/periods/:id", saAuth, directorOnly, async (req, res) => {
-  const { name } = req.body;
+  const { name, message } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ success: false, message: "কিস্তির নাম দিন।" });
   }
@@ -111,7 +119,53 @@ router.put("/periods/:id", saAuth, directorOnly, async (req, res) => {
     if (!r.rows.length) {
       return res.status(404).json({ success: false, message: "কিস্তি পাওয়া যায়নি।" });
     }
+    // যুক্ত notice-এর বার্তাও আপডেট করি (যদি notice_id থাকে)
+    if (r.rows[0].notice_id && message !== undefined) {
+      try {
+        await masterDb.query(
+          "UPDATE notices SET title=$1, content=$2 WHERE id=$3",
+          [
+            `💰 নতুন বরাদ্দ চাহিদাপত্র কিস্তি: ${name.trim()}`,
+            message.trim() || `"${name.trim()}" কিস্তির জন্য বরাদ্দ চাহিদাপত্র জমা দিন।`,
+            r.rows[0].notice_id,
+          ]
+        );
+      } catch (e) {
+        console.error("update linked notice error:", e.message);
+      }
+    }
     res.json({ success: true, data: r.rows[0], message: "কিস্তির নাম আপডেট হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/budget-admin/periods/:id/notice — যুক্ত notice-এর বর্তমান বার্তা আনা (edit modal প্রি-ফিল করার জন্য)
+router.get("/periods/:id/notice", saAuth, async (req, res) => {
+  try {
+    const period = await masterDb.query("SELECT notice_id FROM budget_periods WHERE id=$1", [req.params.id]);
+    if (!period.rows.length || !period.rows[0].notice_id) {
+      return res.json({ success: true, data: null });
+    }
+    const notice = await masterDb.query("SELECT id, title, content FROM notices WHERE id=$1", [period.rows[0].notice_id]);
+    res.json({ success: true, data: notice.rows[0] || null });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE /api/budget-admin/periods/:id — কিস্তি ও যুক্ত notice সম্পূর্ণ মুছে ফেলা (শুধু director)
+router.delete("/periods/:id", saAuth, directorOnly, async (req, res) => {
+  try {
+    const period = await masterDb.query("SELECT notice_id FROM budget_periods WHERE id=$1", [req.params.id]);
+    if (!period.rows.length) {
+      return res.status(404).json({ success: false, message: "কিস্তি পাওয়া যায়নি।" });
+    }
+    if (period.rows[0].notice_id) {
+      await masterDb.query("UPDATE notices SET is_active=false WHERE id=$1", [period.rows[0].notice_id]);
+    }
+    await masterDb.query("DELETE FROM budget_periods WHERE id=$1", [req.params.id]);
+    res.json({ success: true, message: "কিস্তি মুছে ফেলা হয়েছে ✅" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
