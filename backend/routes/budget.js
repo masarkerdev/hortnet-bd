@@ -87,7 +87,22 @@ router.post("/demands", authenticate, async (req, res) => {
     return res.status(400).json({ success: false, message: "অর্থবছর, কিস্তি ও চাহিদার তালিকা দিন।" });
   }
   try {
+    const slug = req.tenant?.slug;
+    let allocatedCodes = new Set();
+    if (slug) {
+      const allocs = await masterDb.query(
+        "SELECT leaf_code FROM budget_allocations WHERE tenant_slug=$1 AND fiscal_year=$2 AND period_id=$3 AND allocated_amount > 0",
+        [slug, fy, period_id]
+      );
+      allocatedCodes = new Set(allocs.rows.map((a) => a.leaf_code));
+    }
+
+    let skippedLocked = 0;
     for (const d of demands) {
+      if (allocatedCodes.has(d.leaf_code)) {
+        skippedLocked++;
+        continue; // বরাদ্দ হয়ে গেছে এমন কোড আর পরিবর্তনযোগ্য না
+      }
       const existing = await db.query(
         "SELECT id FROM budget_demands WHERE leaf_code=$1 AND fiscal_year=$2 AND period_id=$3",
         [d.leaf_code, fy, period_id]
@@ -104,7 +119,10 @@ router.post("/demands", authenticate, async (req, res) => {
         );
       }
     }
-    res.json({ success: true, message: "বরাদ্দ চাহিদা সংরক্ষণ হয়েছে ✅" });
+    const msg = skippedLocked
+      ? `বরাদ্দ চাহিদা সংরক্ষণ হয়েছে ✅ (${skippedLocked}টি কোড ইতিমধ্যে বরাদ্দ পাওয়ায় পরিবর্তন করা যায়নি)`
+      : "বরাদ্দ চাহিদা সংরক্ষণ হয়েছে ✅";
+    res.json({ success: true, message: msg });
   } catch (err) {
     console.error("save demands error:", err.message);
     res.status(500).json({ success: false, error: err.message });

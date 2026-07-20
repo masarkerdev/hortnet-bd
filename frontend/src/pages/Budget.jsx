@@ -131,12 +131,17 @@ export default function Budget() {
                     </tr>
                   </thead>
                   <tbody>
-                    {group.items.map(d => (
-                      <tr key={d.leaf_code} style={{ borderTop: '1px solid #f5f7f5' }}>
+                    {group.items.map(d => {
+                      const isLocked = Number(d.allocated_amount) > 0;
+                      return (
+                      <tr key={d.leaf_code} style={{ borderTop: '1px solid #f5f7f5', background: isLocked ? '#f9fafb' : 'transparent' }}>
                         <td style={{ padding: '8px 12px', fontSize: 12, color: '#6b7280' }}>{d.leaf_code}</td>
-                        <td style={{ padding: '8px 12px', fontSize: 13 }}>{d.leaf_name}</td>
+                        <td style={{ padding: '8px 12px', fontSize: 13 }}>
+                          {d.leaf_name} {isLocked && <span title="বরাদ্দ প্রদত্ত, আর পরিবর্তনযোগ্য নয়" style={{ marginLeft: 4 }}>🔒</span>}
+                        </td>
                         <td style={{ padding: '8px 12px' }}>
-                          <input type="text" inputMode="numeric" style={inp}
+                          <input type="text" inputMode="numeric" style={{ ...inp, ...(isLocked ? { background: '#f0f0ee', color: '#9ca3af', cursor: 'not-allowed' } : {}) }}
+                            disabled={isLocked}
                             value={values[d.leaf_code]?.amount ?? 0}
                             onChange={e => {
                               const v = e.target.value.replace(/[^0-9]/g, '');
@@ -147,14 +152,15 @@ export default function Budget() {
                         <td style={{ padding: '8px 12px', fontSize: 13, color: '#2563eb', fontWeight: 600 }}>৳{fmtN(d.allocated_amount)}</td>
                         <td style={{ padding: '8px 12px', fontSize: 13, color: d.shortfall > 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>৳{fmtN(d.shortfall)}</td>
                         <td style={{ padding: '8px 12px' }}>
-                          <input type="text" style={{ ...inp, width: 140, textAlign: 'left' }}
+                          <input type="text" style={{ ...inp, width: 140, textAlign: 'left', ...(isLocked ? { background: '#f0f0ee', color: '#9ca3af', cursor: 'not-allowed' } : {}) }}
+                            disabled={isLocked}
                             value={values[d.leaf_code]?.remarks ?? ''}
                             onChange={e => setValues({ ...values, [d.leaf_code]: { ...values[d.leaf_code], remarks: e.target.value } })}
                             placeholder="মন্তব্য"
                           />
                         </td>
                       </tr>
-                    ))}
+                    );})}
                   </tbody>
                 </table>
               </div>
