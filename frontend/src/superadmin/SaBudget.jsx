@@ -23,8 +23,31 @@ export default function SaBudget() {
 
   const [periodModal, setPeriodModal] = useState(false);
   const [newPeriodName, setNewPeriodName] = useState('');
+  const [periodMessage, setPeriodMessage] = useState('');
   const [periodSaving, setPeriodSaving] = useState(false);
   const [periodMsg, setPeriodMsg] = useState('');
+
+  const [editPeriodModal, setEditPeriodModal] = useState(false);
+  const [editPeriodName, setEditPeriodName] = useState('');
+  const [editPeriodMsg, setEditPeriodMsg] = useState('');
+  const [editPeriodSaving, setEditPeriodSaving] = useState(false);
+
+  async function saveEditPeriod() {
+    if (!editPeriodName.trim() || !periodId) return;
+    setEditPeriodSaving(true); setEditPeriodMsg('');
+    try {
+      const r = await axios.put(`${apiBase()}/budget-admin/periods/${periodId}`, { name: editPeriodName.trim() }, { headers: authHeader() });
+      if (r.data?.success) {
+        setEditPeriodMsg('✓ আপডেট হয়েছে');
+        await loadPeriods();
+        setTimeout(() => { setEditPeriodModal(false); setEditPeriodMsg(''); }, 1000);
+      } else {
+        setEditPeriodMsg(r.data?.message || 'সমস্যা হয়েছে');
+      }
+    } catch (e) {
+      setEditPeriodMsg(e?.response?.data?.message || 'সমস্যা হয়েছে');
+    } finally { setEditPeriodSaving(false); }
+  }
 
   async function loadPeriods() {
     try {
@@ -58,10 +81,11 @@ export default function SaBudget() {
     if (!newPeriodName.trim()) return;
     setPeriodSaving(true); setPeriodMsg('');
     try {
-      const r = await axios.post(`${apiBase()}/budget-admin/periods`, { fiscal_year: fy, name: newPeriodName.trim() }, { headers: authHeader() });
+      const r = await axios.post(`${apiBase()}/budget-admin/periods`, { fiscal_year: fy, name: newPeriodName.trim(), message: periodMessage.trim() }, { headers: authHeader() });
       if (r.data?.success) {
         setPeriodMsg('✓ কিস্তি তৈরি হয়েছে');
         setNewPeriodName('');
+        setPeriodMessage('');
         await loadPeriods();
         setPeriodId(r.data.data.id);
         setTimeout(() => { setPeriodModal(false); setPeriodMsg(''); }, 1000);
@@ -106,7 +130,18 @@ export default function SaBudget() {
             {!periods.length && <option value="">কোনো কিস্তি নেই</option>}
             {periods.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <button onClick={()=>{ setPeriodModal(true); setNewPeriodName(''); setPeriodMsg(''); }}
+          {periodId && (
+            <button onClick={()=>{
+              const cur = periods.find(p=>p.id===periodId);
+              setEditPeriodName(cur?.name || '');
+              setEditPeriodMsg('');
+              setEditPeriodModal(true);
+            }}
+              style={{ padding:'8px 14px', borderRadius:8, border:`1px solid ${V.border}`, background:V.bg, cursor:'pointer', fontSize:13, fontFamily:FONT }}>
+              ✏️ নাম সংশোধন
+            </button>
+          )}
+          <button onClick={()=>{ setPeriodModal(true); setNewPeriodName(''); setPeriodMessage(''); setPeriodMsg(''); }}
             style={{ padding:'8px 14px', borderRadius:8, background:V.green, color:'#fff', border:'none', cursor:'pointer', fontSize:13, fontFamily:FONT, fontWeight:600 }}>
             + নতুন কিস্তি
           </button>
@@ -128,6 +163,25 @@ export default function SaBudget() {
         <BudgetContent data={data} expanded={expanded} setExpanded={setExpanded} setEditing={setEditing} setAllocValue={setAllocValue} />
       )}
 
+      {/* কিস্তির নাম সংশোধন Modal */}
+      {editPeriodModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+          <div style={{ background:V.card, borderRadius:14, padding:24, width:380 }}>
+            <div style={{ fontSize:15, fontWeight:700, marginBottom:16 }}>✏️ কিস্তির নাম সংশোধন করুন</div>
+            <input type="text" value={editPeriodName} onChange={e=>setEditPeriodName(e.target.value)}
+              style={{ width:'100%', padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:14, outline:'none', boxSizing:'border-box', marginBottom:12 }}
+            />
+            {editPeriodMsg && <div style={{ color: editPeriodMsg.startsWith('✓') ? V.green : V.red, fontSize:13, marginBottom:10 }}>{editPeriodMsg}</div>}
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+              <button onClick={()=>setEditPeriodModal(false)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${V.border}`, background:V.bg, cursor:'pointer', fontSize:13, fontFamily:FONT }}>বাতিল</button>
+              <button onClick={saveEditPeriod} disabled={editPeriodSaving} style={{ padding:'8px 16px', borderRadius:8, background:V.green, color:'#fff', border:'none', cursor:'pointer', fontSize:13, fontFamily:FONT, fontWeight:600 }}>
+                {editPeriodSaving ? 'সংরক্ষণ হচ্ছে...' : '✓ সংরক্ষণ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* নতুন কিস্তি তৈরি Modal */}
       {periodModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
@@ -137,6 +191,11 @@ export default function SaBudget() {
             <input type="text" value={newPeriodName} onChange={e=>setNewPeriodName(e.target.value)}
               placeholder="যেমন: জুলাই-সেপ্টেম্বর (১ম কিস্তি)"
               style={{ width:'100%', padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:14, outline:'none', boxSizing:'border-box', marginBottom:12 }}
+            />
+            <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>সেন্টারগুলোকে যে বার্তা পাঠাবেন (Notice হিসেবে দেখাবে)</label>
+            <textarea value={periodMessage} onChange={e=>setPeriodMessage(e.target.value)} rows={4}
+              placeholder="যেমন: এই কিস্তিতে শুধু পণ্য ও সেবা খাতের চাহিদা দিন। ২০ তারিখের মধ্যে জমা দিতে হবে।"
+              style={{ width:'100%', padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:13, outline:'none', boxSizing:'border-box', marginBottom:12, resize:'vertical' }}
             />
             {periodMsg && <div style={{ color: periodMsg.startsWith('✓') ? V.green : V.red, fontSize:13, marginBottom:10 }}>{periodMsg}</div>}
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>

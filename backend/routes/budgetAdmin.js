@@ -60,7 +60,7 @@ router.get("/periods", saAuth, async (req, res) => {
 
 // POST /api/budget-admin/periods — নতুন কিস্তি তৈরি (শুধু director)
 router.post("/periods", saAuth, directorOnly, async (req, res) => {
-  const { fiscal_year, name } = req.body;
+  const { fiscal_year, name, message } = req.body;
   if (!fiscal_year || !name || !name.trim()) {
     return res.status(400).json({ success: false, message: "অর্থবছর ও কিস্তির নাম দিন।" });
   }
@@ -71,14 +71,18 @@ router.post("/periods", saAuth, directorOnly, async (req, res) => {
       [fiscal_year, name.trim(), req.saUser.id]
     );
 
-    // Center App-এ notice হিসেবে জানিয়ে দিই — নতুন কিস্তির চাহিদা দেওয়ার জন্য
+    // Center App-এ notice হিসেবে জানিয়ে দিই — পরিচালকের লেখা বার্তা অনুযায়ী
     try {
+      const noticeContent =
+        message && message.trim()
+          ? message.trim()
+          : `"${name.trim()}" (অর্থবছর ${fiscal_year}-${fiscal_year + 1}) কিস্তির জন্য বরাদ্দ চাহিদাপত্র জমা দিন। বরাদ্দ চাহিদাপত্র পেজে গিয়ে কিস্তি নির্বাচন করে চাহিদা লিখুন।`;
       await masterDb.query(
         `INSERT INTO notices (title, content, priority, created_by)
          VALUES ($1,$2,$3,$4)`,
         [
-          "💰 নতুন বরাদ্দ চাহিদাপত্র কিস্তি খোলা হয়েছে",
-          `"${name.trim()}" (অর্থবছর ${fiscal_year}-${fiscal_year + 1}) কিস্তির জন্য বরাদ্দ চাহিদাপত্র জমা দিন। বরাদ্দ চাহিদাপত্র পেজে গিয়ে কিস্তি নির্বাচন করে চাহিদা লিখুন।`,
+          `💰 নতুন বরাদ্দ চাহিদাপত্র কিস্তি: ${name.trim()}`,
+          noticeContent,
           "high",
           req.saUser?.email || "director",
         ]
@@ -88,6 +92,26 @@ router.post("/periods", saAuth, directorOnly, async (req, res) => {
     }
 
     res.json({ success: true, data: r.rows[0], message: "নতুন কিস্তি তৈরি হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/budget-admin/periods/:id — কিস্তির নাম সংশোধন (শুধু director)
+router.put("/periods/:id", saAuth, directorOnly, async (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ success: false, message: "কিস্তির নাম দিন।" });
+  }
+  try {
+    const r = await masterDb.query(
+      "UPDATE budget_periods SET name=$1 WHERE id=$2 RETURNING *",
+      [name.trim(), req.params.id]
+    );
+    if (!r.rows.length) {
+      return res.status(404).json({ success: false, message: "কিস্তি পাওয়া যায়নি।" });
+    }
+    res.json({ success: true, data: r.rows[0], message: "কিস্তির নাম আপডেট হয়েছে ✅" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
