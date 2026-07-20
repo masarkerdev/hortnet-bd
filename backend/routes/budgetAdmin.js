@@ -70,6 +70,23 @@ router.post("/periods", saAuth, directorOnly, async (req, res) => {
       "INSERT INTO budget_periods (fiscal_year, name, created_by) VALUES ($1,$2,$3) RETURNING *",
       [fiscal_year, name.trim(), req.saUser.id]
     );
+
+    // Center App-এ notice হিসেবে জানিয়ে দিই — নতুন কিস্তির চাহিদা দেওয়ার জন্য
+    try {
+      await masterDb.query(
+        `INSERT INTO notices (title, content, priority, created_by)
+         VALUES ($1,$2,$3,$4)`,
+        [
+          "💰 নতুন বরাদ্দ চাহিদাপত্র কিস্তি খোলা হয়েছে",
+          `"${name.trim()}" (অর্থবছর ${fiscal_year}-${fiscal_year + 1}) কিস্তির জন্য বরাদ্দ চাহিদাপত্র জমা দিন। বরাদ্দ চাহিদাপত্র পেজে গিয়ে কিস্তি নির্বাচন করে চাহিদা লিখুন।`,
+          "high",
+          req.saUser?.email || "director",
+        ]
+      );
+    } catch (noticeErr) {
+      console.error("period-notice error:", noticeErr.message);
+    }
+
     res.json({ success: true, data: r.rows[0], message: "নতুন কিস্তি তৈরি হয়েছে ✅" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
