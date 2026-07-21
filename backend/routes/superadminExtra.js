@@ -946,9 +946,19 @@ router.get("/report/income-report", saAuth, async (req, res) => {
       const v = buckets[g.label];
       return { category: g.label, current_month: v.current, prev_months: v.prev, total: v.current + v.prev };
     });
-    Object.entries(incomeBuckets).forEach(([label, v]) => {
-      rows.push({ category: label, current_month: v.current, prev_months: v.prev, total: v.current + v.prev });
-    });
+    // অন্যান্য আয়-এর সব ভিন্ন entry একসাথে যোগ করে শুধু একটা row হিসেবে দেখাই
+    const incomeTotal = Object.values(incomeBuckets).reduce(
+      (acc, v) => ({ current: acc.current + v.current, prev: acc.prev + v.prev }),
+      { current: 0, prev: 0 }
+    );
+    if (incomeTotal.current > 0 || incomeTotal.prev > 0) {
+      rows.push({
+        category: "অন্যান্য আয়(সাধারণ আয়+কৃষি পণ্য+ডরমিটরি ভাড়া)",
+        current_month: incomeTotal.current,
+        prev_months: incomeTotal.prev,
+        total: incomeTotal.current + incomeTotal.prev,
+      });
+    }
 
     const totalCurrent = rows.reduce((s, r) => s + r.current_month, 0);
     const totalPrev = rows.reduce((s, r) => s + r.prev_months, 0);
