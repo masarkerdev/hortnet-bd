@@ -1597,7 +1597,7 @@ function IncomeReportTab() {
                         </tr>
                         <tr>
                           <th style={th}>মাসের নাম</th>
-                          <th style={th}>এ-চালান নং</th>
+                          <th style={th}>ট্রেজারি চালান নং</th>
                           <th style={th}>তারিখ</th>
                           <th style={th}>টাকার পরিমাণ</th>
                         </tr>

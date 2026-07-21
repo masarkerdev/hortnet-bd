@@ -638,7 +638,7 @@ function IncomeReportSection() {
                   </tr>
                   <tr>
                     <th style={th}>মাসের নাম</th>
-                    <th style={th}>এ-চালান নং</th>
+                    <th style={th}>ট্রেজারি চালান নং</th>
                     <th style={th}>তারিখ</th>
                     <th style={th}>টাকার পরিমাণ</th>
                   </tr>
@@ -766,7 +766,7 @@ function IncomeReportSection() {
             />
             <input
               type="text"
-              placeholder="এ-চালান নং"
+              placeholder="ট্রেজারি চালান নং"
               value={depositForm.challan_no}
               onChange={(e) =>
                 setDepositForm({ ...depositForm, challan_no: e.target.value })

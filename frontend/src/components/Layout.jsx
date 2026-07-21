@@ -875,6 +875,20 @@ export default function Layout() {
             navigate("/login", { replace: true });
           }}
         />
+        <div
+          style={{
+            position: "fixed",
+            bottom: 6,
+            right: 10,
+            fontSize: 10,
+            color: "var(--tm)",
+            opacity: 0.55,
+            zIndex: 10,
+            pointerEvents: "none",
+          }}
+        >
+          © ২০২৬ | dev by Mahfuj Ahmed Sarker | ৩৮তম BCS
+        </div>
       </div>
     </div>
   );
