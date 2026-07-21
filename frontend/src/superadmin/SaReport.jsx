@@ -299,9 +299,12 @@ function StockReport() {
                   background: V.card2,
                 }}
               >
-                ↔ প্রথম ৩টি কলাম (ক্যাটাগরি/নাম/জাত) স্থির থাকবে, সেন্টার কলামগুলো স্ক্রল করুন
+                ↔ প্রথম ৩টি কলাম (ক্যাটাগরি/নাম/জাত) স্থির থাকবে, সেন্টার
+                কলামগুলো স্ক্রল করুন
               </div>
-              <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <div
+                style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}
+              >
                 <table
                   style={{
                     width: "100%",
@@ -669,44 +672,109 @@ function RevenueTrendReport() {
   const [expandedSlug, setExpandedSlug] = useState(null);
 
   useEffect(() => {
-    saApi.get('/report/yearly-revenue').then(r => {
-      if (r.data?.success) { setData(r.data.data || []); setCenters(r.data.centers || []); }
-    }).catch(() => {}).finally(() => setLoading(false));
+    saApi
+      .get("/report/yearly-revenue")
+      .then((r) => {
+        if (r.data?.success) {
+          setData(r.data.data || []);
+          setCenters(r.data.centers || []);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: 40, color: V.muted }}>লোড হচ্ছে...</div>;
-  if (!data.length) return <div style={{ padding: 20, color: V.muted }}>কোনো তথ্য পাওয়া যায়নি।</div>;
+  if (loading)
+    return (
+      <div style={{ textAlign: "center", padding: 40, color: V.muted }}>
+        লোড হচ্ছে...
+      </div>
+    );
+  if (!data.length)
+    return (
+      <div style={{ padding: 20, color: V.muted }}>
+        কোনো তথ্য পাওয়া যায়নি।
+      </div>
+    );
 
   const fmtMoney = (n) => {
-    if (n >= 100000) return toBn((n / 100000).toFixed(2)) + 'ল';
-    if (n >= 1000) return toBn((n / 1000).toFixed(1)) + 'হা';
+    if (n >= 100000) return toBn((n / 100000).toFixed(2)) + "ল";
+    if (n >= 1000) return toBn((n / 1000).toFixed(1)) + "হা";
     return toBn(n);
   };
 
   function BarChartSVG({ chartData, small }) {
     const maxVal = Math.max(...chartData.map((d) => d.total), 1);
-    const W = 700, H = small ? 220 : 320, PAD_TOP = 30, PAD_BOTTOM = small ? 45 : 65, PAD_SIDE = 50;
+    const W = 700,
+      H = small ? 220 : 320,
+      PAD_TOP = 30,
+      PAD_BOTTOM = small ? 45 : 65,
+      PAD_SIDE = 50;
     const chartH = H - PAD_TOP - PAD_BOTTOM;
     const barGap = 30;
-    const barWidth = (W - PAD_SIDE * 2 - barGap * (chartData.length - 1)) / chartData.length;
+    const barWidth =
+      (W - PAD_SIDE * 2 - barGap * (chartData.length - 1)) / chartData.length;
     const points = chartData.map((d, i) => {
       const barH = maxVal > 0 ? (d.total / maxVal) * chartH : 0;
       const x = PAD_SIDE + i * (barWidth + barGap) + barWidth / 2;
       const y = H - PAD_BOTTOM - barH;
       return { x, y, barH, ...d };
     });
-    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    const linePath = points
+      .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+      .join(" ");
 
     return (
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', maxHeight: small ? 240 : 340 }}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: "100%", height: "auto", maxHeight: small ? 240 : 340 }}
+      >
         {[0, 0.33, 0.66, 1].map((f, i) => (
-          <line key={i} x1={PAD_SIDE} y1={H - PAD_BOTTOM - f * chartH} x2={W - PAD_SIDE} y2={H - PAD_BOTTOM - f * chartH} stroke={V.border} strokeWidth="1" />
+          <line
+            key={i}
+            x1={PAD_SIDE}
+            y1={H - PAD_BOTTOM - f * chartH}
+            x2={W - PAD_SIDE}
+            y2={H - PAD_BOTTOM - f * chartH}
+            stroke={V.border}
+            strokeWidth="1"
+          />
         ))}
         {points.map((p, i) => (
           <g key={i}>
-            <rect x={p.x - barWidth / 2} y={p.y} width={barWidth} height={p.barH} rx="8" fill={p.is_manual ? '#c8d8cc' : (i === points.length - 1 ? V.green : '#7fb896')} />
-            <text x={p.x} y={p.y - 12} textAnchor="middle" fontSize={small ? 12 : 15} fontWeight="700" fill={V.green}>৳{fmtMoney(p.total)}</text>
-            <text x={p.x} y={H - PAD_BOTTOM + 20} textAnchor="middle" fontSize={small ? 11 : 13} fill={V.muted}>{toBn(p.fy || p.fy_year)}</text>
+            <rect
+              x={p.x - barWidth / 2}
+              y={p.y}
+              width={barWidth}
+              height={p.barH}
+              rx="8"
+              fill={
+                p.is_manual
+                  ? "#c8d8cc"
+                  : i === points.length - 1
+                    ? V.green
+                    : "#7fb896"
+              }
+            />
+            <text
+              x={p.x}
+              y={p.y - 12}
+              textAnchor="middle"
+              fontSize={small ? 12 : 15}
+              fontWeight="700"
+              fill={V.green}
+            >
+              ৳{fmtMoney(p.total)}
+            </text>
+            <text
+              x={p.x}
+              y={H - PAD_BOTTOM + 20}
+              textAnchor="middle"
+              fontSize={small ? 11 : 13}
+              fill={V.muted}
+            >
+              {toBn(p.fy || p.fy_year)}
+            </text>
           </g>
         ))}
         <path d={linePath} fill="none" stroke={V.green} strokeWidth="2" />
@@ -718,46 +786,141 @@ function RevenueTrendReport() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ background: V.card, border: `1px solid ${V.border}`, borderRadius: 14, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>📈 অর্থবছর অনুযায়ী সব সেন্টারের মোট রাজস্ব (গত ৪ বছর)</div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div
+        style={{
+          background: V.card,
+          border: `1px solid ${V.border}`,
+          borderRadius: 14,
+          padding: 24,
+        }}
+      >
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
+          📈 অর্থবছর অনুযায়ী সব সেন্টারের মোট রাজস্ব (গত ৪ বছর)
+        </div>
         <BarChartSVG chartData={data} />
       </div>
 
-      <div style={{ background: V.card, border: `1px solid ${V.border}`, borderRadius: 14, overflow: 'hidden' }}>
-        <div style={{ padding: '14px 18px', fontSize: 14, fontWeight: 700, background: V.card2, borderBottom: `1px solid ${V.border}` }}>
+      <div
+        style={{
+          background: V.card,
+          border: `1px solid ${V.border}`,
+          borderRadius: 14,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            padding: "14px 18px",
+            fontSize: 14,
+            fontWeight: 700,
+            background: V.card2,
+            borderBottom: `1px solid ${V.border}`,
+          }}
+        >
           🏢 সেন্টার-ভিত্তিক বিস্তারিত (ক্লিক করে গ্রাফ দেখুন)
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 12, color: V.muted, fontWeight: 600, background: V.card2, borderBottom: `1px solid ${V.border}` }}>সেন্টার</th>
+                <th
+                  style={{
+                    padding: "10px 16px",
+                    textAlign: "left",
+                    fontSize: 12,
+                    color: V.muted,
+                    fontWeight: 600,
+                    background: V.card2,
+                    borderBottom: `1px solid ${V.border}`,
+                  }}
+                >
+                  সেন্টার
+                </th>
                 {data.map((d) => (
-                  <th key={d.fy_year} style={{ padding: '10px 12px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600, background: V.card2, borderBottom: `1px solid ${V.border}`, whiteSpace: 'nowrap' }}>{toBn(d.fy)}</th>
+                  <th
+                    key={d.fy_year}
+                    style={{
+                      padding: "10px 12px",
+                      textAlign: "right",
+                      fontSize: 12,
+                      color: V.muted,
+                      fontWeight: 600,
+                      background: V.card2,
+                      borderBottom: `1px solid ${V.border}`,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {toBn(d.fy)}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {centers.map((c) => (
                 <>
-                  <tr key={c.slug}
-                    onClick={() => setExpandedSlug(expandedSlug === c.slug ? null : c.slug)}
-                    style={{ cursor: 'pointer' }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = V.green3}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  <tr
+                    key={c.slug}
+                    onClick={() =>
+                      setExpandedSlug(expandedSlug === c.slug ? null : c.slug)
+                    }
+                    style={{ cursor: "pointer" }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = V.green3)
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
                   >
-                    <td style={{ padding: '10px 16px', fontSize: 13, borderBottom: `1px solid ${V.border}`, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 11, color: V.muted, transform: expandedSlug === c.slug ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: '.15s' }}>▶</span>
+                    <td
+                      style={{
+                        padding: "10px 16px",
+                        fontSize: 13,
+                        borderBottom: `1px solid ${V.border}`,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: V.muted,
+                          transform:
+                            expandedSlug === c.slug ? "rotate(90deg)" : "none",
+                          display: "inline-block",
+                          transition: ".15s",
+                        }}
+                      >
+                        ▶
+                      </span>
                       {c.name}
                     </td>
                     {c.years.map((y) => (
-                      <td key={y.fy_year} style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13, borderBottom: `1px solid ${V.border}`, fontWeight: 600 }}>৳{fmtMoney(y.total)}</td>
+                      <td
+                        key={y.fy_year}
+                        style={{
+                          padding: "10px 12px",
+                          textAlign: "right",
+                          fontSize: 13,
+                          borderBottom: `1px solid ${V.border}`,
+                          fontWeight: 600,
+                        }}
+                      >
+                        ৳{fmtMoney(y.total)}
+                      </td>
                     ))}
                   </tr>
                   {expandedSlug === c.slug && (
                     <tr>
-                      <td colSpan={data.length + 1} style={{ padding: 20, background: V.bg, borderBottom: `1px solid ${V.border}` }}>
+                      <td
+                        colSpan={data.length + 1}
+                        style={{
+                          padding: 20,
+                          background: V.bg,
+                          borderBottom: `1px solid ${V.border}`,
+                        }}
+                      >
                         <BarChartSVG chartData={c.years} small />
                       </td>
                     </tr>
@@ -774,7 +937,11 @@ function RevenueTrendReport() {
 
 // ── অর্থ প্রাপ্তি (Consolidated + center-wise) ──
 function IncomeReportTab() {
-  const [fy, setFy] = useState(new Date().getMonth() >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1);
+  const [fy, setFy] = useState(
+    new Date().getMonth() >= 6
+      ? new Date().getFullYear()
+      : new Date().getFullYear() - 1,
+  );
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -783,65 +950,196 @@ function IncomeReportTab() {
   const [centerReport, setCenterReport] = useState(null);
   const [centerLoading, setCenterLoading] = useState(false);
 
-  const MONTHS = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  const MONTHS = [
+    "জানুয়ারি",
+    "ফেব্রুয়ারি",
+    "মার্চ",
+    "এপ্রিল",
+    "মে",
+    "জুন",
+    "জুলাই",
+    "আগস্ট",
+    "সেপ্টেম্বর",
+    "অক্টোবর",
+    "নভেম্বর",
+    "ডিসেম্বর",
+  ];
   const fmtMoney = (n) => fmtN(n || 0);
   const fmtT = (n) => `${fmtMoney(n)}/-`;
 
   useEffect(() => {
     setLoading(true);
-    saApi.get(`/report/income-report?fy=${fy}&month=${month}`).then(r => {
-      if (r.data?.success) setData(r.data);
-    }).catch(() => {}).finally(() => setLoading(false));
+    saApi
+      .get(`/report/income-report?fy=${fy}&month=${month}`)
+      .then((r) => {
+        if (r.data?.success) setData(r.data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [fy, month]);
 
   function openCenterReport(slug) {
     setCenterModal(slug);
     setCenterLoading(true);
-    saApi.get(`/report/income-report-center/${slug}?fy=${fy}&month=${month}`).then(r => {
-      if (r.data?.success) setCenterReport(r.data);
-    }).catch(() => {}).finally(() => setCenterLoading(false));
+    saApi
+      .get(`/report/income-report-center/${slug}?fy=${fy}&month=${month}`)
+      .then((r) => {
+        if (r.data?.success) setCenterReport(r.data);
+      })
+      .catch(() => {})
+      .finally(() => setCenterLoading(false));
   }
 
-  const selStyle = { padding: '8px 12px', border: `1px solid ${V.border}`, borderRadius: 8, fontSize: 13, fontFamily: FONT, outline: 'none', background: V.card };
-  const th = { border: '1px solid #333', padding: '4px 5px', textAlign: 'center', verticalAlign: 'middle', background: '#eaf3ea', fontWeight: 600, fontSize: 10.5, color: '#1a1a1a' };
-  const td = { border: '1px solid #333', padding: '4px 5px', textAlign: 'center', verticalAlign: 'middle', fontSize: 10.5, color: '#1a1a1a' };
-  const tdLeft = { ...td, textAlign: 'left' };
-  const tdNum = { ...td, textAlign: 'right' };
+  const selStyle = {
+    padding: "8px 12px",
+    border: `1px solid ${V.border}`,
+    borderRadius: 8,
+    fontSize: 13,
+    fontFamily: FONT,
+    outline: "none",
+    background: V.card,
+  };
+  const th = {
+    border: "1px solid #333",
+    padding: "4px 5px",
+    textAlign: "center",
+    verticalAlign: "middle",
+    background: "#eaf3ea",
+    fontWeight: 600,
+    fontSize: 10.5,
+    color: "#1a1a1a",
+  };
+  const td = {
+    border: "1px solid #333",
+    padding: "4px 5px",
+    textAlign: "center",
+    verticalAlign: "middle",
+    fontSize: 10.5,
+    color: "#1a1a1a",
+  };
+  const tdLeft = { ...td, textAlign: "left" };
+  const tdNum = { ...td, textAlign: "right" };
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16 }}>
-        <select value={fy} onChange={e => setFy(Number(e.target.value))} style={selStyle}>
-          {[fy, fy - 1, fy - 2].map(y => <option key={y} value={y}>FY {toBn(y)}-{toBn(y + 1)}</option>)}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          marginBottom: 16,
+        }}
+      >
+        <select
+          value={fy}
+          onChange={(e) => setFy(Number(e.target.value))}
+          style={selStyle}
+        >
+          {[fy, fy - 1, fy - 2].map((y) => (
+            <option key={y} value={y}>
+              FY {toBn(y)}-{toBn(y + 1)}
+            </option>
+          ))}
         </select>
-        <select value={month} onChange={e => setMonth(Number(e.target.value))} style={selStyle}>
-          {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+        <select
+          value={month}
+          onChange={(e) => setMonth(Number(e.target.value))}
+          style={selStyle}
+        >
+          {MONTHS.map((m, i) => (
+            <option key={i} value={i + 1}>
+              {m}
+            </option>
+          ))}
         </select>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40, color: V.muted }}>লোড হচ্ছে...</div>
+        <div style={{ textAlign: "center", padding: 40, color: V.muted }}>
+          লোড হচ্ছে...
+        </div>
       ) : (
         <>
-          <div style={{ background: V.card, border: `1px solid ${V.border}`, borderRadius: 14, padding: 20, marginBottom: 16, fontFamily: "'Noto Sans Bengali', sans-serif" }}>
-            <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 700, textDecoration: 'underline', margin: '4px 0 14px', color: '#1a1a1a' }}>
+          <div
+            style={{
+              background: V.card,
+              border: `1px solid ${V.border}`,
+              borderRadius: 14,
+              padding: 20,
+              marginBottom: 16,
+              fontFamily: "'Noto Sans Bengali', sans-serif",
+            }}
+          >
+            <div
+              style={{
+                textAlign: "center",
+                fontSize: 17,
+                fontWeight: 700,
+                textDecoration: "underline",
+                margin: "4px 0 14px",
+                color: "#1a1a1a",
+              }}
+            >
               অর্থ প্রাপ্তি সংক্রান্ত প্রতিবেদন (সব সেন্টার একসাথে)
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: 12, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #ccc', color: '#1a1a1a' }}>
-              <span>পরিধি ঃ <b>সব সেন্টার (Consolidated)</b></span>
-              <span>অর্থবছর ঃ <b>{toBn(fy)}-{toBn((fy + 1).toString().slice(-2))}</b></span>
-              <span>মাসের নাম ঃ <b>{MONTHS[month - 1]}/{toBn(fy.toString().slice(-2))}</b></span>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 8,
+                fontSize: 12,
+                marginBottom: 12,
+                paddingBottom: 8,
+                borderBottom: "1px solid #ccc",
+                color: "#1a1a1a",
+              }}
+            >
+              <span>
+                পরিধিঃ <b>সব সেন্টার (Consolidated)</b>
+              </span>
+              <span>
+                অর্থবছরঃ{" "}
+                <b>
+                  {toBn(fy)}-{toBn((fy + 1).toString().slice(-2))}
+                </b>
+              </span>
+              <span>
+                মাসের নামঃ{" "}
+                <b>
+                  {MONTHS[month - 1]}/{toBn(fy.toString().slice(-2))}
+                </b>
+              </span>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ borderCollapse: "collapse", width: "100%" }}>
                 <thead>
                   <tr>
-                    <th style={{ ...th, minWidth: 26 }} rowSpan={2}>ক্রঃ<br />নং</th>
-                    <th style={{ ...th, minWidth: 160, textAlign: 'left' }} rowSpan={2}>বিবরণ</th>
-                    <th style={th} colSpan={3}>নগদ প্রাপ্তি</th>
-                    <th style={th} colSpan={3}>মজুদ হস্তান্তর (ডিএই চালান)</th>
-                    <th style={th} rowSpan={2}>সর্বমোট<br />প্রাপ্তি<br />(৫+৮)</th>
+                    <th style={{ ...th, minWidth: 26 }} rowSpan={2}>
+                      ক্রঃ
+                      <br />
+                      নং
+                    </th>
+                    <th
+                      style={{ ...th, minWidth: 160, textAlign: "left" }}
+                      rowSpan={2}
+                    >
+                      বিবরণ
+                    </th>
+                    <th style={th} colSpan={3}>
+                      নগদ প্রাপ্তি
+                    </th>
+                    <th style={th} colSpan={3}>
+                      মজুদ হস্তান্তর (ডিএই চালান)
+                    </th>
+                    <th style={th} rowSpan={2}>
+                      সর্বমোট
+                      <br />
+                      প্রাপ্তি
+                      <br />
+                      (৫+৮)
+                    </th>
                   </tr>
                   <tr>
                     <th style={th}>চলতি মাস</th>
@@ -852,7 +1150,11 @@ function IncomeReportTab() {
                     <th style={th}>মোট (৬+৭)</th>
                   </tr>
                   <tr>
-                    {['১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'].map(n => <th key={n} style={th}>{n}</th>)}
+                    {["১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"].map((n) => (
+                      <th key={n} style={th}>
+                        {n}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -870,10 +1172,19 @@ function IncomeReportTab() {
                     </tr>
                   ))}
                   {!data?.rows?.length && (
-                    <tr><td colSpan={9} style={{ ...td, color: V.muted, padding: 16 }}>এই মাসে কোনো বিক্রয় নেই</td></tr>
+                    <tr>
+                      <td
+                        colSpan={9}
+                        style={{ ...td, color: V.muted, padding: 16 }}
+                      >
+                        এই মাসে কোনো বিক্রয় নেই
+                      </td>
+                    </tr>
                   )}
-                  <tr style={{ background: '#f7f7ee', fontWeight: 700 }}>
-                    <td style={td} colSpan={2}>মোট</td>
+                  <tr style={{ background: "#f7f7ee", fontWeight: 700 }}>
+                    <td style={td} colSpan={2}>
+                      মোট
+                    </td>
                     <td style={tdNum}>{fmtT(data?.total_current)}</td>
                     <td style={tdNum}>{fmtT(data?.total_prev)}</td>
                     <td style={tdNum}>{fmtT(data?.total)}</td>
@@ -882,8 +1193,10 @@ function IncomeReportTab() {
                     <td style={tdNum}>-</td>
                     <td style={tdNum}>{fmtT(data?.total)}</td>
                   </tr>
-                  <tr style={{ background: '#eaf3ea', fontWeight: 700 }}>
-                    <td style={td} colSpan={2}>সর্বমোট</td>
+                  <tr style={{ background: "#eaf3ea", fontWeight: 700 }}>
+                    <td style={td} colSpan={2}>
+                      সর্বমোট
+                    </td>
                     <td style={tdNum}>{fmtT(data?.total_current)}</td>
                     <td style={tdNum}>{fmtT(data?.total_prev)}</td>
                     <td style={tdNum}>{fmtT(data?.total)}</td>
@@ -895,38 +1208,158 @@ function IncomeReportTab() {
             </div>
           </div>
 
-          <div style={{ background: V.card, border: `1px solid ${V.border}`, borderRadius: 14, overflow: 'hidden' }}>
-            <div onClick={() => setShowCenters(!showCenters)}
-              style={{ padding: '12px 16px', background: V.card2, fontSize: 14, fontWeight: 600, borderBottom: showCenters ? `1px solid ${V.border}` : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, transform: showCenters ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: '.15s' }}>▶</span>
+          <div
+            style={{
+              background: V.card,
+              border: `1px solid ${V.border}`,
+              borderRadius: 14,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              onClick={() => setShowCenters(!showCenters)}
+              style={{
+                padding: "12px 16px",
+                background: V.card2,
+                fontSize: 14,
+                fontWeight: 600,
+                borderBottom: showCenters ? `1px solid ${V.border}` : "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  transform: showCenters ? "rotate(90deg)" : "none",
+                  display: "inline-block",
+                  transition: ".15s",
+                }}
+              >
+                ▶
+              </span>
               🏢 সেন্টার-ভিত্তিক বিস্তারিত (ক্লিক করে বিস্তারিত রিপোর্ট দেখুন)
             </div>
             {showCenters && (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    <th style={{ padding: '8px 14px', textAlign: 'left', fontSize: 12, color: V.muted, fontWeight: 600 }}>সেন্টার</th>
-                    <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>চলতি মাস</th>
-                    <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>পূর্বমাস পর্যন্ত</th>
-                    <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>মোট</th>
+                    <th
+                      style={{
+                        padding: "8px 14px",
+                        textAlign: "left",
+                        fontSize: 12,
+                        color: V.muted,
+                        fontWeight: 600,
+                      }}
+                    >
+                      সেন্টার
+                    </th>
+                    <th
+                      style={{
+                        padding: "8px 14px",
+                        textAlign: "right",
+                        fontSize: 12,
+                        color: V.muted,
+                        fontWeight: 600,
+                      }}
+                    >
+                      চলতি মাস
+                    </th>
+                    <th
+                      style={{
+                        padding: "8px 14px",
+                        textAlign: "right",
+                        fontSize: 12,
+                        color: V.muted,
+                        fontWeight: 600,
+                      }}
+                    >
+                      পূর্বমাস পর্যন্ত
+                    </th>
+                    <th
+                      style={{
+                        padding: "8px 14px",
+                        textAlign: "right",
+                        fontSize: 12,
+                        color: V.muted,
+                        fontWeight: 600,
+                      }}
+                    >
+                      মোট
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {data?.centers?.map((c) => (
-                    <tr key={c.slug}
+                    <tr
+                      key={c.slug}
                       onClick={() => openCenterReport(c.slug)}
-                      style={{ borderTop: `1px solid ${V.border}`, cursor: 'pointer' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = V.green3}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      style={{
+                        borderTop: `1px solid ${V.border}`,
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = V.green3)
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "transparent")
+                      }
                     >
-                      <td style={{ padding: '8px 14px', fontSize: 13, color: V.green }}>{c.name} →</td>
-                      <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(c.current_total)}</td>
-                      <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(c.prev_total)}</td>
-                      <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13, fontWeight: 600 }}>৳{fmtMoney(c.total)}</td>
+                      <td
+                        style={{
+                          padding: "8px 14px",
+                          fontSize: 13,
+                          color: V.green,
+                        }}
+                      >
+                        {c.name} →
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 14px",
+                          textAlign: "right",
+                          fontSize: 13,
+                        }}
+                      >
+                        ৳{fmtMoney(c.current_total)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 14px",
+                          textAlign: "right",
+                          fontSize: 13,
+                        }}
+                      >
+                        ৳{fmtMoney(c.prev_total)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px 14px",
+                          textAlign: "right",
+                          fontSize: 13,
+                          fontWeight: 600,
+                        }}
+                      >
+                        ৳{fmtMoney(c.total)}
+                      </td>
                     </tr>
                   ))}
                   {!data?.centers?.length && (
-                    <tr><td colSpan={4} style={{ padding: 20, textAlign: 'center', color: V.muted }}>কোনো তথ্য নেই</td></tr>
+                    <tr>
+                      <td
+                        colSpan={4}
+                        style={{
+                          padding: 20,
+                          textAlign: "center",
+                          color: V.muted,
+                        }}
+                      >
+                        কোনো তথ্য নেই
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -936,36 +1369,150 @@ function IncomeReportTab() {
       )}
 
       {centerModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}
-          onClick={() => setCenterModal(null)}>
-          <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 950, maxHeight: '90vh', overflowY: 'auto' }}
-            onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-              <button onClick={() => setCenterModal(null)} style={{ border: 'none', background: 'transparent', fontSize: 20, cursor: 'pointer', color: '#6b7280' }}>✕</button>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+          onClick={() => setCenterModal(null)}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 14,
+              padding: 24,
+              width: "100%",
+              maxWidth: 950,
+              maxHeight: "90vh",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginBottom: 8,
+              }}
+            >
+              <button
+                onClick={() => setCenterModal(null)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  fontSize: 20,
+                  cursor: "pointer",
+                  color: "#6b7280",
+                }}
+              >
+                ✕
+              </button>
             </div>
             {centerLoading ? (
-              <div style={{ textAlign: 'center', padding: 40, color: '#6b7280' }}>লোড হচ্ছে...</div>
+              <div
+                style={{ textAlign: "center", padding: 40, color: "#6b7280" }}
+              >
+                লোড হচ্ছে...
+              </div>
             ) : centerReport ? (
-              <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif", color: '#1a1a1a' }}>
-                <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 700, textDecoration: 'underline', margin: '4px 0 14px' }}>
+              <div
+                style={{
+                  fontFamily: "'Noto Sans Bengali', sans-serif",
+                  color: "#1a1a1a",
+                }}
+              >
+                <div
+                  style={{
+                    textAlign: "center",
+                    fontSize: 17,
+                    fontWeight: 700,
+                    textDecoration: "underline",
+                    margin: "4px 0 14px",
+                  }}
+                >
                   অর্থ প্রাপ্তি সংক্রান্ত প্রতিবেদন
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: 12, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #ccc' }}>
-                  <span>সেন্টারের নাম ঃ <b>{centerReport.center_name}</b></span>
-                  <span>অর্থবছর ঃ <b>{toBn(centerReport.fy)}-{toBn((centerReport.fy + 1).toString().slice(-2))}</b></span>
-                  <span>মাসের নাম ঃ <b>{MONTHS[centerReport.month - 1]}/{toBn(centerReport.fy.toString().slice(-2))}</b></span>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    fontSize: 12,
+                    marginBottom: 12,
+                    paddingBottom: 8,
+                    borderBottom: "1px solid #ccc",
+                  }}
+                >
+                  <span>
+                    সেন্টারের নামঃ <b>{centerReport.center_name}</b>
+                  </span>
+                  <span>
+                    অর্থবছরঃ{" "}
+                    <b>
+                      {toBn(centerReport.fy)}-
+                      {toBn((centerReport.fy + 1).toString().slice(-2))}
+                    </b>
+                  </span>
+                  <span>
+                    মাসের নামঃ{" "}
+                    <b>
+                      {MONTHS[centerReport.month - 1]}/
+                      {toBn(centerReport.fy.toString().slice(-2))}
+                    </b>
+                  </span>
                 </div>
 
-                <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                  <div style={{ flex: '0 0 62%', minWidth: 460, overflowX: 'auto' }}>
-                    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 0,
+                    alignItems: "flex-start",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div
+                    style={{
+                      flex: "0 0 62%",
+                      minWidth: 460,
+                      overflowX: "auto",
+                    }}
+                  >
+                    <table
+                      style={{ borderCollapse: "collapse", width: "100%" }}
+                    >
                       <thead>
                         <tr>
-                          <th style={{ ...th, minWidth: 26 }} rowSpan={2}>ক্রঃ<br />নং</th>
-                          <th style={{ ...th, minWidth: 130, textAlign: 'left' }} rowSpan={2}>বিবরণ</th>
-                          <th style={th} colSpan={3}>নগদ প্রাপ্তি</th>
-                          <th style={th} colSpan={3}>মজুদ হস্তান্তর (ডিএই চালান)</th>
-                          <th style={th} rowSpan={2}>সর্বমোট<br />প্রাপ্তি<br />(৫+৮)</th>
+                          <th style={{ ...th, minWidth: 26 }} rowSpan={2}>
+                            ক্রঃ
+                            <br />
+                            নং
+                          </th>
+                          <th
+                            style={{ ...th, minWidth: 130, textAlign: "left" }}
+                            rowSpan={2}
+                          >
+                            বিবরণ
+                          </th>
+                          <th style={th} colSpan={3}>
+                            নগদ প্রাপ্তি
+                          </th>
+                          <th style={th} colSpan={3}>
+                            মজুদ হস্তান্তর (ডিএই চালান)
+                          </th>
+                          <th style={th} rowSpan={2}>
+                            সর্বমোট
+                            <br />
+                            প্রাপ্তি
+                            <br />
+                            (৫+৮)
+                          </th>
                         </tr>
                         <tr>
                           <th style={th}>চলতি মাস</th>
@@ -976,7 +1523,13 @@ function IncomeReportTab() {
                           <th style={th}>মোট (৬+৭)</th>
                         </tr>
                         <tr>
-                          {['১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'].map(n => <th key={n} style={th}>{n}</th>)}
+                          {["১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"].map(
+                            (n) => (
+                              <th key={n} style={th}>
+                                {n}
+                              </th>
+                            ),
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -993,9 +1546,13 @@ function IncomeReportTab() {
                             <td style={tdNum}>{fmtT(r.grand_total)}</td>
                           </tr>
                         ))}
-                        <tr style={{ background: '#f7f7ee', fontWeight: 700 }}>
-                          <td style={td} colSpan={2}>মোট</td>
-                          <td style={tdNum}>{fmtT(centerReport.total_current)}</td>
+                        <tr style={{ background: "#f7f7ee", fontWeight: 700 }}>
+                          <td style={td} colSpan={2}>
+                            মোট
+                          </td>
+                          <td style={tdNum}>
+                            {fmtT(centerReport.total_current)}
+                          </td>
                           <td style={tdNum}>{fmtT(centerReport.total_prev)}</td>
                           <td style={tdNum}>{fmtT(centerReport.total)}</td>
                           <td style={tdNum}>-</td>
@@ -1003,9 +1560,13 @@ function IncomeReportTab() {
                           <td style={tdNum}>-</td>
                           <td style={tdNum}>{fmtT(centerReport.total)}</td>
                         </tr>
-                        <tr style={{ background: '#eaf3ea', fontWeight: 700 }}>
-                          <td style={td} colSpan={2}>সর্বমোট</td>
-                          <td style={tdNum}>{fmtT(centerReport.total_current)}</td>
+                        <tr style={{ background: "#eaf3ea", fontWeight: 700 }}>
+                          <td style={td} colSpan={2}>
+                            সর্বমোট
+                          </td>
+                          <td style={tdNum}>
+                            {fmtT(centerReport.total_current)}
+                          </td>
                           <td style={tdNum}>{fmtT(centerReport.total_prev)}</td>
                           <td style={tdNum}>{fmtT(centerReport.total)}</td>
                           <td style={td} colSpan={3}></td>
@@ -1015,45 +1576,104 @@ function IncomeReportTab() {
                     </table>
                   </div>
 
-                  <div style={{ flex: '1 1 280px', minWidth: 260, overflowX: 'auto' }}>
-                    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                  <div
+                    style={{
+                      flex: "1 1 280px",
+                      minWidth: 260,
+                      overflowX: "auto",
+                    }}
+                  >
+                    <table
+                      style={{ borderCollapse: "collapse", width: "100%" }}
+                    >
                       <thead>
                         <tr>
-                          <th style={th} colSpan={4}>টাকা জমা দেওয়ার বিবরণ</th>
-                          <th style={{ ...th, width: 34 }} rowSpan={2}>মন্তব‍্য</th>
+                          <th style={th} colSpan={4}>
+                            টাকা জমা দেওয়ার বিবরণ
+                          </th>
+                          <th style={{ ...th, width: 34 }} rowSpan={2}>
+                            মন্তব‍্য
+                          </th>
                         </tr>
                         <tr>
-                          <th style={th}>মাসের নাম</th><th style={th}>এ-চালান নং</th><th style={th}>তারিখ</th><th style={th}>টাকার পরিমাণ</th>
+                          <th style={th}>মাসের নাম</th>
+                          <th style={th}>এ-চালান নং</th>
+                          <th style={th}>তারিখ</th>
+                          <th style={th}>টাকার পরিমাণ</th>
                         </tr>
                         <tr>
-                          {['১০', '১১', '১২', '১৩', '১৪'].map(n => <th key={n} style={th}>{n}</th>)}
+                          {["১০", "১১", "১২", "১৩", "১৪"].map((n) => (
+                            <th key={n} style={th}>
+                              {n}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
                         {centerReport.deposits?.map((d) => (
                           <tr key={d.id}>
                             <td style={td}>{d.month_label}</td>
-                            <td style={td}>{d.challan_no || '-'}</td>
-                            <td style={td}>{new Date(d.deposit_date).toLocaleDateString('bn-BD')}</td>
+                            <td style={td}>{d.challan_no || "-"}</td>
+                            <td style={td}>
+                              {new Date(d.deposit_date).toLocaleDateString(
+                                "bn-BD",
+                              )}
+                            </td>
                             <td style={tdNum}>{fmtT(d.amount)}</td>
                             <td style={td}></td>
                           </tr>
                         ))}
                         {!centerReport.deposits?.length && (
-                          <tr><td colSpan={5} style={{ ...td, color: '#6b7280', padding: 14 }}>কোনো জমা এন্ট্রি নেই</td></tr>
+                          <tr>
+                            <td
+                              colSpan={5}
+                              style={{ ...td, color: "#6b7280", padding: 14 }}
+                            >
+                              কোনো জমা এন্ট্রি নেই
+                            </td>
+                          </tr>
                         )}
                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                <div style={{ marginTop: 24, fontSize: 11, display: 'flex', justifyContent: 'space-between' }}>
-                  <div style={{ textAlign: 'center', paddingTop: 30, borderTop: '1px solid #333', width: 160 }}>প্রস্তুতকারীর স্বাক্ষর</div>
-                  <div style={{ textAlign: 'center', paddingTop: 30, borderTop: '1px solid #333', width: 160 }}>কেন্দ্র ব্যবস্থাপকের স্বাক্ষর</div>
+                <div
+                  style={{
+                    marginTop: 24,
+                    fontSize: 11,
+                    display: "flex",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <div
+                    style={{
+                      textAlign: "center",
+                      paddingTop: 30,
+                      borderTop: "1px solid #333",
+                      width: 160,
+                    }}
+                  >
+                    প্রস্তুতকারীর স্বাক্ষর
+                  </div>
+                  <div
+                    style={{
+                      textAlign: "center",
+                      paddingTop: 30,
+                      borderTop: "1px solid #333",
+                      width: 160,
+                    }}
+                  >
+                    কেন্দ্র ব্যবস্থাপকের স্বাক্ষর
+                  </div>
                 </div>
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: 40, color: '#6b7280' }}>ডেটা আনা যায়নি।</div>
+              <div
+                style={{ textAlign: "center", padding: 40, color: "#6b7280" }}
+              >
+                ডেটা আনা যায়নি।
+              </div>
             )}
           </div>
         </div>
@@ -1061,7 +1681,6 @@ function IncomeReportTab() {
     </div>
   );
 }
-
 
 function ProductionReport() {
   const [data, setData] = useState([]);

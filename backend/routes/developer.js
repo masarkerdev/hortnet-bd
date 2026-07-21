@@ -478,4 +478,109 @@ router.post("/run-migration", devAuth, async (req, res) => {
   }
 });
 
+// GET /api/dev/deploy-info — VPS-এর current git commit vs GitHub main-এর latest commit তুলনা
+router.get("/deploy-info", devAuth, async (req, res) => {
+  const { execSync } = require("child_process");
+  const path = require("path");
+  try {
+    const repoRoot = path.join(__dirname, "..", ".."); // backend/routes -> project root
+    let localCommit = "unknown", localDate = "unknown", localBranch = "unknown";
+    try {
+      localCommit = execSync("git rev-parse HEAD", { cwd: repoRoot }).toString().trim();
+      localDate = execSync("git log -1 --format=%cd --date=iso", { cwd: repoRoot }).toString().trim();
+      localBranch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: repoRoot }).toString().trim();
+    } catch (e) {
+      console.error("git local info error:", e.message);
+    }
+
+    let remoteCommit = "unknown";
+    let remoteMessage = "";
+    try {
+      const https = require("https");
+      remoteCommit = await new Promise((resolve, reject) => {
+        https.get(
+          "https://api.github.com/repos/masarkerdev/hortnet-bd/commits/main",
+          { headers: { "User-Agent": "hortnet-bd-deploy-check" } },
+          (r) => {
+            let data = "";
+            r.on("data", (chunk) => (data += chunk));
+            r.on("end", () => {
+              try {
+                const json = JSON.parse(data);
+                remoteMessage = json.commit?.message || "";
+                resolve(json.sha || "unknown");
+              } catch (e) {
+                reject(e);
+              }
+            });
+          }
+        ).on("error", reject);
+      });
+    } catch (e) {
+      console.error("github fetch error:", e.message);
+    }
+
+    const inSync = localCommit !== "unknown" && remoteCommit !== "unknown" && localCommit === remoteCommit;
+
+    res.json({
+      success: true,
+      local: { commit: localCommit, date: localDate, branch: localBranch },
+      remote: { commit: remoteCommit, message: remoteMessage },
+      in_sync: inSync,
+    });
+  } catch (err) {
+    console.error("deploy-info error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/dev/route-health — গুরুত্বপূর্ণ routes call করে দেখা কোনটা ঠিক আছে, কোনটা ভাঙা
+router.get("/route-health", devAuth, async (req, res) => {
+  const http = require("http");
+  const PORT = process.env.PORT || 30002;
+
+  function checkRoute(path) {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      const req2 = http.get(`http://localhost:${PORT}${path}`, (r) => {
+        let body = "";
+        r.on("data", (c) => (body += c));
+        r.on("end", () => {
+          const ms = Date.now() - start;
+          let parsed = null;
+          try { parsed = JSON.parse(body); } catch (e) {}
+          const looksOk = r.statusCode < 500 && (!parsed || parsed.success !== false || r.statusCode === 401);
+          resolve({ path, status: r.statusCode, ms, ok: looksOk });
+        });
+      });
+      req2.on("error", (e) => resolve({ path, status: 0, ms: Date.now() - start, ok: false, error: e.message }));
+      req2.setTimeout(8000, () => { req2.destroy(); resolve({ path, status: 0, ms: 8000, ok: false, error: "timeout" }); });
+    });
+  }
+
+  // এখানে গুরুত্বপূর্ণ public/basic route যোগ করা যায় (auth লাগে এমন route 401 দিলে সেটাও "ঠিক আছে" ধরা হবে,
+  // কারণ route নিজে কাজ করছে, শুধু token নেই)
+  const routes = [
+    "/api/public/centers",
+    "/api/public/search?q=test",
+    "/api/reports/topsheet?fy=2026&month=7",
+    "/api/reports/yearly-revenue?fy=2026",
+    "/api/reports/income-report?fy=2026&month=7",
+    "/api/reports/bank-deposits?fy=2026",
+    "/api/superadmin/stats-all",
+    "/api/superadmin/report/yearly-revenue?fy=2026",
+    "/api/superadmin/report/income-report?fy=2026&month=7",
+    "/api/budget/codes",
+    "/api/budget-admin/periods?fy=2026",
+  ];
+
+  try {
+    const results = await Promise.all(routes.map(checkRoute));
+    const failCount = results.filter((r) => !r.ok).length;
+    res.json({ success: true, results, fail_count: failCount, total: results.length });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

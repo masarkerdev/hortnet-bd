@@ -113,6 +113,26 @@ function Panel({ dev, onLogout }) {
   const [migrationTarget, setMigrationTarget] = useState('all');
   const [migrationRunning, setMigrationRunning] = useState(false);
   const [migrationResult, setMigrationResult] = useState(null);
+  const [deployInfo, setDeployInfo] = useState(null);
+  const [deployLoading, setDeployLoading] = useState(false);
+  const [healthResult, setHealthResult] = useState(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+
+  async function checkDeployInfo() {
+    setDeployLoading(true);
+    try {
+      const r = await devApi('/deploy-info');
+      if (r.success) setDeployInfo(r);
+    } catch (e) {} finally { setDeployLoading(false); }
+  }
+
+  async function checkRouteHealth() {
+    setHealthLoading(true);
+    try {
+      const r = await devApi('/route-health');
+      if (r.success) setHealthResult(r);
+    } catch (e) {} finally { setHealthLoading(false); }
+  }
 
   async function runMigration() {
     if (!migrationSql.trim()) return;
@@ -195,7 +215,7 @@ function Panel({ dev, onLogout }) {
   }
 
   const inp = { padding:'9px 12px', background:'#0d1117', border:`1px solid ${V.border}`, borderRadius:8, color:V.text, fontSize:13, fontFamily:FONT, outline:'none', width:'100%', boxSizing:'border-box' };
-  const TABS = [['dashboard','📊 Dashboard'],['admins','👤 Super Admins'],['centers','🏛️ Centers'],['reset','🔑 Password Reset'],['integrity','🔧 Data Integrity Check'],['migration','🗄️ Migration Runner'],['logs','📋 Logs']];
+  const TABS = [['dashboard','📊 Dashboard'],['admins','👤 Super Admins'],['centers','🏛️ Centers'],['reset','🔑 Password Reset'],['integrity','🔧 Data Integrity Check'],['migration','🗄️ Migration Runner'],['deploy','🌐 Deploy Verifier'],['health','🔍 Route Health Checker'],['logs','📋 Logs']];
 
   return (
     <div style={{ minHeight:'100vh', background:V.bg, fontFamily:FONT, color:V.text }}>
@@ -446,6 +466,84 @@ function Panel({ dev, onLogout }) {
                   🔑 Password Reset করুন
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Deploy Verifier */}
+          {tab==='deploy' && (
+            <div style={{ maxWidth:700 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                <div style={{ fontSize:16, fontWeight:700 }}>🌐 Deploy Verifier</div>
+                <button onClick={checkDeployInfo} disabled={deployLoading}
+                  style={{ padding:'9px 18px', background:V.green, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontFamily:FONT, fontWeight:600 }}>
+                  {deployLoading ? 'চেক হচ্ছে...' : '▶ চেক চালান'}
+                </button>
+              </div>
+              <div style={{ background:'#1f2d3f', border:`1px solid ${V.blue}`, borderRadius:8, padding:'10px 12px', fontSize:12, color:V.blue, marginBottom:14 }}>
+                ℹ️ VPS-এ deploy করা code এবং GitHub main branch-এর latest commit মিলছে কিনা check করে — 
+                "deploy করেছি বলে মনে হচ্ছে কিন্তু কাজ করছে না" এই সমস্যা তাৎক্ষণিক ধরার জন্য।
+              </div>
+
+              {deployInfo && (
+                <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                  <div style={{
+                    background: deployInfo.in_sync ? '#0d2818' : '#3f1414',
+                    border: `1px solid ${deployInfo.in_sync ? '#16a34a44' : '#dc262644'}`,
+                    borderRadius:10, padding:20, textAlign:'center',
+                    color: deployInfo.in_sync ? V.green : V.red, fontSize:15, fontWeight:700,
+                  }}>
+                    {deployInfo.in_sync ? '✅ VPS ও GitHub সিঙ্কে আছে — সর্বশেষ deploy সঠিকভাবে হয়েছে' : '⚠️ VPS ও GitHub সিঙ্কে নেই — deploy অসম্পূর্ণ হতে পারে'}
+                  </div>
+                  <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, padding:16 }}>
+                    <div style={{ fontSize:13, fontWeight:600, marginBottom:10 }}>VPS-এ থাকা কোড</div>
+                    <div style={{ fontSize:12, color:V.muted, marginBottom:4 }}>Commit: <span style={{ fontFamily:'monospace', color:V.text }}>{deployInfo.local?.commit?.slice(0,10)}</span></div>
+                    <div style={{ fontSize:12, color:V.muted, marginBottom:4 }}>Branch: {deployInfo.local?.branch}</div>
+                    <div style={{ fontSize:12, color:V.muted }}>সময়: {deployInfo.local?.date}</div>
+                  </div>
+                  <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, padding:16 }}>
+                    <div style={{ fontSize:13, fontWeight:600, marginBottom:10 }}>GitHub main-এর সর্বশেষ কমিট</div>
+                    <div style={{ fontSize:12, color:V.muted, marginBottom:4 }}>Commit: <span style={{ fontFamily:'monospace', color:V.text }}>{deployInfo.remote?.commit?.slice(0,10)}</span></div>
+                    <div style={{ fontSize:12, color:V.muted }}>{deployInfo.remote?.message?.split('\n')[0]}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Route Health Checker */}
+          {tab==='health' && (
+            <div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                <div style={{ fontSize:16, fontWeight:700 }}>🔍 Route Health Checker</div>
+                <button onClick={checkRouteHealth} disabled={healthLoading}
+                  style={{ padding:'9px 18px', background:V.green, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontFamily:FONT, fontWeight:600 }}>
+                  {healthLoading ? 'চেক হচ্ছে...' : '▶ চেক চালান'}
+                </button>
+              </div>
+              <div style={{ background:'#1f2d3f', border:`1px solid ${V.blue}`, borderRadius:8, padding:'10px 12px', fontSize:12, color:V.blue, marginBottom:14 }}>
+                ℹ️ গুরুত্বপূর্ণ API route-গুলো সরাসরি call করে দেখে কোনগুলো error দিচ্ছে (500 error, timeout ইত্যাদি)।
+              </div>
+
+              {healthResult && (
+                <>
+                  <div style={{ marginBottom:14, fontSize:14 }}>
+                    ফলাফল: <b style={{ color: healthResult.fail_count === 0 ? V.green : V.red }}>{healthResult.total - healthResult.fail_count}</b> / {healthResult.total} ঠিক আছে
+                  </div>
+                  <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, overflow:'hidden' }}>
+                    {healthResult.results.map((r, i) => (
+                      <div key={i} style={{ padding:'10px 14px', borderBottom:`1px solid ${V.border}`, display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:13 }}>
+                        <span style={{ fontFamily:'monospace', fontSize:12 }}>{r.path}</span>
+                        <span style={{ display:'flex', gap:10, alignItems:'center' }}>
+                          <span style={{ fontSize:11, color:V.muted }}>{r.ms}ms</span>
+                          <span style={{ color: r.ok ? V.green : V.red, fontWeight:600 }}>
+                            {r.ok ? `✅ ${r.status}` : `❌ ${r.status || 'ERR'}${r.error ? ' — ' + r.error : ''}`}
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
