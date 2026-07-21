@@ -681,4 +681,46 @@ router.get("/connections", devAuth, async (req, res) => {
   }
 });
 
+// GET /api/dev/daily-tip — বর্তমান tip/বার্তা দেখা (Dev Panel-এর জন্য)
+router.get("/daily-tip", devAuth, async (req, res) => {
+  try {
+    await masterDb.query(
+      `CREATE TABLE IF NOT EXISTS daily_tip (
+        id SERIAL PRIMARY KEY,
+        content TEXT NOT NULL,
+        updated_at TIMESTAMPTZ DEFAULT now()
+      )`
+    );
+    const r = await masterDb.query("SELECT * FROM daily_tip ORDER BY id DESC LIMIT 1");
+    res.json({ success: true, data: r.rows[0] || null });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/dev/daily-tip — নতুন tip সেট করা (পুরনোটা replace হবে)
+router.put("/daily-tip", devAuth, async (req, res) => {
+  const { content } = req.body;
+  if (!content || !content.trim()) {
+    return res.status(400).json({ success: false, message: "লেখা দিন।" });
+  }
+  try {
+    await masterDb.query(
+      `CREATE TABLE IF NOT EXISTS daily_tip (
+        id SERIAL PRIMARY KEY,
+        content TEXT NOT NULL,
+        updated_at TIMESTAMPTZ DEFAULT now()
+      )`
+    );
+    await masterDb.query("DELETE FROM daily_tip");
+    const r = await masterDb.query(
+      "INSERT INTO daily_tip (content) VALUES ($1) RETURNING *",
+      [content.trim()]
+    );
+    res.json({ success: true, data: r.rows[0], message: "আপডেট হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

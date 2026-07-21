@@ -122,6 +122,29 @@ function Panel({ dev, onLogout }) {
   const [dbSizesLoading, setDbSizesLoading] = useState(false);
   const [connections, setConnections] = useState(null);
   const [connectionsLoading, setConnectionsLoading] = useState(false);
+  const [dailyTip, setDailyTip] = useState('');
+  const [dailyTipCurrent, setDailyTipCurrent] = useState(null);
+  const [dailyTipSaving, setDailyTipSaving] = useState(false);
+  const [dailyTipMsg, setDailyTipMsg] = useState('');
+
+  async function loadDailyTip() {
+    try {
+      const r = await devApi('/daily-tip');
+      if (r.success && r.data) { setDailyTipCurrent(r.data); setDailyTip(r.data.content); }
+    } catch (e) {}
+  }
+
+  async function saveDailyTip() {
+    if (!dailyTip.trim()) return;
+    setDailyTipSaving(true); setDailyTipMsg('');
+    try {
+      const r = await devApi('/daily-tip', { method: 'PUT', body: JSON.stringify({ content: dailyTip }) });
+      if (r.success) { setDailyTipMsg('✓ আপডেট হয়েছে'); loadDailyTip(); }
+      else setDailyTipMsg(r.message || 'সমস্যা হয়েছে');
+    } catch (e) { setDailyTipMsg('সমস্যা হয়েছে'); } finally { setDailyTipSaving(false); }
+  }
+
+  useEffect(() => { if (tab === 'dailytip') loadDailyTip(); }, [tab]);
 
   async function loadErrorLogs() {
     setErrorLogsLoading(true);
@@ -250,7 +273,7 @@ function Panel({ dev, onLogout }) {
   }
 
   const inp = { padding:'9px 12px', background:'#0d1117', border:`1px solid ${V.border}`, borderRadius:8, color:V.text, fontSize:13, fontFamily:FONT, outline:'none', width:'100%', boxSizing:'border-box' };
-  const TABS = [['dashboard','📊 Dashboard'],['admins','👤 Super Admins'],['centers','🏛️ Centers'],['reset','🔑 Password Reset'],['integrity','🔧 Data Integrity Check'],['migration','🗄️ Migration Runner'],['deploy','🌐 Deploy Verifier'],['health','🔍 Route Health Checker'],['errorlogs','📝 Error Logs'],['dbsize','🗄️ DB Size Monitor'],['connections','🔌 Connection Monitor'],['logs','📋 Logs']];
+  const TABS = [['dashboard','📊 Dashboard'],['admins','👤 Super Admins'],['centers','🏛️ Centers'],['reset','🔑 Password Reset'],['integrity','🔧 Data Integrity Check'],['migration','🗄️ Migration Runner'],['deploy','🌐 Deploy Verifier'],['health','🔍 Route Health Checker'],['errorlogs','📝 Error Logs'],['dbsize','🗄️ DB Size Monitor'],['connections','🔌 Connection Monitor'],['dailytip','💡 Daily Tip'],['logs','📋 Logs']];
 
   return (
     <div style={{ minHeight:'100vh', background:V.bg, fontFamily:FONT, color:V.text }}>
@@ -671,6 +694,30 @@ function Panel({ dev, onLogout }) {
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Daily Tip */}
+          {tab==='dailytip' && (
+            <div style={{ maxWidth:600 }}>
+              <div style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>💡 Daily Tip — Dashboard-এ দেখানোর বার্তা</div>
+              <div style={{ background:'#1f2d3f', border:`1px solid ${V.blue}`, borderRadius:8, padding:'10px 12px', fontSize:12, color:V.blue, marginBottom:14 }}>
+                ℹ️ এখানে যা লিখবে সেটাই সব সেন্টারের Dashboard পেজে দেখাবে (কুরানের আয়াত, বীজ বপনের সময়, 
+                সায়ন কালেকশনের সময় ইত্যাদি)। যখন ইচ্ছা পরিবর্তন করতে পারবে।
+              </div>
+              {dailyTipCurrent && (
+                <div style={{ fontSize:11, color:V.muted, marginBottom:10 }}>
+                  সর্বশেষ আপডেট: {new Date(dailyTipCurrent.updated_at).toLocaleString('bn-BD')}
+                </div>
+              )}
+              <textarea value={dailyTip} onChange={e=>setDailyTip(e.target.value)} rows={5}
+                placeholder="যেমন: সূরা আর-রাহমান, আয়াত ১০-১৩... অথবা: এই সময়ে আম গাছের কলম করার উপযুক্ত সময়..."
+                style={{ width:'100%', padding:'12px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:14, outline:'none', boxSizing:'border-box', marginBottom:12, resize:'vertical', background:V.bg, color:V.text }}/>
+              {dailyTipMsg && <div style={{ color: dailyTipMsg.startsWith('✓') ? V.green : V.red, fontSize:13, marginBottom:12 }}>{dailyTipMsg}</div>}
+              <button onClick={saveDailyTip} disabled={dailyTipSaving}
+                style={{ padding:'10px 22px', borderRadius:8, background:V.green, color:'#fff', border:'none', cursor:'pointer', fontSize:14, fontFamily:FONT, fontWeight:600 }}>
+                {dailyTipSaving ? 'সংরক্ষণ হচ্ছে...' : '✓ প্রকাশ করুন'}
+              </button>
             </div>
           )}
 
