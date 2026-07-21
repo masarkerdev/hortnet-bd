@@ -585,4 +585,100 @@ router.get("/route-health", devAuth, async (req, res) => {
   }
 });
 
+// GET /api/dev/error-logs — সাম্প্রতিক error গুলো দেখা
+router.get("/error-logs", devAuth, async (req, res) => {
+  try {
+    await masterDb.query(
+      `CREATE TABLE IF NOT EXISTS error_logs (
+        id SERIAL PRIMARY KEY,
+        message TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT now()
+      )`
+    );
+    const r = await masterDb.query(
+      "SELECT * FROM error_logs ORDER BY created_at DESC LIMIT 100"
+    );
+    res.json({ success: true, data: r.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE /api/dev/error-logs — সব error log মুছে ফেলা (পরিষ্কার করার জন্য)
+router.delete("/error-logs", devAuth, async (req, res) => {
+  try {
+    await masterDb.query("DELETE FROM error_logs");
+    res.json({ success: true, message: "সব error log মুছে ফেলা হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/dev/db-sizes — প্রতিটা center-এর database কত বড় হয়ে গেছে
+router.get("/db-sizes", devAuth, async (req, res) => {
+  const { getTenants } = require("../lib/tenantCache");
+  const { getPool } = require("../config/poolManager");
+  try {
+    const tenants = await getTenants();
+    const results = [];
+
+    // Master DB size
+    try {
+      const r = await masterDb.query(
+        "SELECT pg_size_pretty(pg_database_size(current_database())) AS pretty, pg_database_size(current_database()) AS bytes"
+      );
+      results.push({ slug: "master", name: "Master DB", pretty: r.rows[0].pretty, bytes: Number(r.rows[0].bytes) });
+    } catch (e) {}
+
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.db_url) continue;
+      try {
+        const pool = getPool(tenant.db_url, tenant.db_url);
+        const r = await pool.query(
+          "SELECT pg_size_pretty(pg_database_size(current_database())) AS pretty, pg_database_size(current_database()) AS bytes"
+        );
+        results.push({
+          slug,
+          name: (tenant.name_bn || "").replace("হর্টিকালচার সেন্টার,", "").trim() || tenant.name_bn,
+          pretty: r.rows[0].pretty,
+          bytes: Number(r.rows[0].bytes),
+        });
+      } catch (e) {
+        results.push({ slug, name: tenant.name_bn, pretty: "❌", bytes: 0, error: e.message });
+      }
+    }
+
+    results.sort((a, b) => b.bytes - a.bytes);
+    const totalBytes = results.reduce((s, r) => s + r.bytes, 0);
+
+    res.json({
+      success: true,
+      data: results,
+      total_pretty: `${(totalBytes / (1024 * 1024)).toFixed(1)} MB`,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/dev/connections — এই মুহূর্তে PostgreSQL-এ কতগুলো active connection আছে (database অনুযায়ী)
+router.get("/connections", devAuth, async (req, res) => {
+  try {
+    const totalR = await masterDb.query("SELECT count(*) FROM pg_stat_activity");
+    const maxR = await masterDb.query("SHOW max_connections");
+    const byDbR = await masterDb.query(
+      "SELECT datname, count(*) AS count FROM pg_stat_activity WHERE datname IS NOT NULL GROUP BY datname ORDER BY count DESC"
+    );
+
+    res.json({
+      success: true,
+      total: Number(totalR.rows[0].count),
+      max_connections: Number(maxR.rows[0].max_connections),
+      by_database: byDbR.rows.map((r) => ({ database: r.datname, count: Number(r.count) })),
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

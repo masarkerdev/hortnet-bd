@@ -6,6 +6,32 @@ require("dotenv").config();
 
 const tenantMiddleware = require("./middleware/tenant");
 
+// ★ সব জায়গার console.error() automatic master DB-তে সংরক্ষণ করে —
+// প্রতিটা route আলাদা করে touch না করে centralized error logging
+const _originalConsoleError = console.error.bind(console);
+console.error = (...args) => {
+  _originalConsoleError(...args);
+  try {
+    const masterDb = require("./config/masterDb");
+    const message = args
+      .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+      .join(" ")
+      .slice(0, 2000);
+    masterDb
+      .query(
+        `CREATE TABLE IF NOT EXISTS error_logs (
+          id SERIAL PRIMARY KEY,
+          message TEXT NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT now()
+        )`
+      )
+      .then(() =>
+        masterDb.query("INSERT INTO error_logs (message) VALUES ($1)", [message])
+      )
+      .catch(() => {}); // এই logging নিজেই fail করলে silently ignore (infinite loop এড়াতে)
+  } catch (e) {}
+};
+
 const app = express();
 app.disable("etag");
 

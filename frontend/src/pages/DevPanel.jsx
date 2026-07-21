@@ -116,6 +116,41 @@ function Panel({ dev, onLogout }) {
   const [deployInfo, setDeployInfo] = useState(null);
   const [deployLoading, setDeployLoading] = useState(false);
   const [healthResult, setHealthResult] = useState(null);
+  const [errorLogs, setErrorLogs] = useState([]);
+  const [errorLogsLoading, setErrorLogsLoading] = useState(false);
+  const [dbSizes, setDbSizes] = useState(null);
+  const [dbSizesLoading, setDbSizesLoading] = useState(false);
+  const [connections, setConnections] = useState(null);
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
+
+  async function loadErrorLogs() {
+    setErrorLogsLoading(true);
+    try {
+      const r = await devApi('/error-logs');
+      if (r.success) setErrorLogs(r.data || []);
+    } catch (e) {} finally { setErrorLogsLoading(false); }
+  }
+
+  async function clearErrorLogs() {
+    if (!window.confirm('সব error log মুছে ফেলতে চান?')) return;
+    try { await devApi('/error-logs', { method: 'DELETE' }); loadErrorLogs(); } catch (e) {}
+  }
+
+  async function loadDbSizes() {
+    setDbSizesLoading(true);
+    try {
+      const r = await devApi('/db-sizes');
+      if (r.success) setDbSizes(r);
+    } catch (e) {} finally { setDbSizesLoading(false); }
+  }
+
+  async function loadConnections() {
+    setConnectionsLoading(true);
+    try {
+      const r = await devApi('/connections');
+      if (r.success) setConnections(r);
+    } catch (e) {} finally { setConnectionsLoading(false); }
+  }
   const [healthLoading, setHealthLoading] = useState(false);
 
   async function checkDeployInfo() {
@@ -215,7 +250,7 @@ function Panel({ dev, onLogout }) {
   }
 
   const inp = { padding:'9px 12px', background:'#0d1117', border:`1px solid ${V.border}`, borderRadius:8, color:V.text, fontSize:13, fontFamily:FONT, outline:'none', width:'100%', boxSizing:'border-box' };
-  const TABS = [['dashboard','📊 Dashboard'],['admins','👤 Super Admins'],['centers','🏛️ Centers'],['reset','🔑 Password Reset'],['integrity','🔧 Data Integrity Check'],['migration','🗄️ Migration Runner'],['deploy','🌐 Deploy Verifier'],['health','🔍 Route Health Checker'],['logs','📋 Logs']];
+  const TABS = [['dashboard','📊 Dashboard'],['admins','👤 Super Admins'],['centers','🏛️ Centers'],['reset','🔑 Password Reset'],['integrity','🔧 Data Integrity Check'],['migration','🗄️ Migration Runner'],['deploy','🌐 Deploy Verifier'],['health','🔍 Route Health Checker'],['errorlogs','📝 Error Logs'],['dbsize','🗄️ DB Size Monitor'],['connections','🔌 Connection Monitor'],['logs','📋 Logs']];
 
   return (
     <div style={{ minHeight:'100vh', background:V.bg, fontFamily:FONT, color:V.text }}>
@@ -539,6 +574,98 @@ function Panel({ dev, onLogout }) {
                             {r.ok ? `✅ ${r.status}` : `❌ ${r.status || 'ERR'}${r.error ? ' — ' + r.error : ''}`}
                           </span>
                         </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Error Logs */}
+          {tab==='errorlogs' && (
+            <div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                <div style={{ fontSize:16, fontWeight:700 }}>📝 Error Logs (সাম্প্রতিক ১০০টা)</div>
+                <div style={{ display:'flex', gap:8 }}>
+                  <button onClick={loadErrorLogs} disabled={errorLogsLoading}
+                    style={{ padding:'9px 18px', background:V.green, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontFamily:FONT, fontWeight:600 }}>
+                    {errorLogsLoading ? 'লোড হচ্ছে...' : '↻ রিফ্রেশ'}
+                  </button>
+                  <button onClick={clearErrorLogs}
+                    style={{ padding:'9px 18px', background:'transparent', color:V.red, border:`1px solid ${V.red}`, borderRadius:8, cursor:'pointer', fontSize:14, fontFamily:FONT }}>
+                    🗑️ সব মুছুন
+                  </button>
+                </div>
+              </div>
+              <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, overflow:'hidden', maxHeight:600, overflowY:'auto' }}>
+                {errorLogs.length === 0 ? (
+                  <div style={{ padding:30, textAlign:'center', color:V.muted }}>কোনো error log নেই — "রিফ্রেশ" চাপুন প্রথমবার</div>
+                ) : (
+                  errorLogs.map((log) => (
+                    <div key={log.id} style={{ padding:'10px 14px', borderBottom:`1px solid ${V.border}`, fontSize:12 }}>
+                      <div style={{ color:V.muted, fontSize:11, marginBottom:4 }}>{new Date(log.created_at).toLocaleString('bn-BD')}</div>
+                      <div style={{ fontFamily:'monospace', color:V.red, wordBreak:'break-word' }}>{log.message}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* DB Size Monitor */}
+          {tab==='dbsize' && (
+            <div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                <div style={{ fontSize:16, fontWeight:700 }}>🗄️ Database Size Monitor</div>
+                <button onClick={loadDbSizes} disabled={dbSizesLoading}
+                  style={{ padding:'9px 18px', background:V.green, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontFamily:FONT, fontWeight:600 }}>
+                  {dbSizesLoading ? 'লোড হচ্ছে...' : '▶ চেক চালান'}
+                </button>
+              </div>
+              {dbSizes && (
+                <>
+                  <div style={{ marginBottom:14, fontSize:14 }}>মোট: <b style={{color:V.green}}>{dbSizes.total_pretty}</b></div>
+                  <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, overflow:'hidden' }}>
+                    {dbSizes.data.map((d) => (
+                      <div key={d.slug} style={{ padding:'10px 14px', borderBottom:`1px solid ${V.border}`, display:'flex', justifyContent:'space-between', fontSize:13 }}>
+                        <span>{d.name}</span>
+                        <span style={{ color: d.error ? V.red : V.text, fontWeight:600 }}>{d.pretty}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Connection Monitor */}
+          {tab==='connections' && (
+            <div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                <div style={{ fontSize:16, fontWeight:700 }}>🔌 Live Connection Monitor</div>
+                <button onClick={loadConnections} disabled={connectionsLoading}
+                  style={{ padding:'9px 18px', background:V.green, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontFamily:FONT, fontWeight:600 }}>
+                  {connectionsLoading ? 'লোড হচ্ছে...' : '▶ চেক চালান'}
+                </button>
+              </div>
+              {connections && (
+                <>
+                  <div style={{
+                    background: connections.total > connections.max_connections * 0.8 ? '#3f1414' : '#0d2818',
+                    border: `1px solid ${connections.total > connections.max_connections * 0.8 ? '#dc262644' : '#16a34a44'}`,
+                    borderRadius:10, padding:20, textAlign:'center', marginBottom:16,
+                  }}>
+                    <div style={{ fontSize:28, fontWeight:700, color: connections.total > connections.max_connections * 0.8 ? V.red : V.green }}>
+                      {connections.total} / {connections.max_connections}
+                    </div>
+                    <div style={{ fontSize:13, color:V.muted, marginTop:6 }}>Active Connections / Max Connections</div>
+                  </div>
+                  <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, overflow:'hidden' }}>
+                    {connections.by_database.map((d, i) => (
+                      <div key={i} style={{ padding:'10px 14px', borderBottom:`1px solid ${V.border}`, display:'flex', justifyContent:'space-between', fontSize:13 }}>
+                        <span>{d.database}</span>
+                        <span style={{ fontWeight:600 }}>{d.count}</span>
                       </div>
                     ))}
                   </div>
