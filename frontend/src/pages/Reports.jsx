@@ -116,6 +116,178 @@ function RevenueBarChart() {
   );
 }
 
+// ── অর্থ প্রাপ্তি সংক্রান্ত প্রতিবেদন (সরকারি ফরম্যাট) ──
+function IncomeReportSection() {
+  const [fy, setFy] = useState(curFY());
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [report, setReport] = useState(null);
+  const [deposits, setDeposits] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [depositModal, setDepositModal] = useState(false);
+  const [depositForm, setDepositForm] = useState({ month_label: '', challan_no: '', deposit_date: '', amount: '', remarks: '' });
+  const [saving, setSaving] = useState(false);
+
+  function load() {
+    setLoading(true);
+    Promise.all([
+      api.get(`/reports/income-report?fy=${fy}&month=${month}`),
+      api.get(`/reports/bank-deposits?fy=${fy}`),
+    ]).then(([r1, r2]) => {
+      if (r1.data?.success) setReport(r1.data);
+      if (r2.data?.success) setDeposits(r2.data.data || []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }
+
+  useEffect(() => { load(); }, [fy, month]);
+
+  async function saveDeposit() {
+    if (!depositForm.month_label || !depositForm.deposit_date || !depositForm.amount) return;
+    setSaving(true);
+    try {
+      await api.post('/reports/bank-deposits', { fiscal_year: fy, ...depositForm });
+      setDepositModal(false);
+      setDepositForm({ month_label: '', challan_no: '', deposit_date: '', amount: '', remarks: '' });
+      load();
+    } catch (e) {} finally { setSaving(false); }
+  }
+
+  async function deleteDeposit(id) {
+    if (!window.confirm('এই এন্ট্রি মুছে ফেলবেন?')) return;
+    try { await api.delete(`/reports/bank-deposits/${id}`); load(); } catch (e) {}
+  }
+
+  const th = { border: '1px solid #333', padding: '4px 5px', textAlign: 'center', background: '#eaf3ea', fontWeight: 600, fontSize: 11 };
+  const td = { border: '1px solid #333', padding: '4px 6px', textAlign: 'right', fontSize: 11.5 };
+  const tdLeft = { ...td, textAlign: 'left' };
+  const tdCenter = { ...td, textAlign: 'center' };
+
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e8f5ed', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a18' }}>💰 অর্থ প্রাপ্তি সংক্রান্ত প্রতিবেদন</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select value={fy} onChange={e => setFy(Number(e.target.value))}
+            style={{ padding: '6px 10px', border: '1px solid #e0e0e0', borderRadius: 8, fontSize: 13, fontFamily: FONT, outline: 'none' }}>
+            {[curFY(), curFY() - 1, curFY() - 2].map(y => <option key={y} value={y}>FY {toBn(y)}-{toBn(y + 1)}</option>)}
+          </select>
+          <select value={month} onChange={e => setMonth(Number(e.target.value))}
+            style={{ padding: '6px 10px', border: '1px solid #e0e0e0', borderRadius: 8, fontSize: 13, fontFamily: FONT, outline: 'none' }}>
+            {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 30, color: '#6b7280' }}>লোড হচ্ছে...</div>
+      ) : (
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          {/* বাম টেবিল — ক্যাটাগরি-ভিত্তিক নগদ প্রাপ্তি */}
+          <div style={{ flex: '1 1 500px', overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ ...th, minWidth: 130, textAlign: 'left' }}>বিবরণ</th>
+                  <th style={th}>চলতি মাস</th>
+                  <th style={th}>পূর্বমাস পর্যন্ত</th>
+                  <th style={th}>মোট</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report?.rows?.map((r, i) => (
+                  <tr key={i}>
+                    <td style={tdLeft}>{r.category}</td>
+                    <td style={td}>{fmtN(r.current_month)}/-</td>
+                    <td style={td}>{fmtN(r.prev_months)}/-</td>
+                    <td style={{ ...td, fontWeight: 600 }}>{fmtN(r.total)}/-</td>
+                  </tr>
+                ))}
+                {!report?.rows?.length && (
+                  <tr><td colSpan={4} style={{ ...tdCenter, color: '#6b7280', padding: 16 }}>এই মাসে কোনো বিক্রয় নেই</td></tr>
+                )}
+                <tr style={{ background: '#f7f7ee', fontWeight: 700 }}>
+                  <td style={tdLeft}>সর্বমোট</td>
+                  <td style={td}>{fmtN(report?.total_current)}/-</td>
+                  <td style={td}>{fmtN(report?.total_prev)}/-</td>
+                  <td style={td}>{fmtN(report?.total)}/-</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* ডান টেবিল — ব্যাংকে টাকা জমা দেওয়ার বিবরণ */}
+          <div style={{ flex: '1 1 380px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>টাকা জমা দেওয়ার বিবরণ</div>
+              <button onClick={() => setDepositModal(true)}
+                style={{ padding: '5px 10px', borderRadius: 7, background: '#1a6b3a', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: FONT }}>
+                + জমা যোগ করুন
+              </button>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th style={th}>মাস</th>
+                    <th style={th}>চালান নং</th>
+                    <th style={th}>তারিখ</th>
+                    <th style={th}>টাকা</th>
+                    <th style={th}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deposits.map((d) => (
+                    <tr key={d.id}>
+                      <td style={tdCenter}>{d.month_label}</td>
+                      <td style={tdCenter}>{d.challan_no || '-'}</td>
+                      <td style={tdCenter}>{new Date(d.deposit_date).toLocaleDateString('bn-BD')}</td>
+                      <td style={td}>{fmtN(d.amount)}/-</td>
+                      <td style={tdCenter}>
+                        <button onClick={() => deleteDeposit(d.id)} style={{ border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!deposits.length && (
+                    <tr><td colSpan={5} style={{ ...tdCenter, color: '#6b7280', padding: 16 }}>কোনো জমা এন্ট্রি নেই</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {depositModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: 360 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>নতুন ব্যাংক জমা এন্ট্রি</div>
+            <input type="text" placeholder="মাসের নাম (যেমন: জুলাই/২৫)" value={depositForm.month_label}
+              onChange={e => setDepositForm({ ...depositForm, month_label: e.target.value })}
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid #e0e0e0', borderRadius: 8, fontFamily: FONT, fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 10 }} />
+            <input type="text" placeholder="এ-চালান নং" value={depositForm.challan_no}
+              onChange={e => setDepositForm({ ...depositForm, challan_no: e.target.value })}
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid #e0e0e0', borderRadius: 8, fontFamily: FONT, fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 10 }} />
+            <input type="date" value={depositForm.deposit_date}
+              onChange={e => setDepositForm({ ...depositForm, deposit_date: e.target.value })}
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid #e0e0e0', borderRadius: 8, fontFamily: FONT, fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 10 }} />
+            <input type="text" inputMode="numeric" placeholder="টাকার পরিমাণ" value={depositForm.amount}
+              onChange={e => setDepositForm({ ...depositForm, amount: e.target.value.replace(/[^0-9]/g, '') })}
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid #e0e0e0', borderRadius: 8, fontFamily: FONT, fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 10 }} />
+            <input type="text" placeholder="মন্তব্য (ঐচ্ছিক)" value={depositForm.remarks}
+              onChange={e => setDepositForm({ ...depositForm, remarks: e.target.value })}
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid #e0e0e0', borderRadius: 8, fontFamily: FONT, fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 16 }} />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setDepositModal(false)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e0e0e0', background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: FONT }}>বাতিল</button>
+              <button onClick={saveDeposit} disabled={saving} style={{ padding: '8px 16px', borderRadius: 8, background: '#1a6b3a', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontFamily: FONT, fontWeight: 600 }}>
+                {saving ? 'সংরক্ষণ হচ্ছে...' : '✓ সংরক্ষণ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Reports() {
   const [fy, setFy] = useState(curFY());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -366,6 +538,8 @@ export default function Reports() {
           )}
         </div>
       )}
+
+      <IncomeReportSection />
 
       <RevenueBarChart />
 
