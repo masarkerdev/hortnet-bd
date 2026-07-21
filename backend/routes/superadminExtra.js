@@ -957,4 +957,125 @@ router.get("/report/income-report", saAuth, async (req, res) => {
   }
 });
 
+// সরকারি ৯টা নির্দিষ্ট ক্যাটাগরিতে bucket করার একই logic (reports.js-এর সাথে consistent)
+const GOV_CATEGORIES_SA = [
+  { label: "ফলের চারা", match: (n) => n.includes("ফলদ") && n.includes("চারা") },
+  { label: "ফলের কলম", match: (n) => n.includes("ফলদ") && n.includes("কলম") },
+  { label: "সবজি চারা", match: (n) => n.includes("সবজি") },
+  { label: "ঔষধি চারা", match: (n) => n.includes("ঔষধি") },
+  { label: "মসলার চারা", match: (n) => n.includes("মসলা") },
+  { label: "শোভাবর্ধনকারী চারা/কলম", match: (n) => n.includes("শোভাবর্ধনকারী") },
+  { label: "ফুলের চারা/কলম", match: (n) => n.includes("ফুল") },
+  { label: "অন্যান্য কৃষি পণ্য", match: (n) => n.includes("পাম") },
+  { label: "অন্যান্য", match: () => true },
+];
+function bucketCategorySA(name) {
+  const n = name || "";
+  for (const g of GOV_CATEGORIES_SA) {
+    if (g.label !== "অন্যান্য" && g.match(n)) return g.label;
+  }
+  return "অন্যান্য";
+}
+
+// GET /api/superadmin/report/income-report-center/:slug?fy=2026&month=6 — নির্দিষ্ট এক center-এর সম্পূর্ণ রিপোর্ট (Center App-এর মতোই)
+router.get("/report/income-report-center/:slug", saAuth, async (req, res) => {
+  const fy = parseInt(req.query.fy) || (new Date().getMonth() >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1);
+  const month = parseInt(req.query.month) || new Date().getMonth() + 1;
+  const fyStart = `${fy}-07-01`;
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const calYear = month >= 7 ? fy : fy + 1;
+  const monthStart = `${calYear}-${pad2(month)}-01`;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextCalYear = month === 12 ? calYear + 1 : calYear;
+  const monthEndExclusive = `${nextCalYear}-${pad2(nextMonth)}-01`;
+
+  try {
+    const tenants = await getTenants();
+    const tenant = tenants[req.params.slug];
+    if (!tenant || !tenant.db_url) {
+      return res.status(404).json({ success: false, message: "সেন্টার পাওয়া যায়নি।" });
+    }
+    const db = getPool(tenant.db_url, req.params.slug);
+    const centerName = (tenant.name_bn || "").replace("হর্টিকালচার সেন্টার,", "").trim() || tenant.name_bn;
+
+    const [curR, prevR, curIncomeR, prevIncomeR, depositsR] = await Promise.all([
+      db.query(
+        `SELECT c.name_bn, COALESCE(SUM(si.total_price),0) AS total
+         FROM sales_items si JOIN sales s ON si.sale_id=s.id
+         JOIN seedlings sd ON si.seedling_id=sd.id LEFT JOIN categories c ON sd.category_id=c.id
+         WHERE s.sale_date >= $1 AND s.sale_date < $2 GROUP BY c.name_bn`,
+        [monthStart, monthEndExclusive]
+      ),
+      db.query(
+        `SELECT c.name_bn, COALESCE(SUM(si.total_price),0) AS total
+         FROM sales_items si JOIN sales s ON si.sale_id=s.id
+         JOIN seedlings sd ON si.seedling_id=sd.id LEFT JOIN categories c ON sd.category_id=c.id
+         WHERE s.sale_date >= $1 AND s.sale_date < $2 GROUP BY c.name_bn`,
+        [fyStart, monthStart]
+      ),
+      db.query(
+        `SELECT COALESCE(NULLIF(description,''), category, 'অন্যান্য আয়') AS label, COALESCE(SUM(amount),0) AS total
+         FROM other_income WHERE income_date >= $1 AND income_date < $2 GROUP BY label`,
+        [monthStart, monthEndExclusive]
+      ).catch(() => ({ rows: [] })),
+      db.query(
+        `SELECT COALESCE(NULLIF(description,''), category, 'অন্যান্য আয়') AS label, COALESCE(SUM(amount),0) AS total
+         FROM other_income WHERE income_date >= $1 AND income_date < $2 GROUP BY label`,
+        [fyStart, monthStart]
+      ).catch(() => ({ rows: [] })),
+      db.query(`SELECT * FROM bank_deposits WHERE fiscal_year=$1 ORDER BY deposit_date`, [fy]).catch(() => ({ rows: [] })),
+    ]);
+
+    const buckets = {};
+    GOV_CATEGORIES_SA.forEach((g) => { buckets[g.label] = { current: 0, prev: 0 }; });
+    curR.rows.forEach((r) => { buckets[bucketCategorySA(r.name_bn)].current += Number(r.total); });
+    prevR.rows.forEach((r) => { buckets[bucketCategorySA(r.name_bn)].prev += Number(r.total); });
+
+    const rows = GOV_CATEGORIES_SA.map((g, i) => {
+      const v = buckets[g.label];
+      return {
+        sl: i + 1,
+        category: g.label,
+        current_month: v.current,
+        prev_months: v.prev,
+        total: v.current + v.prev,
+        grand_total: v.current + v.prev,
+      };
+    });
+
+    const incomeBuckets = {};
+    curIncomeR.rows.forEach((r) => {
+      if (!incomeBuckets[r.label]) incomeBuckets[r.label] = { current: 0, prev: 0 };
+      incomeBuckets[r.label].current += Number(r.total);
+    });
+    prevIncomeR.rows.forEach((r) => {
+      if (!incomeBuckets[r.label]) incomeBuckets[r.label] = { current: 0, prev: 0 };
+      incomeBuckets[r.label].prev += Number(r.total);
+    });
+    let sl = rows.length;
+    Object.entries(incomeBuckets).forEach(([label, v]) => {
+      sl++;
+      rows.push({ sl, category: label, current_month: v.current, prev_months: v.prev, total: v.current + v.prev, grand_total: v.current + v.prev });
+    });
+
+    const grandCur = rows.reduce((s, r) => s + r.current_month, 0);
+    const grandPrev = rows.reduce((s, r) => s + r.prev_months, 0);
+
+    res.json({
+      success: true,
+      center_name: centerName,
+      fy,
+      month,
+      rows,
+      total_current: grandCur,
+      total_prev: grandPrev,
+      total: grandCur + grandPrev,
+      deposits: depositsR.rows,
+    });
+  } catch (err) {
+    console.error("income-report-center error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

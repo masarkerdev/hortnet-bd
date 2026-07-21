@@ -779,6 +779,9 @@ function IncomeReportTab() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCenters, setShowCenters] = useState(false);
+  const [centerModal, setCenterModal] = useState(null); // slug
+  const [centerReport, setCenterReport] = useState(null);
+  const [centerLoading, setCenterLoading] = useState(false);
 
   const MONTHS = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
   const fmtMoney = (n) => fmtN(n || 0);
@@ -789,6 +792,14 @@ function IncomeReportTab() {
       if (r.data?.success) setData(r.data);
     }).catch(() => {}).finally(() => setLoading(false));
   }, [fy, month]);
+
+  function openCenterReport(slug) {
+    setCenterModal(slug);
+    setCenterLoading(true);
+    saApi.get(`/report/income-report-center/${slug}?fy=${fy}&month=${month}`).then(r => {
+      if (r.data?.success) setCenterReport(r.data);
+    }).catch(() => {}).finally(() => setCenterLoading(false));
+  }
 
   const selStyle = { padding: '8px 12px', border: `1px solid ${V.border}`, borderRadius: 8, fontSize: 13, fontFamily: FONT, outline: 'none', background: V.card };
   const th = { border: `1px solid ${V.border}`, padding: '6px 8px', textAlign: 'center', background: V.card2, fontWeight: 600, fontSize: 11.5, color: V.text };
@@ -901,8 +912,13 @@ function IncomeReportTab() {
                 </thead>
                 <tbody>
                   {data?.centers?.map((c) => (
-                    <tr key={c.slug} style={{ borderTop: `1px solid ${V.border}` }}>
-                      <td style={{ padding: '8px 14px', fontSize: 13 }}>{c.name}</td>
+                    <tr key={c.slug}
+                      onClick={() => openCenterReport(c.slug)}
+                      style={{ borderTop: `1px solid ${V.border}`, cursor: 'pointer' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = V.green3}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <td style={{ padding: '8px 14px', fontSize: 13, color: V.green }}>{c.name} →</td>
                       <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(c.current_total)}</td>
                       <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(c.prev_total)}</td>
                       <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13, fontWeight: 600 }}>৳{fmtMoney(c.total)}</td>
@@ -916,6 +932,132 @@ function IncomeReportTab() {
             )}
           </div>
         </>
+      )}
+
+      {centerModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}
+          onClick={() => setCenterModal(null)}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 950, maxHeight: '90vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button onClick={() => setCenterModal(null)} style={{ border: 'none', background: 'transparent', fontSize: 20, cursor: 'pointer', color: '#6b7280' }}>✕</button>
+            </div>
+            {centerLoading ? (
+              <div style={{ textAlign: 'center', padding: 40, color: '#6b7280' }}>লোড হচ্ছে...</div>
+            ) : centerReport ? (
+              <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif", color: '#1a1a1a' }}>
+                <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 700, textDecoration: 'underline', margin: '4px 0 14px' }}>
+                  অর্থ প্রাপ্তি সংক্রান্ত প্রতিবেদন
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: 12, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #ccc' }}>
+                  <span>সেন্টারের নাম ঃ <b>{centerReport.center_name}</b></span>
+                  <span>অর্থবছর ঃ <b>{toBn(centerReport.fy)}-{toBn((centerReport.fy + 1).toString().slice(-2))}</b></span>
+                  <span>মাসের নাম ঃ <b>{MONTHS[centerReport.month - 1]}/{toBn(centerReport.fy.toString().slice(-2))}</b></span>
+                </div>
+
+                <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  {/* বাম টেবিল */}
+                  <div style={{ flex: '0 0 62%', minWidth: 460, overflowX: 'auto' }}>
+                    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...th, minWidth: 26 }} rowSpan={2}>ক্রঃ<br />নং</th>
+                          <th style={{ ...th, minWidth: 130, textAlign: 'left' }} rowSpan={2}>বিবরণ</th>
+                          <th style={th} colSpan={3}>নগদ প্রাপ্তি</th>
+                          <th style={th} colSpan={3}>মজুদ হস্তান্তর (ডিএই চালান)</th>
+                          <th style={th} rowSpan={2}>সর্বমোট<br />প্রাপ্তি<br />(৫+৮)</th>
+                        </tr>
+                        <tr>
+                          <th style={th}>চলতি মাস</th>
+                          <th style={th}>পূর্বমাস পর্যন্ত</th>
+                          <th style={th}>মোট (৩+৪)</th>
+                          <th style={th}>চলতি মাস</th>
+                          <th style={th}>পূর্বমাস পর্যন্ত</th>
+                          <th style={th}>মোট (৬+৭)</th>
+                        </tr>
+                        <tr>
+                          {['১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'].map(n => <th key={n} style={th}>{n}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {centerReport.rows?.map((r) => (
+                          <tr key={r.sl}>
+                            <td style={td}>{toBn(r.sl)}</td>
+                            <td style={tdLeft}>{r.category}</td>
+                            <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(r.current_month)}/-</td>
+                            <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(r.prev_months)}/-</td>
+                            <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(r.total)}/-</td>
+                            <td style={{ ...td, textAlign: 'right' }}>-</td>
+                            <td style={{ ...td, textAlign: 'right' }}>-</td>
+                            <td style={{ ...td, textAlign: 'right' }}>-</td>
+                            <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(r.grand_total)}/-</td>
+                          </tr>
+                        ))}
+                        <tr style={{ background: '#f7f7ee', fontWeight: 700 }}>
+                          <td style={td} colSpan={2}>মোট</td>
+                          <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(centerReport.total_current)}/-</td>
+                          <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(centerReport.total_prev)}/-</td>
+                          <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(centerReport.total)}/-</td>
+                          <td style={{ ...td, textAlign: 'right' }}>-</td>
+                          <td style={{ ...td, textAlign: 'right' }}>-</td>
+                          <td style={{ ...td, textAlign: 'right' }}>-</td>
+                          <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(centerReport.total)}/-</td>
+                        </tr>
+                        <tr style={{ background: '#eaf3ea', fontWeight: 700 }}>
+                          <td style={td} colSpan={2}>সর্বমোট</td>
+                          <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(centerReport.total_current)}/-</td>
+                          <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(centerReport.total_prev)}/-</td>
+                          <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(centerReport.total)}/-</td>
+                          <td style={td} colSpan={3}></td>
+                          <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(centerReport.total)}/-</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* ডান টেবিল */}
+                  <div style={{ flex: '1 1 280px', minWidth: 260, overflowX: 'auto' }}>
+                    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                      <thead>
+                        <tr>
+                          <th style={th} colSpan={4}>টাকা জমা দেওয়ার বিবরণ</th>
+                          <th style={{ ...th, width: 34 }} rowSpan={2}>মন্তব‍্য</th>
+                        </tr>
+                        <tr>
+                          <th style={th}>মাসের নাম</th><th style={th}>এ-চালান নং</th><th style={th}>তারিখ</th><th style={th}>টাকার পরিমাণ</th>
+                        </tr>
+                        <tr>
+                          {['১০', '১১', '১২', '১৩', '১৪'].map(n => <th key={n} style={th}>{n}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {centerReport.deposits?.map((d) => (
+                          <tr key={d.id}>
+                            <td style={td}>{d.month_label}</td>
+                            <td style={td}>{d.challan_no || '-'}</td>
+                            <td style={td}>{new Date(d.deposit_date).toLocaleDateString('bn-BD')}</td>
+                            <td style={{ ...td, textAlign: 'right' }}>{fmtMoney(d.amount)}/-</td>
+                            <td style={td}></td>
+                          </tr>
+                        ))}
+                        {!centerReport.deposits?.length && (
+                          <tr><td colSpan={5} style={{ ...td, color: '#6b7280', padding: 14 }}>কোনো জমা এন্ট্রি নেই</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 24, fontSize: 11, display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ textAlign: 'center', paddingTop: 30, borderTop: '1px solid #333', width: 160 }}>প্রস্তুতকারীর স্বাক্ষর</div>
+                  <div style={{ textAlign: 'center', paddingTop: 30, borderTop: '1px solid #333', width: 160 }}>কেন্দ্র ব্যবস্থাপকের স্বাক্ষর</div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: 40, color: '#6b7280' }}>ডেটা আনা যায়নি।</div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
