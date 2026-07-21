@@ -778,6 +778,7 @@ function IncomeReportTab() {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showCenters, setShowCenters] = useState(false);
 
   const MONTHS = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
   const fmtMoney = (n) => fmtN(n || 0);
@@ -790,11 +791,15 @@ function IncomeReportTab() {
   }, [fy, month]);
 
   const selStyle = { padding: '8px 12px', border: `1px solid ${V.border}`, borderRadius: 8, fontSize: 13, fontFamily: FONT, outline: 'none', background: V.card };
+  const th = { border: `1px solid ${V.border}`, padding: '6px 8px', textAlign: 'center', background: V.card2, fontWeight: 600, fontSize: 11.5, color: V.text };
+  const td = { border: `1px solid ${V.border}`, padding: '6px 8px', textAlign: 'right', fontSize: 12, color: V.text };
+  const tdLeft = { ...td, textAlign: 'left' };
+  const tdCenter = { ...td, textAlign: 'center' };
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ fontSize: 16, fontWeight: 700 }}>💰 অর্থ প্রাপ্তি — সব সেন্টার একসাথে</div>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>💰 অর্থ প্রাপ্তি সংক্রান্ত প্রতিবেদন — সব সেন্টার একসাথে</div>
         <div style={{ display: 'flex', gap: 8 }}>
           <select value={fy} onChange={e => setFy(Number(e.target.value))} style={selStyle}>
             {[fy, fy - 1, fy - 2].map(y => <option key={y} value={y}>FY {toBn(y)}-{toBn(y + 1)}</option>)}
@@ -809,61 +814,106 @@ function IncomeReportTab() {
         <div style={{ textAlign: 'center', padding: 40, color: V.muted }}>লোড হচ্ছে...</div>
       ) : (
         <>
-          <div style={{ background: V.card, border: `1px solid ${V.border}`, borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>
-            <div style={{ padding: '12px 16px', background: V.card2, fontSize: 14, fontWeight: 600, borderBottom: `1px solid ${V.border}` }}>ক্যাটাগরি-ভিত্তিক সমষ্টি</div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '8px 14px', textAlign: 'left', fontSize: 12, color: V.muted, fontWeight: 600 }}>বিবরণ</th>
-                  <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>চলতি মাস</th>
-                  <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>পূর্বমাস পর্যন্ত</th>
-                  <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>মোট</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data?.rows?.map((r, i) => (
-                  <tr key={i} style={{ borderTop: `1px solid ${V.border}` }}>
-                    <td style={{ padding: '8px 14px', fontSize: 13 }}>{r.category}</td>
-                    <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(r.current_month)}</td>
-                    <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(r.prev_months)}</td>
-                    <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13, fontWeight: 600 }}>৳{fmtMoney(r.total)}</td>
-                  </tr>
-                ))}
-                <tr style={{ borderTop: `2px solid ${V.border}`, background: V.green3 }}>
-                  <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 700 }}>সর্বমোট</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 14, fontWeight: 700 }}>৳{fmtMoney(data?.total_current)}</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 14, fontWeight: 700 }}>৳{fmtMoney(data?.total_prev)}</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 14, fontWeight: 700, color: V.green }}>৳{fmtMoney(data?.total)}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div style={{ background: V.card, border: `1px solid ${V.border}`, borderRadius: 14, padding: 20, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              {/* বাম টেবিল — ক্যাটাগরি-ভিত্তিক নগদ প্রাপ্তি */}
+              <div style={{ flex: '1 1 500px', overflowX: 'auto' }}>
+                <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...th, minWidth: 140, textAlign: 'left' }}>বিবরণ</th>
+                      <th style={th}>চলতি মাস</th>
+                      <th style={th}>পূর্বমাস পর্যন্ত</th>
+                      <th style={th}>মোট</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data?.rows?.map((r, i) => (
+                      <tr key={i}>
+                        <td style={tdLeft}>{r.category}</td>
+                        <td style={td}>{fmtMoney(r.current_month)}/-</td>
+                        <td style={td}>{fmtMoney(r.prev_months)}/-</td>
+                        <td style={{ ...td, fontWeight: 600 }}>{fmtMoney(r.total)}/-</td>
+                      </tr>
+                    ))}
+                    {!data?.rows?.length && (
+                      <tr><td colSpan={4} style={{ ...tdCenter, color: V.muted, padding: 16 }}>এই মাসে কোনো বিক্রয় নেই</td></tr>
+                    )}
+                    <tr style={{ background: V.green3, fontWeight: 700 }}>
+                      <td style={tdLeft}>সর্বমোট</td>
+                      <td style={td}>{fmtMoney(data?.total_current)}/-</td>
+                      <td style={td}>{fmtMoney(data?.total_prev)}/-</td>
+                      <td style={{ ...td, color: V.green }}>{fmtMoney(data?.total)}/-</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ডান টেবিল — সব center-এর ব্যাংক জমার তালিকা */}
+              <div style={{ flex: '1 1 420px' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>টাকা জমা দেওয়ার বিবরণ (সব সেন্টার)</div>
+                <div style={{ overflowX: 'auto', maxHeight: 340, overflowY: 'auto' }}>
+                  <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th style={th}>সেন্টার</th>
+                        <th style={th}>মাস</th>
+                        <th style={th}>চালান নং</th>
+                        <th style={th}>তারিখ</th>
+                        <th style={th}>টাকা</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data?.deposits?.map((d) => (
+                        <tr key={`${d.center_slug}-${d.id}`}>
+                          <td style={tdLeft}>{d.center_name}</td>
+                          <td style={tdCenter}>{d.month_label}</td>
+                          <td style={tdCenter}>{d.challan_no || '-'}</td>
+                          <td style={tdCenter}>{new Date(d.deposit_date).toLocaleDateString('bn-BD')}</td>
+                          <td style={td}>{fmtMoney(d.amount)}/-</td>
+                        </tr>
+                      ))}
+                      {!data?.deposits?.length && (
+                        <tr><td colSpan={5} style={{ ...tdCenter, color: V.muted, padding: 16 }}>কোনো জমা এন্ট্রি নেই</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div style={{ background: V.card, border: `1px solid ${V.border}`, borderRadius: 14, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 16px', background: V.card2, fontSize: 14, fontWeight: 600, borderBottom: `1px solid ${V.border}` }}>🏢 সেন্টার-ভিত্তিক বিস্তারিত</div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '8px 14px', textAlign: 'left', fontSize: 12, color: V.muted, fontWeight: 600 }}>সেন্টার</th>
-                  <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>চলতি মাস</th>
-                  <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>পূর্বমাস পর্যন্ত</th>
-                  <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>মোট</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data?.centers?.map((c) => (
-                  <tr key={c.slug} style={{ borderTop: `1px solid ${V.border}` }}>
-                    <td style={{ padding: '8px 14px', fontSize: 13 }}>{c.name}</td>
-                    <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(c.current_total)}</td>
-                    <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(c.prev_total)}</td>
-                    <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13, fontWeight: 600 }}>৳{fmtMoney(c.total)}</td>
+            <div onClick={() => setShowCenters(!showCenters)}
+              style={{ padding: '12px 16px', background: V.card2, fontSize: 14, fontWeight: 600, borderBottom: showCenters ? `1px solid ${V.border}` : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, transform: showCenters ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: '.15s' }}>▶</span>
+              🏢 সেন্টার-ভিত্তিক বিস্তারিত
+            </div>
+            {showCenters && (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '8px 14px', textAlign: 'left', fontSize: 12, color: V.muted, fontWeight: 600 }}>সেন্টার</th>
+                    <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>চলতি মাস</th>
+                    <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>পূর্বমাস পর্যন্ত</th>
+                    <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>মোট</th>
                   </tr>
-                ))}
-                {!data?.centers?.length && (
-                  <tr><td colSpan={4} style={{ padding: 20, textAlign: 'center', color: V.muted }}>কোনো তথ্য নেই</td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data?.centers?.map((c) => (
+                    <tr key={c.slug} style={{ borderTop: `1px solid ${V.border}` }}>
+                      <td style={{ padding: '8px 14px', fontSize: 13 }}>{c.name}</td>
+                      <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(c.current_total)}</td>
+                      <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(c.prev_total)}</td>
+                      <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13, fontWeight: 600 }}>৳{fmtMoney(c.total)}</td>
+                    </tr>
+                  ))}
+                  {!data?.centers?.length && (
+                    <tr><td colSpan={4} style={{ padding: 20, textAlign: 'center', color: V.muted }}>কোনো তথ্য নেই</td></tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </>
       )}

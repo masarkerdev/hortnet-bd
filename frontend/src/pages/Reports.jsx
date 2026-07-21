@@ -122,6 +122,7 @@ function IncomeReportSection() {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [report, setReport] = useState(null);
   const [deposits, setDeposits] = useState([]);
+  const [centerName, setCenterName] = useState('');
   const [loading, setLoading] = useState(true);
   const [depositModal, setDepositModal] = useState(false);
   const [depositForm, setDepositForm] = useState({ month_label: '', challan_no: '', deposit_date: '', amount: '', remarks: '' });
@@ -132,9 +133,11 @@ function IncomeReportSection() {
     Promise.all([
       api.get(`/reports/income-report?fy=${fy}&month=${month}`),
       api.get(`/reports/bank-deposits?fy=${fy}`),
-    ]).then(([r1, r2]) => {
+      api.get('/center-info').catch(() => null),
+    ]).then(([r1, r2, r3]) => {
       if (r1.data?.success) setReport(r1.data);
       if (r2.data?.success) setDeposits(r2.data.data || []);
+      if (r3?.data?.success) setCenterName(r3.data.data?.name_bn || r3.data.name_bn || '');
     }).catch(() => {}).finally(() => setLoading(false));
   }
 
@@ -156,102 +159,143 @@ function IncomeReportSection() {
     try { await api.delete(`/reports/bank-deposits/${id}`); load(); } catch (e) {}
   }
 
-  const th = { border: '1px solid #333', padding: '4px 5px', textAlign: 'center', background: '#eaf3ea', fontWeight: 600, fontSize: 11 };
-  const td = { border: '1px solid #333', padding: '4px 6px', textAlign: 'right', fontSize: 11.5 };
+  const th = { border: '1px solid #333', padding: '4px 5px', textAlign: 'center', verticalAlign: 'middle', background: '#eaf3ea', fontWeight: 600, fontSize: 10.5 };
+  const td = { border: '1px solid #333', padding: '4px 5px', textAlign: 'center', verticalAlign: 'middle', fontSize: 10.5 };
   const tdLeft = { ...td, textAlign: 'left' };
-  const tdCenter = { ...td, textAlign: 'center' };
+  const tdNum = { ...td, textAlign: 'right' };
+  const totalRow = { fontWeight: 700, background: '#f7f7ee' };
+  const grandTotalRow = { fontWeight: 700, background: '#eaf3ea' };
+
+  const fmtT = (n) => `${fmtN(n)}/-`;
 
   return (
     <div style={{ background: '#fff', border: '1px solid #e8f5ed', borderRadius: 14, padding: 20, marginBottom: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a18' }}>💰 অর্থ প্রাপ্তি সংক্রান্ত প্রতিবেদন</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <select value={fy} onChange={e => setFy(Number(e.target.value))}
-            style={{ padding: '6px 10px', border: '1px solid #e0e0e0', borderRadius: 8, fontSize: 13, fontFamily: FONT, outline: 'none' }}>
-            {[curFY(), curFY() - 1, curFY() - 2].map(y => <option key={y} value={y}>FY {toBn(y)}-{toBn(y + 1)}</option>)}
-          </select>
-          <select value={month} onChange={e => setMonth(Number(e.target.value))}
-            style={{ padding: '6px 10px', border: '1px solid #e0e0e0', borderRadius: 8, fontSize: 13, fontFamily: FONT, outline: 'none' }}>
-            {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-          </select>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10 }}>
+        <select value={fy} onChange={e => setFy(Number(e.target.value))}
+          style={{ padding: '6px 10px', border: '1px solid #e0e0e0', borderRadius: 8, fontSize: 13, fontFamily: FONT, outline: 'none' }}>
+          {[curFY(), curFY() - 1, curFY() - 2].map(y => <option key={y} value={y}>FY {toBn(y)}-{toBn(y + 1)}</option>)}
+        </select>
+        <select value={month} onChange={e => setMonth(Number(e.target.value))}
+          style={{ padding: '6px 10px', border: '1px solid #e0e0e0', borderRadius: 8, fontSize: 13, fontFamily: FONT, outline: 'none' }}>
+          {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+        </select>
+        <button onClick={() => setDepositModal(true)}
+          style={{ padding: '6px 14px', borderRadius: 8, background: '#1a6b3a', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: FONT, fontWeight: 600 }}>
+          + জমা যোগ করুন
+        </button>
       </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 30, color: '#6b7280' }}>লোড হচ্ছে...</div>
       ) : (
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          {/* বাম টেবিল — ক্যাটাগরি-ভিত্তিক নগদ প্রাপ্তি */}
-          <div style={{ flex: '1 1 500px', overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-              <thead>
-                <tr>
-                  <th style={{ ...th, minWidth: 130, textAlign: 'left' }}>বিবরণ</th>
-                  <th style={th}>চলতি মাস</th>
-                  <th style={th}>পূর্বমাস পর্যন্ত</th>
-                  <th style={th}>মোট</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report?.rows?.map((r, i) => (
-                  <tr key={i}>
-                    <td style={tdLeft}>{r.category}</td>
-                    <td style={td}>{fmtN(r.current_month)}/-</td>
-                    <td style={td}>{fmtN(r.prev_months)}/-</td>
-                    <td style={{ ...td, fontWeight: 600 }}>{fmtN(r.total)}/-</td>
-                  </tr>
-                ))}
-                {!report?.rows?.length && (
-                  <tr><td colSpan={4} style={{ ...tdCenter, color: '#6b7280', padding: 16 }}>এই মাসে কোনো বিক্রয় নেই</td></tr>
-                )}
-                <tr style={{ background: '#f7f7ee', fontWeight: 700 }}>
-                  <td style={tdLeft}>সর্বমোট</td>
-                  <td style={td}>{fmtN(report?.total_current)}/-</td>
-                  <td style={td}>{fmtN(report?.total_prev)}/-</td>
-                  <td style={td}>{fmtN(report?.total)}/-</td>
-                </tr>
-              </tbody>
-            </table>
+        <div style={{ fontFamily: "'Noto Sans Bengali', sans-serif" }}>
+          <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 700, textDecoration: 'underline', margin: '4px 0 14px' }}>
+            অর্থ প্রাপ্তি সংক্রান্ত প্রতিবেদন
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: 12, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #ccc' }}>
+            <span>সেন্টারের নাম ঃ <b>{centerName || '—'}</b></span>
+            <span>অর্থবছর ঃ <b>{toBn(fy)}-{toBn((fy + 1).toString().slice(-2))}</b></span>
+            <span>মাসের নাম ঃ <b>{MONTHS[month - 1]}/{toBn(fy.toString().slice(-2))}</b></span>
           </div>
 
-          {/* ডান টেবিল — ব্যাংকে টাকা জমা দেওয়ার বিবরণ */}
-          <div style={{ flex: '1 1 380px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>টাকা জমা দেওয়ার বিবরণ</div>
-              <button onClick={() => setDepositModal(true)}
-                style={{ padding: '5px 10px', borderRadius: 7, background: '#1a6b3a', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: FONT }}>
-                + জমা যোগ করুন
-              </button>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
+          <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            {/* বাম টেবিল */}
+            <div style={{ flex: '0 0 62%', minWidth: 480, overflowX: 'auto' }}>
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                 <thead>
                   <tr>
-                    <th style={th}>মাস</th>
-                    <th style={th}>চালান নং</th>
-                    <th style={th}>তারিখ</th>
-                    <th style={th}>টাকা</th>
-                    <th style={th}></th>
+                    <th style={{ ...th, minWidth: 26 }} rowSpan={2}>ক্রঃ<br />নং</th>
+                    <th style={{ ...th, minWidth: 130, textAlign: 'left' }} rowSpan={2}>বিবরণ</th>
+                    <th style={th} colSpan={3}>নগদ প্রাপ্তি</th>
+                    <th style={th} colSpan={3}>মজুদ হস্তান্তর (ডিএই চালান)</th>
+                    <th style={th} rowSpan={2}>সর্বমোট<br />প্রাপ্তি<br />(৫+৮)</th>
+                  </tr>
+                  <tr>
+                    <th style={th}>চলতি মাস</th>
+                    <th style={th}>পূর্বমাস পর্যন্ত</th>
+                    <th style={th}>মোট (৩+৪)</th>
+                    <th style={th}>চলতি মাস</th>
+                    <th style={th}>পূর্বমাস পর্যন্ত</th>
+                    <th style={th}>মোট (৬+৭)</th>
+                  </tr>
+                  <tr>
+                    {['১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'].map(n => <th key={n} style={th}>{n}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {report?.rows?.map((r) => (
+                    <tr key={r.sl}>
+                      <td style={td}>{toBn(r.sl)}</td>
+                      <td style={tdLeft}>{r.category}</td>
+                      <td style={tdNum}>{fmtT(r.current_month)}</td>
+                      <td style={tdNum}>{fmtT(r.prev_months)}</td>
+                      <td style={tdNum}>{fmtT(r.total)}</td>
+                      <td style={tdNum}>-</td>
+                      <td style={tdNum}>-</td>
+                      <td style={tdNum}>-</td>
+                      <td style={tdNum}>{fmtT(r.grand_total)}</td>
+                    </tr>
+                  ))}
+                  <tr style={totalRow}>
+                    <td style={td} colSpan={2}>মোট</td>
+                    <td style={tdNum}>{fmtT(report?.total_current)}</td>
+                    <td style={tdNum}>{fmtT(report?.total_prev)}</td>
+                    <td style={tdNum}>{fmtT(report?.total)}</td>
+                    <td style={tdNum}>-</td>
+                    <td style={tdNum}>-</td>
+                    <td style={tdNum}>-</td>
+                    <td style={tdNum}>{fmtT(report?.total)}</td>
+                  </tr>
+                  <tr style={grandTotalRow}>
+                    <td style={td} colSpan={2}>সর্বমোট</td>
+                    <td style={tdNum}>{fmtT(report?.total_current)}</td>
+                    <td style={tdNum}>{fmtT(report?.total_prev)}</td>
+                    <td style={tdNum}>{fmtT(report?.total)}</td>
+                    <td style={td} colSpan={3}></td>
+                    <td style={tdNum}>{fmtT(report?.total)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* ডান টেবিল */}
+            <div style={{ flex: '1 1 300px', minWidth: 280, overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th style={th} colSpan={4}>টাকা জমা দেওয়ার বিবরণ</th>
+                    <th style={{ ...th, width: 34 }} rowSpan={2}>মন্তব‍্য</th>
+                  </tr>
+                  <tr>
+                    <th style={th}>মাসের নাম</th><th style={th}>এ-চালান নং</th><th style={th}>তারিখ</th><th style={th}>টাকার পরিমাণ</th>
+                  </tr>
+                  <tr>
+                    {['১০', '১১', '১২', '১৩', '১৪'].map(n => <th key={n} style={th}>{n}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {deposits.map((d) => (
                     <tr key={d.id}>
-                      <td style={tdCenter}>{d.month_label}</td>
-                      <td style={tdCenter}>{d.challan_no || '-'}</td>
-                      <td style={tdCenter}>{new Date(d.deposit_date).toLocaleDateString('bn-BD')}</td>
-                      <td style={td}>{fmtN(d.amount)}/-</td>
-                      <td style={tdCenter}>
-                        <button onClick={() => deleteDeposit(d.id)} style={{ border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                      <td style={td}>{d.month_label}</td>
+                      <td style={td}>{d.challan_no || '-'}</td>
+                      <td style={td}>{new Date(d.deposit_date).toLocaleDateString('bn-BD')}</td>
+                      <td style={tdNum}>{fmtT(d.amount)}</td>
+                      <td style={td}>
+                        <button onClick={() => deleteDeposit(d.id)} style={{ border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 11 }}>✕</button>
                       </td>
                     </tr>
                   ))}
                   {!deposits.length && (
-                    <tr><td colSpan={5} style={{ ...tdCenter, color: '#6b7280', padding: 16 }}>কোনো জমা এন্ট্রি নেই</td></tr>
+                    <tr><td colSpan={5} style={{ ...td, color: '#6b7280', padding: 14 }}>কোনো জমা এন্ট্রি নেই</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
+          </div>
+
+          <div style={{ marginTop: 24, fontSize: 11, display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ textAlign: 'center', paddingTop: 30, borderTop: '1px solid #333', width: 160 }}>প্রস্তুতকারীর স্বাক্ষর</div>
+            <div style={{ textAlign: 'center', paddingTop: 30, borderTop: '1px solid #333', width: 160 }}>কেন্দ্র ব্যবস্থাপকের স্বাক্ষর</div>
           </div>
         </div>
       )}
@@ -287,6 +331,7 @@ function IncomeReportSection() {
     </div>
   );
 }
+
 
 export default function Reports() {
   const [fy, setFy] = useState(curFY());

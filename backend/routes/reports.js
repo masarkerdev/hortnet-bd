@@ -420,6 +420,26 @@ router.post("/historical-revenue", authenticate, async (req, res) => {
 });
 
 // GET /api/reports/income-report?fy=2026&month=6 — অর্থ প্রাপ্তি সংক্রান্ত প্রতিবেদন (সরকারি ফরম্যাট)
+// সরকারি ৯টা নির্দিষ্ট ক্যাটাগরিতে আমাদের system-এর category নাম bucket করে
+const GOV_CATEGORIES = [
+  { label: "ফলের চারা", match: (n) => n.includes("ফলদ") && n.includes("চারা") },
+  { label: "ফলের কলম", match: (n) => n.includes("ফলদ") && n.includes("কলম") },
+  { label: "সবজি চারা", match: (n) => n.includes("সবজি") },
+  { label: "ঔষধি চারা", match: (n) => n.includes("ঔষধি") },
+  { label: "মসলার চারা", match: (n) => n.includes("মসলা") },
+  { label: "শোভাবর্ধনকারী চারা/কলম", match: (n) => n.includes("শোভাবর্ধনকারী") },
+  { label: "ফুলের চারা/কলম", match: (n) => n.includes("ফুল") },
+  { label: "অন্যান্য কৃষি পণ্য", match: (n) => n.includes("পাম") },
+  { label: "অন্যান্য", match: () => true }, // fallback
+];
+function bucketCategory(name) {
+  const n = name || "";
+  for (const g of GOV_CATEGORIES) {
+    if (g.label !== "অন্যান্য" && g.match(n)) return g.label;
+  }
+  return "অন্যান্য";
+}
+
 router.get("/income-report", authenticate, async (req, res) => {
   const { fy: fyParam, month: monthParam } = req.query;
   const { start: fyStart, fy } = getFYDates(fyParam);
@@ -432,7 +452,6 @@ router.get("/income-report", authenticate, async (req, res) => {
   const monthEndExclusive = `${nextMonthCalYear}-${pad2(nextMonth)}-01`;
 
   try {
-    // চলতি মাসের ক্যাটাগরি-ভিত্তিক নগদ প্রাপ্তি (sales_items -> seedlings -> categories)
     const currentMonth = await db.query(
       `SELECT c.name_bn, COALESCE(SUM(si.total_price),0) AS total
        FROM sales_items si
@@ -443,7 +462,6 @@ router.get("/income-report", authenticate, async (req, res) => {
        GROUP BY c.name_bn`,
       [monthStart, monthEndExclusive]
     );
-    // পূর্ববর্তী মাসগুলো পর্যন্ত (অর্থবছরের শুরু থেকে চলতি মাসের আগ পর্যন্ত)
     const prevMonths = await db.query(
       `SELECT c.name_bn, COALESCE(SUM(si.total_price),0) AS total
        FROM sales_items si
@@ -455,20 +473,31 @@ router.get("/income-report", authenticate, async (req, res) => {
       [fyStart, monthStart]
     );
 
-    const curMap = {};
-    currentMonth.rows.forEach((r) => { curMap[r.name_bn || "অন্যান্য"] = Number(r.total); });
-    const prevMap = {};
-    prevMonths.rows.forEach((r) => { prevMap[r.name_bn || "অন্যান্য"] = Number(r.total); });
+    // ৯টা fixed bucket-এ initialize করি (সবসময় ৯টা row-ই দেখাবে, খালি হলেও)
+    const buckets = {};
+    GOV_CATEGORIES.forEach((g) => { buckets[g.label] = { current: 0, prev: 0 }; });
 
-    const allCats = [...new Set([...Object.keys(curMap), ...Object.keys(prevMap)])];
-    const rows = allCats.map((cat) => {
-      const curVal = curMap[cat] || 0;
-      const prevVal = prevMap[cat] || 0;
+    currentMonth.rows.forEach((r) => {
+      const label = bucketCategory(r.name_bn);
+      buckets[label].current += Number(r.total);
+    });
+    prevMonths.rows.forEach((r) => {
+      const label = bucketCategory(r.name_bn);
+      buckets[label].prev += Number(r.total);
+    });
+
+    const rows = GOV_CATEGORIES.map((g, i) => {
+      const v = buckets[g.label];
       return {
-        category: cat,
-        current_month: curVal,
-        prev_months: prevVal,
-        total: curVal + prevVal,
+        sl: i + 1,
+        category: g.label,
+        current_month: v.current,
+        prev_months: v.prev,
+        total: v.current + v.prev,
+        stock_transfer_current: 0, // মজুদ হস্তান্তর (ডিএই চালান) — এখন কোনো data source নেই
+        stock_transfer_prev: 0,
+        stock_transfer_total: 0,
+        grand_total: v.current + v.prev,
       };
     });
 

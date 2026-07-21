@@ -873,12 +873,14 @@ router.get("/report/income-report", saAuth, async (req, res) => {
     const tenants = await getTenants();
     const consolidatedMap = {}; // category -> { current, prev }
     const centerRows = []; // { slug, name, current_total, prev_total, total }
+    const allDeposits = []; // সব center-এর bank_deposits একসাথে
 
     for (const [slug, tenant] of Object.entries(tenants)) {
       if (!tenant.active || !tenant.db_url) continue;
       try {
         const db = getPool(tenant.db_url, slug);
-        const [curR, prevR] = await Promise.all([
+        const centerName = (tenant.name_bn || "").replace("হর্টিকালচার সেন্টার,", "").trim() || tenant.name_bn;
+        const [curR, prevR, depositsR] = await Promise.all([
           db.query(
             `SELECT c.name_bn, COALESCE(SUM(si.total_price),0) AS total
              FROM sales_items si JOIN sales s ON si.sale_id=s.id
@@ -893,7 +895,15 @@ router.get("/report/income-report", saAuth, async (req, res) => {
              WHERE s.sale_date >= $1 AND s.sale_date < $2 GROUP BY c.name_bn`,
             [fyStart, monthStart]
           ),
+          db.query(
+            `SELECT * FROM bank_deposits WHERE fiscal_year=$1 ORDER BY deposit_date`,
+            [fy]
+          ).catch(() => ({ rows: [] })),
         ]);
+
+        depositsR.rows.forEach((d) => {
+          allDeposits.push({ ...d, center_name: centerName, center_slug: slug });
+        });
 
         let centerCur = 0, centerPrev = 0;
         curR.rows.forEach((r) => {
@@ -911,7 +921,7 @@ router.get("/report/income-report", saAuth, async (req, res) => {
 
         centerRows.push({
           slug,
-          name: (tenant.name_bn || "").replace("হর্টিকালচার সেন্টার,", "").trim() || tenant.name_bn,
+          name: centerName,
           current_total: centerCur,
           prev_total: centerPrev,
           total: centerCur + centerPrev,
@@ -939,6 +949,7 @@ router.get("/report/income-report", saAuth, async (req, res) => {
       total_prev: totalPrev,
       total: totalCurrent + totalPrev,
       centers: centerRows.sort((a, b) => b.total - a.total),
+      deposits: allDeposits.sort((a, b) => new Date(a.deposit_date) - new Date(b.deposit_date)),
     });
   } catch (err) {
     console.error("superadmin income-report error:", err.message);
