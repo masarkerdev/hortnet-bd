@@ -473,6 +473,21 @@ router.get("/income-report", authenticate, async (req, res) => {
       [fyStart, monthStart]
     );
 
+    const currentIncome = await db.query(
+      `SELECT COALESCE(NULLIF(description,''), category, 'অন্যান্য আয়') AS label, COALESCE(SUM(amount),0) AS total
+       FROM other_income
+       WHERE income_date >= $1 AND income_date < $2
+       GROUP BY label`,
+      [monthStart, monthEndExclusive]
+    );
+    const prevIncome = await db.query(
+      `SELECT COALESCE(NULLIF(description,''), category, 'অন্যান্য আয়') AS label, COALESCE(SUM(amount),0) AS total
+       FROM other_income
+       WHERE income_date >= $1 AND income_date < $2
+       GROUP BY label`,
+      [fyStart, monthStart]
+    );
+
     // ৯টা fixed bucket-এ initialize করি (সবসময় ৯টা row-ই দেখাবে, খালি হলেও)
     const buckets = {};
     GOV_CATEGORIES.forEach((g) => { buckets[g.label] = { current: 0, prev: 0 }; });
@@ -499,6 +514,32 @@ router.get("/income-report", authenticate, async (req, res) => {
         stock_transfer_total: 0,
         grand_total: v.current + v.prev,
       };
+    });
+
+    // অন্যান্য আয় (other_income) — প্রতিটা ভিন্ন বিবরণ আলাদা row হিসেবে, ৯টা fixed category-র পরে যোগ
+    const incomeBuckets = {};
+    currentIncome.rows.forEach((r) => {
+      if (!incomeBuckets[r.label]) incomeBuckets[r.label] = { current: 0, prev: 0 };
+      incomeBuckets[r.label].current += Number(r.total);
+    });
+    prevIncome.rows.forEach((r) => {
+      if (!incomeBuckets[r.label]) incomeBuckets[r.label] = { current: 0, prev: 0 };
+      incomeBuckets[r.label].prev += Number(r.total);
+    });
+    let sl = rows.length;
+    Object.entries(incomeBuckets).forEach(([label, v]) => {
+      sl++;
+      rows.push({
+        sl,
+        category: label,
+        current_month: v.current,
+        prev_months: v.prev,
+        total: v.current + v.prev,
+        stock_transfer_current: 0,
+        stock_transfer_prev: 0,
+        stock_transfer_total: 0,
+        grand_total: v.current + v.prev,
+      });
     });
 
     const grandCur = rows.reduce((s, r) => s + r.current_month, 0);
