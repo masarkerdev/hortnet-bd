@@ -772,6 +772,105 @@ function RevenueTrendReport() {
   );
 }
 
+// ── অর্থ প্রাপ্তি (Consolidated + center-wise) ──
+function IncomeReportTab() {
+  const [fy, setFy] = useState(new Date().getMonth() >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1);
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const MONTHS = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  const fmtMoney = (n) => fmtN(n || 0);
+
+  useEffect(() => {
+    setLoading(true);
+    saApi.get(`/report/income-report?fy=${fy}&month=${month}`).then(r => {
+      if (r.data?.success) setData(r.data);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [fy, month]);
+
+  const selStyle = { padding: '8px 12px', border: `1px solid ${V.border}`, borderRadius: 8, fontSize: 13, fontFamily: FONT, outline: 'none', background: V.card };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>💰 অর্থ প্রাপ্তি — সব সেন্টার একসাথে</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select value={fy} onChange={e => setFy(Number(e.target.value))} style={selStyle}>
+            {[fy, fy - 1, fy - 2].map(y => <option key={y} value={y}>FY {toBn(y)}-{toBn(y + 1)}</option>)}
+          </select>
+          <select value={month} onChange={e => setMonth(Number(e.target.value))} style={selStyle}>
+            {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: V.muted }}>লোড হচ্ছে...</div>
+      ) : (
+        <>
+          <div style={{ background: V.card, border: `1px solid ${V.border}`, borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>
+            <div style={{ padding: '12px 16px', background: V.card2, fontSize: 14, fontWeight: 600, borderBottom: `1px solid ${V.border}` }}>ক্যাটাগরি-ভিত্তিক সমষ্টি</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '8px 14px', textAlign: 'left', fontSize: 12, color: V.muted, fontWeight: 600 }}>বিবরণ</th>
+                  <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>চলতি মাস</th>
+                  <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>পূর্বমাস পর্যন্ত</th>
+                  <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>মোট</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data?.rows?.map((r, i) => (
+                  <tr key={i} style={{ borderTop: `1px solid ${V.border}` }}>
+                    <td style={{ padding: '8px 14px', fontSize: 13 }}>{r.category}</td>
+                    <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(r.current_month)}</td>
+                    <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(r.prev_months)}</td>
+                    <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13, fontWeight: 600 }}>৳{fmtMoney(r.total)}</td>
+                  </tr>
+                ))}
+                <tr style={{ borderTop: `2px solid ${V.border}`, background: V.green3 }}>
+                  <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 700 }}>সর্বমোট</td>
+                  <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 14, fontWeight: 700 }}>৳{fmtMoney(data?.total_current)}</td>
+                  <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 14, fontWeight: 700 }}>৳{fmtMoney(data?.total_prev)}</td>
+                  <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 14, fontWeight: 700, color: V.green }}>৳{fmtMoney(data?.total)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ background: V.card, border: `1px solid ${V.border}`, borderRadius: 14, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', background: V.card2, fontSize: 14, fontWeight: 600, borderBottom: `1px solid ${V.border}` }}>🏢 সেন্টার-ভিত্তিক বিস্তারিত</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '8px 14px', textAlign: 'left', fontSize: 12, color: V.muted, fontWeight: 600 }}>সেন্টার</th>
+                  <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>চলতি মাস</th>
+                  <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>পূর্বমাস পর্যন্ত</th>
+                  <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, color: V.muted, fontWeight: 600 }}>মোট</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data?.centers?.map((c) => (
+                  <tr key={c.slug} style={{ borderTop: `1px solid ${V.border}` }}>
+                    <td style={{ padding: '8px 14px', fontSize: 13 }}>{c.name}</td>
+                    <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(c.current_total)}</td>
+                    <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13 }}>৳{fmtMoney(c.prev_total)}</td>
+                    <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 13, fontWeight: 600 }}>৳{fmtMoney(c.total)}</td>
+                  </tr>
+                ))}
+                {!data?.centers?.length && (
+                  <tr><td colSpan={4} style={{ padding: 20, textAlign: 'center', color: V.muted }}>কোনো তথ্য নেই</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ProductionReport() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -2032,6 +2131,7 @@ export default function SaReport() {
     { id: "stock", label: "📦 স্টক রিপোর্ট" },
     { id: "production", label: "🌱 উৎপাদন রিপোর্ট" },
     { id: "revenue", label: "📈 রাজস্ব ট্রেন্ড" },
+    { id: "income", label: "💰 অর্থ প্রাপ্তি" },
   ];
 
   return (
@@ -2068,6 +2168,7 @@ export default function SaReport() {
       {tab === "stock" && <StockReport />}
       {tab === "production" && <ProductionReport />}
       {tab === "revenue" && <RevenueTrendReport />}
+      {tab === "income" && <IncomeReportTab />}
     </div>
   );
 }

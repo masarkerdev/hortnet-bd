@@ -857,4 +857,93 @@ router.get("/report/yearly-revenue", saAuth, async (req, res) => {
   }
 });
 
+// GET /api/superadmin/report/income-report?fy=2026&month=6 — সব center মিলিয়ে + center-ভিত্তিক অর্থ প্রাপ্তি
+router.get("/report/income-report", saAuth, async (req, res) => {
+  const fy = parseInt(req.query.fy) || (new Date().getMonth() >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1);
+  const month = parseInt(req.query.month) || new Date().getMonth() + 1;
+  const fyStart = `${fy}-07-01`;
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const calYear = month >= 7 ? fy : fy + 1;
+  const monthStart = `${calYear}-${pad2(month)}-01`;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextCalYear = month === 12 ? calYear + 1 : calYear;
+  const monthEndExclusive = `${nextCalYear}-${pad2(nextMonth)}-01`;
+
+  try {
+    const tenants = await getTenants();
+    const consolidatedMap = {}; // category -> { current, prev }
+    const centerRows = []; // { slug, name, current_total, prev_total, total }
+
+    for (const [slug, tenant] of Object.entries(tenants)) {
+      if (!tenant.active || !tenant.db_url) continue;
+      try {
+        const db = getPool(tenant.db_url, slug);
+        const [curR, prevR] = await Promise.all([
+          db.query(
+            `SELECT c.name_bn, COALESCE(SUM(si.total_price),0) AS total
+             FROM sales_items si JOIN sales s ON si.sale_id=s.id
+             JOIN seedlings sd ON si.seedling_id=sd.id LEFT JOIN categories c ON sd.category_id=c.id
+             WHERE s.sale_date >= $1 AND s.sale_date < $2 GROUP BY c.name_bn`,
+            [monthStart, monthEndExclusive]
+          ),
+          db.query(
+            `SELECT c.name_bn, COALESCE(SUM(si.total_price),0) AS total
+             FROM sales_items si JOIN sales s ON si.sale_id=s.id
+             JOIN seedlings sd ON si.seedling_id=sd.id LEFT JOIN categories c ON sd.category_id=c.id
+             WHERE s.sale_date >= $1 AND s.sale_date < $2 GROUP BY c.name_bn`,
+            [fyStart, monthStart]
+          ),
+        ]);
+
+        let centerCur = 0, centerPrev = 0;
+        curR.rows.forEach((r) => {
+          const cat = r.name_bn || "অন্যান্য";
+          if (!consolidatedMap[cat]) consolidatedMap[cat] = { current: 0, prev: 0 };
+          consolidatedMap[cat].current += Number(r.total);
+          centerCur += Number(r.total);
+        });
+        prevR.rows.forEach((r) => {
+          const cat = r.name_bn || "অন্যান্য";
+          if (!consolidatedMap[cat]) consolidatedMap[cat] = { current: 0, prev: 0 };
+          consolidatedMap[cat].prev += Number(r.total);
+          centerPrev += Number(r.total);
+        });
+
+        centerRows.push({
+          slug,
+          name: (tenant.name_bn || "").replace("হর্টিকালচার সেন্টার,", "").trim() || tenant.name_bn,
+          current_total: centerCur,
+          prev_total: centerPrev,
+          total: centerCur + centerPrev,
+        });
+      } catch (e) {
+        console.error(`[${slug}] income-report error:`, e.message);
+      }
+    }
+
+    const rows = Object.entries(consolidatedMap).map(([category, v]) => ({
+      category,
+      current_month: v.current,
+      prev_months: v.prev,
+      total: v.current + v.prev,
+    }));
+    const totalCurrent = rows.reduce((s, r) => s + r.current_month, 0);
+    const totalPrev = rows.reduce((s, r) => s + r.prev_months, 0);
+
+    res.json({
+      success: true,
+      fy,
+      month,
+      rows,
+      total_current: totalCurrent,
+      total_prev: totalPrev,
+      total: totalCurrent + totalPrev,
+      centers: centerRows.sort((a, b) => b.total - a.total),
+    });
+  } catch (err) {
+    console.error("superadmin income-report error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
