@@ -268,6 +268,13 @@ export default function Layout() {
   const [notices, setNotices] = useState([]);
   const [showNotices, setShowNotices] = useState(false);
   const [unseenCount, setUnseenCount] = useState(0);
+  const [dailyTip, setDailyTip] = useState(null);
+
+  useEffect(() => {
+    api.get("/daily-tip").then((r) => {
+      if (r.data?.success) setDailyTip(r.data.content);
+    }).catch(() => {});
+  }, []);
   const [unseenBudgetNotice, setUnseenBudgetNotice] = useState(false);
 
   // বাংলা সংখ্যা ইনপুট: inputMode numeric/decimal ফিল্ডে ০-৯ টাইপ করলে ইংরেজিতে রূপান্তর
@@ -840,6 +847,24 @@ export default function Layout() {
             </button>
           </div>
         </header>
+
+        {dailyTip && loc.pathname === "/dashboard" && (
+          <div
+            style={{
+              background: "linear-gradient(135deg,#0f4f29,#2d8a52)",
+              color: "#fff",
+              padding: "10px 20px",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              fontSize: 13,
+              lineHeight: 1.6,
+            }}
+          >
+            <span style={{ fontSize: 17, flexShrink: 0 }}>💡</span>
+            <span style={{ whiteSpace: "pre-wrap" }}>{dailyTip}</span>
+          </div>
+        )}
 
         <main className="mx-auto max-w-[1400px] p-4 lg:p-6">
           <Outlet key={fy} context={{ fy, setFy }} />
