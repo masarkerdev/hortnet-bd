@@ -419,4 +419,117 @@ router.post("/historical-revenue", authenticate, async (req, res) => {
   }
 });
 
+// GET /api/reports/income-report?fy=2026&month=6 — অর্থ প্রাপ্তি সংক্রান্ত প্রতিবেদন (সরকারি ফরম্যাট)
+router.get("/income-report", authenticate, async (req, res) => {
+  const { fy: fyParam, month: monthParam } = req.query;
+  const { start: fyStart, fy } = getFYDates(fyParam);
+  const now = new Date();
+  const month = parseInt(monthParam) || now.getMonth() + 1;
+  const calYear = monthCalendarYear(fy, month);
+  const monthStart = `${calYear}-${pad2(month)}-01`;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextMonthCalYear = month === 12 ? calYear + 1 : calYear;
+  const monthEndExclusive = `${nextMonthCalYear}-${pad2(nextMonth)}-01`;
+
+  try {
+    // চলতি মাসের ক্যাটাগরি-ভিত্তিক নগদ প্রাপ্তি (sales_items -> seedlings -> categories)
+    const currentMonth = await db.query(
+      `SELECT c.name_bn, COALESCE(SUM(si.total_price),0) AS total
+       FROM sales_items si
+       JOIN sales s ON si.sale_id = s.id
+       JOIN seedlings sd ON si.seedling_id = sd.id
+       LEFT JOIN categories c ON sd.category_id = c.id
+       WHERE s.sale_date >= $1 AND s.sale_date < $2
+       GROUP BY c.name_bn`,
+      [monthStart, monthEndExclusive]
+    );
+    // পূর্ববর্তী মাসগুলো পর্যন্ত (অর্থবছরের শুরু থেকে চলতি মাসের আগ পর্যন্ত)
+    const prevMonths = await db.query(
+      `SELECT c.name_bn, COALESCE(SUM(si.total_price),0) AS total
+       FROM sales_items si
+       JOIN sales s ON si.sale_id = s.id
+       JOIN seedlings sd ON si.seedling_id = sd.id
+       LEFT JOIN categories c ON sd.category_id = c.id
+       WHERE s.sale_date >= $1 AND s.sale_date < $2
+       GROUP BY c.name_bn`,
+      [fyStart, monthStart]
+    );
+
+    const curMap = {};
+    currentMonth.rows.forEach((r) => { curMap[r.name_bn || "অন্যান্য"] = Number(r.total); });
+    const prevMap = {};
+    prevMonths.rows.forEach((r) => { prevMap[r.name_bn || "অন্যান্য"] = Number(r.total); });
+
+    const allCats = [...new Set([...Object.keys(curMap), ...Object.keys(prevMap)])];
+    const rows = allCats.map((cat) => {
+      const curVal = curMap[cat] || 0;
+      const prevVal = prevMap[cat] || 0;
+      return {
+        category: cat,
+        current_month: curVal,
+        prev_months: prevVal,
+        total: curVal + prevVal,
+      };
+    });
+
+    const grandCur = rows.reduce((s, r) => s + r.current_month, 0);
+    const grandPrev = rows.reduce((s, r) => s + r.prev_months, 0);
+
+    res.json({
+      success: true,
+      fy,
+      month,
+      rows,
+      total_current: grandCur,
+      total_prev: grandPrev,
+      total: grandCur + grandPrev,
+    });
+  } catch (err) {
+    console.error("income-report error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/reports/bank-deposits?fy=2026 — ব্যাংকে জমা দেওয়া টাকার তালিকা
+router.get("/bank-deposits", authenticate, async (req, res) => {
+  const fy = parseInt(req.query.fy) || getFYDates().fy;
+  try {
+    const r = await db.query(
+      "SELECT * FROM bank_deposits WHERE fiscal_year=$1 ORDER BY deposit_date",
+      [fy]
+    );
+    res.json({ success: true, data: r.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/reports/bank-deposits — নতুন ব্যাংক জমা এন্ট্রি
+router.post("/bank-deposits", authenticate, async (req, res) => {
+  const { fiscal_year, month_label, challan_no, deposit_date, amount, remarks } = req.body;
+  if (!fiscal_year || !month_label || !deposit_date || amount === undefined) {
+    return res.status(400).json({ success: false, message: "সব প্রয়োজনীয় তথ্য দিন।" });
+  }
+  try {
+    const r = await db.query(
+      `INSERT INTO bank_deposits (fiscal_year, month_label, challan_no, deposit_date, amount, remarks, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [fiscal_year, month_label, challan_no || null, deposit_date, Number(amount) || 0, remarks || null, req.user?.id || null]
+    );
+    res.json({ success: true, data: r.rows[0], message: "জমা এন্ট্রি সংরক্ষণ হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE /api/reports/bank-deposits/:id — এন্ট্রি মুছে ফেলা
+router.delete("/bank-deposits/:id", authenticate, async (req, res) => {
+  try {
+    await db.query("DELETE FROM bank_deposits WHERE id=$1", [req.params.id]);
+    res.json({ success: true, message: "মুছে ফেলা হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
