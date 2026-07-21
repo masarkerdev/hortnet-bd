@@ -549,7 +549,9 @@ router.get("/route-health", devAuth, async (req, res) => {
           const ms = Date.now() - start;
           let parsed = null;
           try { parsed = JSON.parse(body); } catch (e) {}
-          const looksOk = r.statusCode < 500 && (!parsed || parsed.success !== false || r.statusCode === 401);
+          // ৪০০/৪০১/৪০৩ মানে route ঠিকই আছে, শুধু auth/tenant তথ্য ছাড়া call করা হয়েছে —
+          // শুধু ৪০৪ (route নেই) বা ৫০০+ (server error) হলেই প্রকৃত সমস্যা
+          const looksOk = r.statusCode !== 404 && r.statusCode < 500;
           resolve({ path, status: r.statusCode, ms, ok: looksOk });
         });
       });
