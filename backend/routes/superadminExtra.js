@@ -988,15 +988,15 @@ const GOV_CATEGORIES_SA = [
   { label: "মসলার চারা", match: (n) => n.includes("মসলা") },
   { label: "শোভাবর্ধনকারী চারা/কলম", match: (n) => n.includes("শোভাবর্ধনকারী") },
   { label: "ফুলের চারা/কলম", match: (n) => n.includes("ফুল") },
-  { label: "অন্যান্য কৃষি পণ্য", match: (n) => n.includes("পাম") },
-  { label: "অন্যান্য", match: () => true },
+  { label: "পাম জাতীয়", match: (n) => n.includes("পাম") },
+  { label: "অন্যান্য চারা", match: () => true },
 ];
 function bucketCategorySA(name) {
   const n = name || "";
   for (const g of GOV_CATEGORIES_SA) {
-    if (g.label !== "অন্যান্য" && g.match(n)) return g.label;
+    if (g.label !== "অন্যান্য চারা" && g.match(n)) return g.label;
   }
-  return "অন্যান্য";
+  return "অন্যান্য চারা";
 }
 
 // GET /api/superadmin/report/income-report-center/:slug?fy=2026&month=6 — নির্দিষ্ট এক center-এর সম্পূর্ণ রিপোর্ট (Center App-এর মতোই)
