@@ -29,7 +29,7 @@ async function fetchOneTenantStats(slug, tenant) {
   const [
     sales, todaySales, currentMonth, lastMonth, monthlyTarget,
     production, stock, lowStock, annualProdTarget, monthlyProdTarget,
-    monthlyProdAchieved, otherIncomeTotal,
+    monthlyProdAchieved, otherIncomeTotal, annualProdAchieved,
   ] = await Promise.all([
     db.query(`SELECT COALESCE(SUM(total_amount),0) AS total_revenue, COUNT(*) AS total_invoices FROM sales`),
     db.query(`SELECT COALESCE(SUM(total_amount),0) AS today_revenue FROM sales WHERE sale_date=CURRENT_DATE`),
@@ -43,6 +43,8 @@ async function fetchOneTenantStats(slug, tenant) {
     db.query(`SELECT COALESCE(ROUND(SUM(target_quantity)/12.0),0) AS qty FROM targets WHERE target_type LIKE 'category_%' AND target_month=0 AND target_year=$1`, [fyStart]),
     db.query(`SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS qty FROM production_batches WHERE EXTRACT(MONTH FROM COALESCE(sowing_date,propagation_date))=$1 AND EXTRACT(YEAR FROM COALESCE(sowing_date,propagation_date))=$2`, [curMonth, curYear]),
     db.query(`SELECT COALESCE(SUM(amount),0) AS total FROM other_income`),
+    // চলতি অর্থবছরের (জুলাই-জুন) মোট উৎপাদন — শুধু এই অর্থবছরের data, all-time না
+    db.query(`SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS qty FROM production_batches WHERE COALESCE(sowing_date,propagation_date) >= $1 AND COALESCE(sowing_date,propagation_date) <= $2`, [`${fyStart}-07-01`, `${fyStart + 1}-06-30`]),
   ]);
 
   const curRev = parseFloat(currentMonth.rows[0].revenue);
@@ -84,6 +86,7 @@ async function fetchOneTenantStats(slug, tenant) {
     monthly_prod_target: parseInt(monthlyProdTarget.rows[0]?.qty || 0),
     other_income_total: parseFloat(otherIncomeTotal.rows[0]?.total || 0),
     monthly_prod_achieved: parseInt(monthlyProdAchieved.rows[0]?.qty || 0),
+    annual_prod_achieved: parseInt(annualProdAchieved.rows[0]?.qty || 0),
     status: "ok",
   };
 }

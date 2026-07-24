@@ -753,7 +753,7 @@ export default function SaCompare() {
                   "Cat",
                   "অর্থবছরের লক্ষ্যমাত্রা",
                   "চলতি মাসের লক্ষ্যমাত্রা",
-                  "চলতি মাসের অর্জন",
+                  "মোট অর্জন",
                   "অগ্রগতি",
                 ].map((h, i) => (
                   <th
@@ -784,21 +784,21 @@ export default function SaCompare() {
               {[...filtered]
                 .sort((a, b) => {
                   const ap =
-                    a.monthly_prod_target > 0
-                      ? a.monthly_prod_achieved / a.monthly_prod_target
+                    a.annual_prod_target > 0
+                      ? a.annual_prod_achieved / a.annual_prod_target
                       : 0;
                   const bp =
-                    b.monthly_prod_target > 0
-                      ? b.monthly_prod_achieved / b.monthly_prod_target
+                    b.annual_prod_target > 0
+                      ? b.annual_prod_achieved / b.annual_prod_target
                       : 0;
                   return bp - ap;
                 })
                 .map((c) => {
                   const pct =
-                    c.monthly_prod_target > 0
+                    c.annual_prod_target > 0
                       ? Math.min(
                           Math.round(
-                            (c.monthly_prod_achieved / c.monthly_prod_target) *
+                            (c.annual_prod_achieved / c.annual_prod_target) *
                               100,
                           ),
                           200,
@@ -868,7 +868,7 @@ export default function SaCompare() {
                           fontWeight: 600,
                         }}
                       >
-                        {fmtN(c.monthly_prod_achieved)}টি
+                        {fmtN(c.annual_prod_achieved)}টি
                       </td>
                       <td style={{ padding: "12px 14px", minWidth: 140 }}>
                         {pct !== null ? (
