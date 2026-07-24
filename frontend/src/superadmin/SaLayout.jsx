@@ -240,16 +240,14 @@ export default function SaLayout() {
   }, []);
 
   const rLabel = ROLE_BN[sa?.role] || sa?.role || "";
-  const adminAv = rLabel.charAt(0).toUpperCase();
-  const adminName = rLabel;
-  const adminRole =
-    sa?.role === "director"
-      ? "হর্টিকালচার উইং, DAE"
-      : ["হর্টিকালচার সেন্টার", sa?.name, sa?.district]
-          .filter(Boolean)
-          .join(", ");
-  const topbarName = rLabel;
-  const topbarRole = [sa?.district, sa?.division].filter(Boolean).join(", ");
+  const isHQ = (sa?.office || "") === "হর্টিকালচার উইং";
+  const adminAv = (sa?.person_name || sa?.name || rLabel || "A").charAt(0).toUpperCase();
+  const adminName = sa?.person_name || sa?.name || rLabel;
+  const adminRole = isHQ
+    ? `${rLabel}${sa?.subject ? ` (${sa.subject})` : ""}, হর্টিকালচার উইং`
+    : `${rLabel}${sa?.office ? `, ${sa.office}` : ""}`;
+  const topbarName = adminName;
+  const topbarRole = adminRole;
 
   const catColors = {
     A: { text: "#7c3aed", bg: "#f5f3ff", bd: "#ede9fe" },

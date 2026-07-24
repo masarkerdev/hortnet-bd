@@ -12,7 +12,7 @@ export function SaAuthProvider({ children }) {
   async function login(email, password) {
     const r = await saApi.post('/login', { email, password });
     if (!r.data?.success) throw new Error(r.data?.message || 'লগইন ব্যর্থ');
-    const me = { name: r.data.name, role: r.data.role, assignedCenters: r.data.assignedCenters || [] };
+    const me = { name: r.data.name, person_name: r.data.person_name, office: r.data.office, subject: r.data.subject, role: r.data.role, assignedCenters: r.data.assignedCenters || [] };
     sessionStorage.setItem('sa_tk', r.data.token);
     sessionStorage.setItem('sa_me', JSON.stringify(me));
     setSa(me);
