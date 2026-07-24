@@ -599,7 +599,7 @@ router.delete("/tenants/:id", saAuth, directorOnly, async (req, res) => {
 router.get("/admins", saAuth, directorOnly, async (req, res) => {
   try {
     const r = await masterDb.query(
-      `SELECT sa.id, sa.name, sa.email, sa.role, sa.district, sa.division, sa.phone, sa.is_active, sa.created_at,
+      `SELECT sa.id, sa.name, sa.person_name, sa.office, sa.subject, sa.email, sa.role, sa.district, sa.division, sa.phone, sa.is_active, sa.created_at,
              COALESCE(json_agg(aca.tenant_slug) FILTER (WHERE aca.tenant_slug IS NOT NULL), '[]') AS assigned_centers
              FROM super_admins sa
              LEFT JOIN admin_center_assignments aca ON sa.id = aca.admin_id
@@ -613,19 +613,20 @@ router.get("/admins", saAuth, directorOnly, async (req, res) => {
 
 router.post("/admins", saAuth, directorOnly, async (req, res) => {
   const {
-    name,
+    person_name,
+    office,
     email,
     password,
     role,
-    district,
-    division,
+    subject,
     phone,
     assigned_centers,
   } = req.body;
-  if (!name || !email || !password || !role)
+  if (!person_name || !office || !email || !password || !role)
     return res
       .status(400)
-      .json({ success: false, message: "নাম, ইমেইল, পাসওয়ার্ড ও পদবী দিন।" });
+      .json({ success: false, message: "ব্যক্তির নাম, অফিস, ইমেইল, পাসওয়ার্ড ও পদবী দিন।" });
+  const isHQ = office.trim() === "হর্টিকালচার উইং";
   try {
     const ex = await masterDb.query(
       "SELECT id FROM super_admins WHERE email=$1",
@@ -637,11 +638,12 @@ router.post("/admins", saAuth, directorOnly, async (req, res) => {
         .json({ success: false, message: "এই ইমেইল আগে থেকে আছে।" });
     const hash = await bcrypt.hash(password, 10);
     const r = await masterDb.query(
-      `INSERT INTO super_admins (name,email,password,role,district,division,phone,is_active) VALUES($1,$2,$3,$4,$5,$6,$7,true) RETURNING id`,
-      [name, email, hash, role, district || "", division || "", phone || ""],
+      `INSERT INTO super_admins (name,person_name,office,email,password,role,subject,phone,is_active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,true) RETURNING id`,
+      [office.trim(), person_name.trim(), office.trim(), email, hash, role, isHQ ? (subject || "").trim() : null, phone || ""],
     );
     const adminId = r.rows[0].id;
-    if (assigned_centers?.length > 0) {
+    // হর্টিকালচার উইং-এর পদ হলে কোনো center assign হবে না, তা যা-ই পাঠানো হোক না কেন (server-side lock)
+    if (!isHQ && assigned_centers?.length > 0) {
       const values = assigned_centers
         .map((slug) => `(${adminId},'${slug}')`)
         .join(",");
@@ -656,19 +658,21 @@ router.post("/admins", saAuth, directorOnly, async (req, res) => {
 });
 
 router.put("/admins/:id", saAuth, directorOnly, async (req, res) => {
-  const { name, email, role, district, division, phone, is_active, password } =
+  const { person_name, office, email, role, subject, phone, is_active, password } =
     req.body;
+  const isHQ = (office || "").trim() === "হর্টিকালচার উইং";
   try {
     if (password) {
       const hash = await bcrypt.hash(password, 10);
       await masterDb.query(
-        `UPDATE super_admins SET name=$1,email=$2,role=$3,district=$4,division=$5,phone=$6,is_active=$7,password=$8 WHERE id=$9`,
+        `UPDATE super_admins SET name=$1,person_name=$2,office=$3,email=$4,role=$5,subject=$6,phone=$7,is_active=$8,password=$9 WHERE id=$10`,
         [
-          name,
+          (office || "").trim(),
+          (person_name || "").trim(),
+          (office || "").trim(),
           email,
           role,
-          district || "",
-          division || "",
+          isHQ ? (subject || "").trim() : null,
           phone || "",
           is_active,
           hash,
@@ -677,18 +681,23 @@ router.put("/admins/:id", saAuth, directorOnly, async (req, res) => {
       );
     } else {
       await masterDb.query(
-        `UPDATE super_admins SET name=$1,email=$2,role=$3,district=$4,division=$5,phone=$6,is_active=$7 WHERE id=$8`,
+        `UPDATE super_admins SET name=$1,person_name=$2,office=$3,email=$4,role=$5,subject=$6,phone=$7,is_active=$8 WHERE id=$9`,
         [
-          name,
+          (office || "").trim(),
+          (person_name || "").trim(),
+          (office || "").trim(),
           email,
           role,
-          district || "",
-          division || "",
+          isHQ ? (subject || "").trim() : null,
           phone || "",
           is_active,
           req.params.id,
         ],
       );
+    }
+    // হর্টিকালচার উইং-এর পদে পরিবর্তিত হলে আগের সব center assignment মুছে ফেলি (server-side lock)
+    if (isHQ) {
+      await masterDb.query("DELETE FROM admin_center_assignments WHERE admin_id=$1", [req.params.id]);
     }
     res.json({ success: true, message: "আপডেট হয়েছে।" });
   } catch (err) {
@@ -718,6 +727,11 @@ router.put(
   async (req, res) => {
     const { assigned_centers } = req.body;
     try {
+      const adminR = await masterDb.query("SELECT office FROM super_admins WHERE id=$1", [req.params.id]);
+      const isHQ = (adminR.rows[0]?.office || "").trim() === "হর্টিকালচার উইং";
+      if (isHQ) {
+        return res.status(400).json({ success: false, message: "হর্টিকালচার উইং-এর পদের জন্য Center Assign করা যাবে না।" });
+      }
       await masterDb.query(
         "DELETE FROM admin_center_assignments WHERE admin_id=$1",
         [req.params.id],

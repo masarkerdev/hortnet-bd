@@ -20,6 +20,7 @@ const C = {
 };
 const ROLE_LABELS = {
   director: "পরিচালক",
+  additional_director: "অতিরিক্ত পরিচালক",
   deputy_director: "উপপরিচালক",
   additional_deputy_director: "অতিরিক্ত উপপরিচালক",
   program_officer: "প্রোগ্রাম অফিসার",
@@ -159,20 +160,18 @@ export default function SaAdmins() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("sa"); // sa | center
   const [saSubTab, setSaSubTab] = useState("director_office");
-  const CATEGORY_ADMIN_ROLES = [
-    "deputy_director",
-    "additional_deputy_director",
-  ];
+  const HQ_OFFICE = "হর্টিকালচার উইং";
+  const SUBJECT_SUGGESTIONS = ["ফল ও ফুল", "প্রশিক্ষণ", "কন্দাল, সবজি ও মসলা জাতীয় ফসল"];
   const [modal, setModal] = useState(null); // null | 'add' | 'edit' | 'assign'
   const [editId, setEditId] = useState(null);
   const [assignId, setAssignId] = useState(null);
   const [form, setForm] = useState({
-    name: "",
+    person_name: "",
+    office: HQ_OFFICE,
     email: "",
     password: "",
     role: "deputy_director",
-    district: "",
-    division: "",
+    subject: "",
     phone: "",
     is_active: "true",
   });
@@ -215,12 +214,12 @@ export default function SaAdmins() {
 
   function openAdd() {
     setForm({
-      name: "",
+      person_name: "",
+      office: saSubTab === "category_admin" ? "" : HQ_OFFICE,
       email: "",
       password: "",
-      role: "deputy_director",
-      district: "",
-      division: "",
+      role: saSubTab === "category_admin" ? "deputy_director" : "director",
+      subject: "",
       phone: "",
       is_active: "true",
     });
@@ -230,12 +229,12 @@ export default function SaAdmins() {
   }
   function openEdit(a) {
     setForm({
-      name: a.name,
+      person_name: a.person_name || "",
+      office: a.office || a.name || HQ_OFFICE,
       email: a.email,
       password: "",
       role: a.role,
-      district: a.district || "",
-      division: a.division || "",
+      subject: a.subject || "",
       phone: a.phone || "",
       is_active: String(a.is_active),
     });
@@ -250,8 +249,8 @@ export default function SaAdmins() {
   }
 
   async function save() {
-    if (!form.name || !form.email || !form.role) {
-      setMsg("সেন্টারের নাম, ইমেইল ও পদবী দিন।");
+    if (!form.person_name || !form.office || !form.email || !form.role) {
+      setMsg("ব্যক্তির নাম, অফিস, ইমেইল ও পদবী দিন।");
       return;
     }
     if (!editId && !form.password) {
@@ -262,11 +261,11 @@ export default function SaAdmins() {
     setMsg("");
     try {
       const body = {
-        name: form.name,
+        person_name: form.person_name,
+        office: form.office,
         email: form.email,
         role: form.role,
-        district: form.district,
-        division: form.division,
+        subject: form.subject,
         phone: form.phone,
         is_active: form.is_active === "true",
       };
@@ -288,7 +287,7 @@ export default function SaAdmins() {
   async function doDelete(a) {
     if (
       !(await confirm({
-        title: `"${a.name}" মুছে ফেলবেন?`,
+        title: `"${a.person_name || a.name}" মুছে ফেলবেন?`,
         message: "এটি স্থায়ীভাবে মুছে যাবে।",
         confirmLabel: "মুছুন",
       }))
@@ -519,8 +518,8 @@ export default function SaAdmins() {
               {admins
                 .filter((a) =>
                   saSubTab === "category_admin"
-                    ? CATEGORY_ADMIN_ROLES.includes(a.role)
-                    : !CATEGORY_ADMIN_ROLES.includes(a.role),
+                    ? (a.office || a.name) !== HQ_OFFICE
+                    : (a.office || a.name) === HQ_OFFICE,
                 )
                 .map((a) => {
                   const rc = ROLE_COLORS[a.role] || "#7c3aed";
@@ -555,7 +554,7 @@ export default function SaAdmins() {
                           flexShrink: 0,
                         }}
                       >
-                        {(a.name || "A")[0].toUpperCase()}
+                        {(a.person_name || a.name || "A")[0].toUpperCase()}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
@@ -565,18 +564,20 @@ export default function SaAdmins() {
                             color: C.text,
                           }}
                         >
+                          {a.person_name || a.name}
+                        </div>
+                        <div
+                          style={{ fontSize: 13, color: C.muted, marginTop: 2 }}
+                        >
                           {ROLE_LABELS[a.role] || a.role}
-                          {a.name ? ", " + a.name : ""}
+                          {a.subject ? ` (${a.subject})` : ""}
+                          {" • "}
+                          {a.office || a.name}
                         </div>
                         <div
                           style={{ fontSize: 13, color: C.muted, marginTop: 2 }}
                         >
                           {a.email}
-                        </div>
-                        <div
-                          style={{ fontSize: 12, color: C.muted, marginTop: 2 }}
-                        >
-                          {[a.district, a.division].filter(Boolean).join(", ")}
                         </div>
                         {(a.assigned_centers || []).length > 0 && (
                           <div
@@ -641,22 +642,24 @@ export default function SaAdmins() {
                         >
                           সম্পাদনা
                         </button>
-                        <button
-                          onClick={() => openAssign(a)}
-                          style={{
-                            padding: "7px 12px",
-                            borderRadius: 7,
-                            fontSize: 13,
-                            cursor: "pointer",
-                            fontFamily: FONT,
-                            background: C.bg,
-                            border: `1px solid ${C.border}`,
-                            color: C.accent,
-                            fontWeight: 600,
-                          }}
-                        >
-                          Center Assign
-                        </button>
+                        {(a.office || a.name) !== HQ_OFFICE && (
+                          <button
+                            onClick={() => openAssign(a)}
+                            style={{
+                              padding: "7px 12px",
+                              borderRadius: 7,
+                              fontSize: 13,
+                              cursor: "pointer",
+                              fontFamily: FONT,
+                              background: C.bg,
+                              border: `1px solid ${C.border}`,
+                              color: C.accent,
+                              fontWeight: 600,
+                            }}
+                          >
+                            Center Assign
+                          </button>
+                        )}
                         {a.role !== "director" && (
                           <button
                             onClick={() => doDelete(a)}
@@ -694,33 +697,107 @@ export default function SaAdmins() {
                 gap: 12,
               }}
             >
-              <Field label="উইং/সেন্টারের নাম*">
+              <Field label="ব্যক্তির নাম*">
                 <Input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="হর্টিকালচার সেন্টার,কুমিল্লা"
+                  value={form.person_name}
+                  onChange={(e) =>
+                    setForm({ ...form, person_name: e.target.value })
+                  }
+                  placeholder="মোঃ নূরে আলম সিদ্দিকী"
                 />
               </Field>
+              <Field label="অফিস*">
+                <Select
+                  value={
+                    form.office === HQ_OFFICE || !form.office
+                      ? form.office || ""
+                      : "__center__"
+                  }
+                  onChange={(e) => {
+                    if (e.target.value === "__center__") {
+                      setForm({ ...form, office: centers[0]?.name_bn || "" });
+                    } else {
+                      setForm({ ...form, office: e.target.value });
+                    }
+                  }}
+                >
+                  <option value={HQ_OFFICE}>{HQ_OFFICE}</option>
+                  <option value="__center__">নির্দিষ্ট সেন্টার</option>
+                </Select>
+              </Field>
+            </div>
+            {form.office !== HQ_OFFICE && (
+              <Field label="কোন সেন্টার?*">
+                <Select
+                  value={form.office}
+                  onChange={(e) => setForm({ ...form, office: e.target.value })}
+                >
+                  {centers.map((c) => (
+                    <option key={c.slug} value={c.name_bn}>
+                      {c.name_bn}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+              }}
+            >
               <Field label="পদবী*">
                 <Select
                   value={form.role}
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
                 >
-                  <option value="director">পরিচালক</option>
-                  <option value="deputy_director">উপপরিচালক</option>
-                  <option value="additional_deputy_director">
-                    অতিরিক্ত উপপরিচালক
-                  </option>
-                  <option value="program_officer">প্রোগ্রাম অফিসার</option>
-                  <option value="notice_officer">নোটিশ অফিসার</option>
-                  <option value="report_officer">রিপোর্ট অফিসার</option>
-                  <option value="viewer">ভিউয়ার</option>
-                  <option value="horticulturist">উদ্যানতত্ত্ববিদ</option>
-                  <option value="nursery_supervisor">
-                    নার্সারী তত্ত্বাবধায়ক
-                  </option>
+                  {form.office === HQ_OFFICE ? (
+                    <>
+                      <option value="director">পরিচালক</option>
+                      <option value="additional_director">
+                        অতিরিক্ত পরিচালক
+                      </option>
+                      <option value="deputy_director">উপপরিচালক</option>
+                      <option value="additional_deputy_director">
+                        অতিরিক্ত উপপরিচালক
+                      </option>
+                      <option value="program_officer">প্রোগ্রাম অফিসার</option>
+                      <option value="notice_officer">নোটিশ অফিসার</option>
+                      <option value="report_officer">রিপোর্ট অফিসার</option>
+                      <option value="viewer">ভিউয়ার</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="deputy_director">উপপরিচালক</option>
+                      <option value="additional_deputy_director">
+                        অতিরিক্ত উপপরিচালক
+                      </option>
+                      <option value="horticulturist">উদ্যানতত্ত্ববিদ</option>
+                      <option value="nursery_supervisor">
+                        নার্সারী তত্ত্বাবধায়ক
+                      </option>
+                    </>
+                  )}
                 </Select>
               </Field>
+              {form.office === HQ_OFFICE && (
+                <Field label="বিষয়/বিশেষত্ব*">
+                  <Input
+                    list="subject-suggestions"
+                    value={form.subject}
+                    onChange={(e) =>
+                      setForm({ ...form, subject: e.target.value })
+                    }
+                    placeholder="ফল ও ফুল"
+                  />
+                  <datalist id="subject-suggestions">
+                    {SUBJECT_SUGGESTIONS.map((s) => (
+                      <option key={s} value={s} />
+                    ))}
+                  </datalist>
+                </Field>
+              )}
             </div>
             <Field label="ইমেইল*">
               <Input
@@ -740,32 +817,6 @@ export default function SaAdmins() {
                 placeholder="••••••••"
               />
             </Field>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 12,
-              }}
-            >
-              <Field label="জেলা">
-                <Input
-                  value={form.district}
-                  onChange={(e) =>
-                    setForm({ ...form, district: e.target.value })
-                  }
-                  placeholder="কুমিল্লা"
-                />
-              </Field>
-              <Field label="বিভাগ">
-                <Input
-                  value={form.division}
-                  onChange={(e) =>
-                    setForm({ ...form, division: e.target.value })
-                  }
-                  placeholder="চট্টগ্রাম"
-                />
-              </Field>
-            </div>
             <Field label="ফোন">
               <Input
                 value={form.phone}
