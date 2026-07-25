@@ -2637,6 +2637,92 @@ router.delete("/work-types/:id", authenticate, adminOnly, async (req, res) => {
 });
 
 // কাজের বিবরণ রেজিস্টার এন্ট্রি (তারিখ-ভিত্তিক)
+// ছুটির তালিকা (Center Admin পরিচালনা করবেন)
+router.get("/work-holidays", authenticate, async (req, res) => {
+  try {
+    const r = await db.query("SELECT * FROM work_holidays ORDER BY holiday_date");
+    res.json({ success: true, data: r.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post("/work-holidays", authenticate, adminOnly, async (req, res) => {
+  const { holiday_date, name } = req.body;
+  if (!holiday_date || !name || !name.trim()) {
+    return res.status(400).json({ success: false, message: "তারিখ ও ছুটির নাম দিন।" });
+  }
+  try {
+    const r = await db.query(
+      "INSERT INTO work_holidays (holiday_date, name) VALUES ($1,$2) ON CONFLICT (holiday_date) DO UPDATE SET name=$2 RETURNING *",
+      [holiday_date, name.trim()]
+    );
+    res.json({ success: true, data: r.rows[0], message: "যোগ হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.delete("/work-holidays/:id", authenticate, adminOnly, async (req, res) => {
+  try {
+    await db.query("DELETE FROM work_holidays WHERE id=$1", [req.params.id]);
+    res.json({ success: true, message: "মুছে ফেলা হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// মাসিক view — প্রতিটা তারিখের সারি, weekend/holiday চিহ্নিত করে, সেই দিনের সব entry-সহ
+router.get("/work-register/month", authenticate, async (req, res) => {
+  const year = parseInt(req.query.year) || new Date().getFullYear();
+  const month = parseInt(req.query.month) || new Date().getMonth() + 1;
+  try {
+    const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    const [entriesR, holidaysR] = await Promise.all([
+      db.query(
+        "SELECT * FROM work_register_entries WHERE entry_date BETWEEN $1 AND $2 ORDER BY entry_date, id",
+        [startDate, endDate]
+      ),
+      db.query("SELECT * FROM work_holidays WHERE holiday_date BETWEEN $1 AND $2", [startDate, endDate]),
+    ]);
+
+    const holidayMap = {};
+    holidaysR.rows.forEach((h) => {
+      holidayMap[h.holiday_date.toISOString().slice(0, 10)] = h.name;
+    });
+    const entriesByDate = {};
+    entriesR.rows.forEach((e) => {
+      const key = e.entry_date.toISOString().slice(0, 10);
+      if (!entriesByDate[key]) entriesByDate[key] = [];
+      entriesByDate[key].push(e);
+    });
+
+    const WEEKDAY_BN = ["রবিবার", "সোমবার", "মঙ্গলবার", "বুধবার", "বৃহস্পতিবার", "শুক্রবার", "শনিবার"];
+    const days = [];
+    for (let d = 1; d <= lastDay; d++) {
+      const dateObj = new Date(year, month - 1, d);
+      const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const dayOfWeek = dateObj.getDay();
+      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+      days.push({
+        date: dateStr,
+        weekday: WEEKDAY_BN[dayOfWeek],
+        is_weekend: isWeekend,
+        holiday_name: holidayMap[dateStr] || null,
+        entries: entriesByDate[dateStr] || [],
+      });
+    }
+
+    res.json({ success: true, data: days });
+  } catch (err) {
+    console.error("work-register/month error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.get("/work-register", authenticate, async (req, res) => {
   const date = req.query.date || new Date().toISOString().slice(0, 10);
   try {
