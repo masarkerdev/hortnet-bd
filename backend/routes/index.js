@@ -2683,19 +2683,19 @@ router.get("/work-register/month", authenticate, async (req, res) => {
 
     const [entriesR, holidaysR] = await Promise.all([
       db.query(
-        "SELECT * FROM work_register_entries WHERE entry_date BETWEEN $1 AND $2 ORDER BY entry_date, id",
+        "SELECT *, TO_CHAR(entry_date,'YYYY-MM-DD') AS entry_date_str FROM work_register_entries WHERE entry_date BETWEEN $1 AND $2 ORDER BY entry_date, id",
         [startDate, endDate]
       ),
-      db.query("SELECT * FROM work_holidays WHERE holiday_date BETWEEN $1 AND $2", [startDate, endDate]),
+      db.query("SELECT *, TO_CHAR(holiday_date,'YYYY-MM-DD') AS holiday_date_str FROM work_holidays WHERE holiday_date BETWEEN $1 AND $2", [startDate, endDate]),
     ]);
 
     const holidayMap = {};
     holidaysR.rows.forEach((h) => {
-      holidayMap[h.holiday_date.toISOString().slice(0, 10)] = h.name;
+      holidayMap[h.holiday_date_str] = h.name;
     });
     const entriesByDate = {};
     entriesR.rows.forEach((e) => {
-      const key = e.entry_date.toISOString().slice(0, 10);
+      const key = e.entry_date_str;
       if (!entriesByDate[key]) entriesByDate[key] = [];
       entriesByDate[key].push(e);
     });

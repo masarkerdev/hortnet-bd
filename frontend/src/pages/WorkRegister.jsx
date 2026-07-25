@@ -35,7 +35,8 @@ export default function WorkRegister() {
   const [monthDays, setMonthDays] = useState([]);
   const [monthLoading, setMonthLoading] = useState(true);
 
-  const EMPTY_ENTRY = { entry_date: todayStr(), work_type_name: '', employee_names: [], reference_no: '', materials_used: '', quantity_progress: '', wage_rate: '', wage_cost: '', material_cost: '', subofficer_signature: '', controller_note: '' };
+  const EMPTY_WORK_ROW = { work_type_name: '', employee_names: [], reference_no: '', materials_used: '', quantity_progress: '', wage_cost: '', material_cost: '' };
+  const EMPTY_ENTRY = { entry_date: todayStr(), work_rows: [{ ...EMPTY_WORK_ROW }], subofficer_signature: '', controller_note: '' };
   const [entryForm, setEntryForm] = useState(EMPTY_ENTRY);
   const EMPTY_PLAN = { planned_date: todayStr(), work_type_name: '', employee_name: '', notes: '' };
   const [planForm, setPlanForm] = useState(EMPTY_PLAN);
@@ -62,14 +63,35 @@ export default function WorkRegister() {
   useEffect(() => { loadMonth(); }, [viewYear, viewMonth]);
 
   async function saveEntry() {
-    if (!entryForm.work_type_name || !entryForm.entry_date) return;
+    const validRows = entryForm.work_rows.filter(r => r.work_type_name);
+    if (!validRows.length || !entryForm.entry_date) return;
     try {
-      const { employee_names, entry_date, ...rest } = entryForm;
-      await api.post('/work-register', { entry_date, ...rest, employee_name: (employee_names || []).join(', ') });
+      for (const row of validRows) {
+        const { employee_names, ...rest } = row;
+        await api.post('/work-register', {
+          entry_date: entryForm.entry_date,
+          ...rest,
+          employee_name: (employee_names || []).join(', '),
+          subofficer_signature: entryForm.subofficer_signature,
+          controller_note: entryForm.controller_note,
+        });
+      }
       setEntryModal(false);
-      setEntryForm({ ...EMPTY_ENTRY, entry_date });
+      setEntryForm({ ...EMPTY_ENTRY, entry_date: entryForm.entry_date });
       loadMonth();
     } catch (e) {}
+  }
+  function addWorkRow() {
+    setEntryForm({ ...entryForm, work_rows: [...entryForm.work_rows, { ...EMPTY_WORK_ROW }] });
+  }
+  function removeWorkRow(idx) {
+    setEntryForm({ ...entryForm, work_rows: entryForm.work_rows.filter((_, i) => i !== idx) });
+  }
+  function updateWorkRow(idx, updates) {
+    setEntryForm({
+      ...entryForm,
+      work_rows: entryForm.work_rows.map((r, i) => i === idx ? { ...r, ...updates } : r),
+    });
   }
   async function deleteEntry(id) {
     if (!window.confirm('এই এন্ট্রি মুছে ফেলবেন?')) return;
@@ -261,65 +283,63 @@ export default function WorkRegister() {
       {/* নতুন এন্ট্রি Modal */}
       {entryModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-          <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>নতুন এন্ট্রি</div>
 
             <label style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>তারিখ*</label>
-            <input type="date" value={entryForm.entry_date} onChange={e => setEntryForm({ ...entryForm, entry_date: e.target.value })} style={{ ...inp, marginBottom: 10 }} />
+            <input type="date" value={entryForm.entry_date} onChange={e => setEntryForm({ ...entryForm, entry_date: e.target.value })} style={{ ...inp, marginBottom: 16 }} />
 
-            <label style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>কাজের বিবরণ*</label>
-            <select value={entryForm.work_type_name} onChange={e => setEntryForm({ ...entryForm, work_type_name: e.target.value })} style={{ ...inp, marginBottom: 10 }}>
-              <option value="">— নির্বাচন করুন —</option>
-              {workTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-            </select>
+            {entryForm.work_rows.map((row, idx) => (
+              <div key={idx} style={{ border: '1px solid #e8f5ed', borderRadius: 10, padding: 14, marginBottom: 12, background: '#fafcfb' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#1a6b3a' }}>কাজ #{toBn(idx + 1)}</span>
+                  {entryForm.work_rows.length > 1 && (
+                    <button onClick={() => removeWorkRow(idx)} style={{ border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>✕ সরান</button>
+                  )}
+                </div>
 
-            <label style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>কর্মচারীর নাম (একাধিক নির্বাচন করা যাবে)</label>
-            <div style={{ border: '1px solid #e0e0e0', borderRadius: 8, padding: '8px 12px', marginBottom: 10, maxHeight: 130, overflowY: 'auto' }}>
-              {employees.length === 0 ? (
-                <div style={{ fontSize: 12, color: '#9ca3af' }}>কোনো কর্মচারী পাওয়া যায়নি</div>
-              ) : (
-                employees.map(emp => (
-                  <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 13, cursor: 'pointer' }}>
-                    <input type="checkbox"
-                      checked={entryForm.employee_names.includes(emp.name_bn)}
-                      onChange={(e) => {
-                        const list = entryForm.employee_names;
-                        setEntryForm({
-                          ...entryForm,
-                          employee_names: e.target.checked ? [...list, emp.name_bn] : list.filter(n => n !== emp.name_bn),
-                        });
-                      }}
-                    />
-                    {emp.name_bn} ({emp.designation})
-                  </label>
-                ))
-              )}
-            </div>
+                <label style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>কাজের বিবরণ*</label>
+                <select value={row.work_type_name} onChange={e => updateWorkRow(idx, { work_type_name: e.target.value })} style={{ ...inp, marginBottom: 8 }}>
+                  <option value="">— নির্বাচন করুন —</option>
+                  {workTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                </select>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-              <div>
-                <label style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>রেফারেন্স নং/ব্লক</label>
-                <input value={entryForm.reference_no} onChange={e => setEntryForm({ ...entryForm, reference_no: e.target.value })} style={inp} />
+                <label style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>এই কাজের কর্মচারী (একাধিক নির্বাচন করা যাবে)</label>
+                <div style={{ border: '1px solid #e0e0e0', borderRadius: 8, padding: '8px 12px', marginBottom: 8, maxHeight: 110, overflowY: 'auto', background: '#fff' }}>
+                  {employees.length === 0 ? (
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>কোনো কর্মচারী পাওয়া যায়নি</div>
+                  ) : (
+                    employees.map(emp => (
+                      <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', fontSize: 12.5, cursor: 'pointer' }}>
+                        <input type="checkbox"
+                          checked={row.employee_names.includes(emp.name_bn)}
+                          onChange={(e) => {
+                            const list = row.employee_names;
+                            updateWorkRow(idx, { employee_names: e.target.checked ? [...list, emp.name_bn] : list.filter(n => n !== emp.name_bn) });
+                          }}
+                        />
+                        {emp.name_bn} ({emp.designation})
+                      </label>
+                    ))
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <input value={row.reference_no} onChange={e => updateWorkRow(idx, { reference_no: e.target.value })} placeholder="রেফারেন্স নং/ব্লক" style={inp} />
+                  <input value={row.materials_used} onChange={e => updateWorkRow(idx, { materials_used: e.target.value })} placeholder="মালামালের নাম" style={inp} />
+                </div>
+                <input value={row.quantity_progress} onChange={e => updateWorkRow(idx, { quantity_progress: e.target.value })} placeholder="পরিমাণ/অগ্রগতি (যেমন: ৩০টি)" style={{ ...inp, marginBottom: 8 }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <input type="text" inputMode="numeric" value={row.wage_cost} onChange={e => updateWorkRow(idx, { wage_cost: e.target.value.replace(/[^0-9]/g, '') })} placeholder="মজুরী খরচ" style={inp} />
+                  <input type="text" inputMode="numeric" value={row.material_cost} onChange={e => updateWorkRow(idx, { material_cost: e.target.value.replace(/[^0-9]/g, '') })} placeholder="মালামাল খরচ" style={inp} />
+                </div>
               </div>
-              <div>
-                <label style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>মালামালের নাম</label>
-                <input value={entryForm.materials_used} onChange={e => setEntryForm({ ...entryForm, materials_used: e.target.value })} style={inp} />
-              </div>
-            </div>
+            ))}
 
-            <label style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>সম্পাদিত কাজের পরিমাণ/অগ্রগতি</label>
-            <input value={entryForm.quantity_progress} onChange={e => setEntryForm({ ...entryForm, quantity_progress: e.target.value })} placeholder="যেমন: ৩০টি, ৫০ গ্রাম/গাছ" style={{ ...inp, marginBottom: 10 }} />
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-              <div>
-                <label style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>মজুরী খরচ</label>
-                <input type="text" inputMode="numeric" value={entryForm.wage_cost} onChange={e => setEntryForm({ ...entryForm, wage_cost: e.target.value.replace(/[^0-9]/g, '') })} style={inp} />
-              </div>
-              <div>
-                <label style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>মালামাল খরচ</label>
-                <input type="text" inputMode="numeric" value={entryForm.material_cost} onChange={e => setEntryForm({ ...entryForm, material_cost: e.target.value.replace(/[^0-9]/g, '') })} style={inp} />
-              </div>
-            </div>
+            <button onClick={addWorkRow}
+              style={{ width: '100%', padding: '9px', borderRadius: 8, border: '1px dashed #1a6b3a', background: '#f0faf3', color: '#1a6b3a', cursor: 'pointer', fontSize: 12.5, fontFamily: FONT, fontWeight: 600, marginBottom: 16 }}>
+              + আরেকটি কাজ যোগ করুন
+            </button>
 
             <label style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>উপ-সহকারী উদ্যান কর্মকর্তার স্বাক্ষর (নাম)</label>
             <input value={entryForm.subofficer_signature} onChange={e => setEntryForm({ ...entryForm, subofficer_signature: e.target.value })} style={{ ...inp, marginBottom: 10 }} />
