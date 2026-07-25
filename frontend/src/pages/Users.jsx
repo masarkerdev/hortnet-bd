@@ -17,7 +17,25 @@ const MATRIX = [
   ['Sales Operator',    [1,0,0,1,1]],
   ['Viewer',            [0,0,0,1,0]],
 ];
-const EMPTY = { id:'', name:'', email:'', role:'viewer', password:'', phone:'' };
+const EMPTY = { id:'', name:'', email:'', role:'viewer', password:'', phone:'', custom_permissions:null };
+
+// Layout.jsx-এর ACCESS ম্যাপের সাথে মিলিয়ে পেজের তালিকা (page-permission override-এর জন্য)
+const PAGE_OPTIONS = [
+  ['dash', 'ড্যাশবোর্ড'],
+  ['seed', 'চারার তালিকা'],
+  ['prod', 'উৎপাদন'],
+  ['moth', 'মাদার প্ল্যান্ট'],
+  ['batch', 'ব্যাচ'],
+  ['stk', 'স্টক'],
+  ['dmg', 'ক্ষতি'],
+  ['sale', 'বিক্রয়'],
+  ['cust', 'গ্রাহক'],
+  ['income', 'অন্যান্য আয়'],
+  ['rep', 'রিপোর্ট ও বিশ্লেষণ'],
+  ['wreg', 'কাজের বিবরণ রেজিস্টার'],
+  ['usr', 'ব্যবহারকারী'],
+  ['cfg', 'সেটিংস'],
+];
 
 export default function Users() {
   const [rows, setRows] = useState([]);
@@ -39,13 +57,18 @@ export default function Users() {
   useEffect(() => { load(); }, []);
 
   function openNew() { setForm(EMPTY); setShowPw(false); setMsg(''); setOpen(true); }
-  function openEdit(u) { setForm({ id:u.id, name:u.name||'', email:u.email||'', role:u.role||'viewer', password:'', phone:u.phone||'' }); setShowPw(false); setMsg(''); setOpen(true); }
+  function openEdit(u) {
+    let perms = null;
+    try { perms = u.custom_permissions ? JSON.parse(u.custom_permissions) : null; } catch (e) {}
+    setForm({ id:u.id, name:u.name||'', email:u.email||'', role:u.role||'viewer', password:'', phone:u.phone||'', custom_permissions: perms });
+    setShowPw(false); setMsg(''); setOpen(true);
+  }
 
   async function save() {
     if (!form.name || !form.email) { setMsg('নাম ও ইমেইল দিন'); return; }
     if (!form.id && !form.password) { setMsg('নতুন ব্যবহারকারীর পাসওয়ার্ড দিন'); return; }
     setSaving(true); setMsg('');
-    const body = { name:form.name, email:form.email, role:form.role, is_active:true, phone:form.phone };
+    const body = { name:form.name, email:form.email, role:form.role, is_active:true, phone:form.phone, custom_permissions: form.custom_permissions };
     if (form.password) body.password = form.password;
     try { if (form.id) await api.put('/users/'+form.id, body); else await api.post('/users', body); setOpen(false); load(); }
     catch (e) { setMsg(e?.response?.data?.message || e?.response?.data?.error || 'সমস্যা'); } finally { setSaving(false); }
@@ -147,6 +170,34 @@ export default function Users() {
                 <button type="button" onClick={()=>setShowPw(!showPw)} className="absolute right-2 top-1/2 -translate-y-1/2" style={{ color:'var(--tm)' }}><IcEye className="h-[18px] w-[18px]" /></button>
               </div>
             </div>
+          </div>
+          <div style={{ border:'1px solid var(--bd)', borderRadius:8, padding:12, marginTop:4 }}>
+            <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, cursor:'pointer', marginBottom: form.custom_permissions ? 10 : 0 }}>
+              <input type="checkbox"
+                checked={!!form.custom_permissions}
+                onChange={(e) => setForm({ ...form, custom_permissions: e.target.checked ? [] : null })}
+              />
+              এই ব্যবহারকারীর জন্য নির্দিষ্ট পেজ-অনুমতি নির্ধারণ করুন (role-এর default বাদ দিয়ে)
+            </label>
+            {form.custom_permissions && (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+                {PAGE_OPTIONS.map(([key, label]) => (
+                  <label key={key} style={{ display:'flex', alignItems:'center', gap:6, fontSize:12.5, cursor:'pointer' }}>
+                    <input type="checkbox"
+                      checked={form.custom_permissions.includes(key)}
+                      onChange={(e) => {
+                        const list = form.custom_permissions;
+                        setForm({
+                          ...form,
+                          custom_permissions: e.target.checked ? [...list, key] : list.filter(k => k !== key),
+                        });
+                      }}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
           {msg && <div className="text-[13px]" style={{ color:'var(--r600)' }}>{msg}</div>}
           <div className="flex justify-end gap-2 pt-1">

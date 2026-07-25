@@ -5,7 +5,7 @@ const db = require('../config/db');
 const getAllUsers = async (req, res) => {
     try {
         const result = await db.query(
-            'SELECT id, name, email, phone, role, is_active, created_at, password_request_status FROM users ORDER BY created_at DESC'
+            'SELECT id, name, email, phone, role, is_active, created_at, password_request_status, custom_permissions FROM users ORDER BY created_at DESC'
         );
         res.json({ success: true, data: result.rows });
     } catch (err) {
@@ -15,7 +15,7 @@ const getAllUsers = async (req, res) => {
 
 // নতুন ব্যবহারকারী তৈরি করুন
 const createUser = async (req, res) => {
-    const { name, email, password, role, phone } = req.body;
+    const { name, email, password, role, phone, custom_permissions } = req.body;
 
     if (!name || !email || !password || !role) {
         return res.status(400).json({ success: false, message: 'সব তথ্য পূরণ করুন।' });
@@ -28,11 +28,12 @@ const createUser = async (req, res) => {
         }
 
         const hashed = await bcrypt.hash(password, 10);
+        const permsStr = Array.isArray(custom_permissions) ? JSON.stringify(custom_permissions) : null;
         const result = await db.query(
-            `INSERT INTO users (name, email, password, role, phone)
-             VALUES ($1, $2, $3, $4, $5)
-             RETURNING id, name, email, role, phone, created_at`,
-            [name, email, hashed, role, phone || null]
+            `INSERT INTO users (name, email, password, role, phone, custom_permissions)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, name, email, role, phone, custom_permissions, created_at`,
+            [name, email, hashed, role, phone || null, permsStr]
         );
 
         res.status(201).json({ success: true, message: 'ব্যবহারকারী তৈরি হয়েছে।', data: result.rows[0] });
@@ -44,13 +45,14 @@ const createUser = async (req, res) => {
 // ব্যবহারকারী আপডেট করুন
 const updateUser = async (req, res) => {
     const { id } = req.params;
-    const { name, role, is_active, phone } = req.body;
+    const { name, role, is_active, phone, custom_permissions } = req.body;
 
     try {
+        const permsStr = Array.isArray(custom_permissions) ? JSON.stringify(custom_permissions) : null;
         const result = await db.query(
-            `UPDATE users SET name=$1, role=$2, is_active=$3, phone=$4
-             WHERE id=$5 RETURNING id, name, email, role, is_active, phone`,
-            [name, role, is_active, phone || null, id]
+            `UPDATE users SET name=$1, role=$2, is_active=$3, phone=$4, custom_permissions=$5
+             WHERE id=$6 RETURNING id, name, email, role, is_active, phone, custom_permissions`,
+            [name, role, is_active, phone || null, permsStr, id]
         );
 
         if (result.rows.length === 0) {

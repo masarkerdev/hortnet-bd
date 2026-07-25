@@ -29,7 +29,7 @@ const login = async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: user.id, name: user.name, email: user.email, role: user.role },
+            { id: user.id, name: user.name, email: user.email, role: user.role, custom_permissions: user.custom_permissions },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
         );
@@ -38,7 +38,7 @@ const login = async (req, res) => {
             success: true,
             message: 'সফলভাবে লগইন হয়েছে।',
             token,
-            user: { id: user.id, name: user.name, email: user.email, role: user.role }
+            user: { id: user.id, name: user.name, email: user.email, role: user.role, custom_permissions: user.custom_permissions }
         });
 
     } catch (err) {
@@ -52,7 +52,7 @@ const login = async (req, res) => {
 const getProfile = async (req, res) => {
     try {
         const result = await db.query(
-            'SELECT id, name, email, role, created_at FROM users WHERE id = $1', [req.user.id]
+            'SELECT id, name, email, role, custom_permissions, created_at FROM users WHERE id = $1', [req.user.id]
         );
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {

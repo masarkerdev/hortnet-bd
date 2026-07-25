@@ -271,7 +271,14 @@ export default function Layout() {
     if (!localStorage.getItem("hc_fy"))
       localStorage.setItem("hc_fy", String(fy));
   }, []);
-  const allowed = ACCESS[user?.role] || ["dash"];
+  // ব্যক্তিগত custom_permissions থাকলে সেটাই ব্যবহার হবে, না থাকলে role-ভিত্তিক default
+  let customPerms = null;
+  try {
+    customPerms = user?.custom_permissions ? JSON.parse(user.custom_permissions) : null;
+  } catch (e) {
+    customPerms = null;
+  }
+  const allowed = Array.isArray(customPerms) ? customPerms : (ACCESS[user?.role] || ["dash"]);
   const can = (k) => allowed.includes(k);
   const [profileOpen, setProfileOpen] = useState(false);
   const [recycleCount, setRecycleCount] = useState(0);
