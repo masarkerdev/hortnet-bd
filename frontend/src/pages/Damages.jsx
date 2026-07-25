@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { confirm } from '../lib/confirm';
 import api from '../lib/api';
-import { toBn, dateBn, today } from '../lib/format';
+import { toBn, dateBn, today, localDateStr } from '../lib/format';
 import Modal from '../components/Modal';
 import { IcPlus, IcAlert, IcLeaf, IcChart, IcEdit, IcTrash } from '../components/icons';
 
@@ -33,7 +33,7 @@ export default function Damages() {
   const rateColor = stats.rate>20 ? 'var(--r400)' : stats.rate>10 ? 'var(--a400)' : 'var(--g600)';
 
   function openNew() { setForm(EMPTY); setMsg(''); setOpen(true); }
-  function openEdit(x) { setForm({ id:x.id, seedling_id:x.seedling_id||'', batch_id:x.batch_id||'', damage_date:(x.damage_date||today()).slice(0,10), quantity:x.quantity||'', reason:x.reason||'other', remarks:x.remarks||'' }); setMsg(''); setOpen(true); }
+  function openEdit(x) { setForm({ id:x.id, seedling_id:x.seedling_id||'', batch_id:x.batch_id||'', damage_date: x.damage_date ? localDateStr(x.damage_date) : today(), quantity:x.quantity||'', reason:x.reason||'other', remarks:x.remarks||'' }); setMsg(''); setOpen(true); }
 
   async function save() {
     if (!form.seedling_id || !form.quantity || !form.damage_date) { setMsg('চারা, তারিখ ও পরিমাণ দিন'); return; }

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import api from '../lib/api';
+import { today as todayStr } from '../lib/format';
 
 const FONT = "'Noto Sans Bengali','Segoe UI',sans-serif";
 const toBn = n => String(n ?? 0).replace(/[0-9]/g, d => '০১২৩৪৫৬৭৮৯'[d]);
 const fmtN = n => toBn(Math.round(n || 0));
-const todayStr = () => new Date().toISOString().slice(0, 10);
 const BN_DATE = (iso) => {
   const d = new Date(iso);
   const MON = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];

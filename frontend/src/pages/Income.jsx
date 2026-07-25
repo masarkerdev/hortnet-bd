@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { confirm } from '../lib/confirm';
 import api from '../lib/api';
-import { toBn, money, dateBn, today } from '../lib/format';
+import { toBn, money, dateBn, today, localDateStr } from '../lib/format';
 import Modal from '../components/Modal';
 import { IcPlus, IcLeaf, IcArchive, IcDoc, IcCoin, IcEdit, IcTrash, IcPrinter } from '../components/icons';
 import ProducePrices from './ProducePrices';
@@ -82,9 +82,9 @@ function IncomeList() {
   function openEdit(x) {
     const mode = x.income_type === 'produce' ? 'produce' : x.income_type === 'dormitory' ? 'dormitory' : 'general';
     setForm({ id:x.id, mode, income_type:x.income_type||'', category:x.category||'', amount:x.amount||'',
-      income_date:(x.income_date||today()).slice(0,10), description:x.description||'',
+      income_date: x.income_date ? localDateStr(x.income_date) : today(), description:x.description||'',
       produce_price_id:x.produce_price_id||'', quantity:x.quantity||'', unit_price:x.unit_price||'', unit:'kg',
-      room_category_id:x.room_category_id||'', check_in:(x.check_in||today()).slice(0,10), check_out:(x.check_out||today()).slice(0,10), daily_rate:'', guest_name:x.guest_name||'', guest_mobile:x.guest_mobile||'', guest_occupation:x.guest_occupation||'' });
+      room_category_id:x.room_category_id||'', check_in: x.check_in ? localDateStr(x.check_in) : today(), check_out: x.check_out ? localDateStr(x.check_out) : today(), daily_rate:'', guest_name:x.guest_name||'', guest_mobile:x.guest_mobile||'', guest_occupation:x.guest_occupation||'' });
     setMsg(''); setOpen(true);
   }
   function onProduce(id) { const p = produces.find((x)=>String(x.id)===String(id)); setForm((f)=>({ ...f, produce_price_id:id, unit_price:p?Number(p.price):0, unit:p?p.unit:'kg', category:p?p.name:'' })); }

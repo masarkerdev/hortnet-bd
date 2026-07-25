@@ -3,7 +3,7 @@ import { confirm } from '../lib/confirm';
 import api from '../lib/api';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../auth/AuthContext';
-import { toBn, dateBn } from '../lib/format';
+import { toBn, dateBn, localDateStr } from '../lib/format';
 import Modal from '../components/Modal';
 import { IcPlus, IcEdit, IcTrash, IcSearch, IcClipboard, IcUsers, IcCheck, IcAlert } from '../components/icons';
 
@@ -81,8 +81,8 @@ export default function Employees() {
 
   const permFiltered = useMemo(() => { const s=search.toLowerCase(); return perm.filter((e)=>!s||(e.name_bn||'').toLowerCase().includes(s)||(e.designation||'').toLowerCase().includes(s)||(e.mobile||'').includes(s)); }, [perm, search]);
 
-  function openPerm(e) { setMsg(''); setModal({ kind:'permanent', form: e ? { ...EMPTY_P, ...e, join_date:(e.join_date||'').slice(0,10), prl_date:(e.prl_date||'').slice(0,10), charge_type:e.charge_type||'' } : EMPTY_P }); }
-  function openTemp(e) { setMsg(''); setModal({ kind:'temporary', form: e ? { ...EMPTY_T, ...e, join_date:(e.join_date||'').slice(0,10) } : EMPTY_T }); }
+  function openPerm(e) { setMsg(''); setModal({ kind:'permanent', form: e ? { ...EMPTY_P, ...e, join_date: e.join_date ? localDateStr(e.join_date) : '', prl_date: e.prl_date ? localDateStr(e.prl_date) : '', charge_type:e.charge_type||'' } : EMPTY_P }); }
+  function openTemp(e) { setMsg(''); setModal({ kind:'temporary', form: e ? { ...EMPTY_T, ...e, join_date: e.join_date ? localDateStr(e.join_date) : '' } : EMPTY_T }); }
 
   async function save() {
     const f = modal.form;
