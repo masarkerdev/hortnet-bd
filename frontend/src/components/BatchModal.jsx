@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../lib/api';
-import { today } from '../lib/format';
+import { today, localDateStr } from '../lib/format';
 import Modal from './Modal';
 
 export const TYPES = [
@@ -22,10 +22,10 @@ export function batchToForm(b) {
   return {
     id: b.id, type: b.production_type, seedling_id: b.seedling_id || '',
     seed_source: b.seed_source || '', seed_quantity: b.seed_quantity || '',
-    sowing_date: (b.sowing_date || today()).slice(0, 10),
+    sowing_date: b.sowing_date ? localDateStr(b.sowing_date) : today(),
     produced_quantity: b.produced_quantity || '', success_quantity: b.success_quantity || '',
     mother_plant_id: b.mother_plant_id || '',
-    propagation_date: (b.propagation_date || b.created_at || today()).slice(0, 10),
+    propagation_date: (b.propagation_date || b.created_at) ? localDateStr(b.propagation_date || b.created_at) : today(),
     purchase_source: isPurch ? (b.remarks || '').replace(/ক্রয় উৎস: /, '').split(' | ')[0] : '',
     unit_price: '', remarks: b.production_type === 'seed' || isPurch ? '' : (b.remarks || ''),
   };
