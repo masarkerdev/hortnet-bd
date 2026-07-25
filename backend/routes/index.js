@@ -111,6 +111,7 @@ router.get("/dashboard/stats", authenticate, fyMiddleware, async (req, res) => {
       lowStock,
       recentSales,
       otherIncome,
+      successRates,
     ] = await Promise.all([
       db.query(
         `SELECT COUNT(*) AS total_invoices, COALESCE(SUM(total_amount),0) AS total_revenue, COALESCE(SUM(CASE WHEN payment_status='due' THEN total_amount ELSE 0 END),0) AS due_amount FROM sales WHERE sale_date BETWEEN $1 AND $2`,
@@ -154,6 +155,16 @@ router.get("/dashboard/stats", authenticate, fyMiddleware, async (req, res) => {
              FROM other_income`,
         [fyStart, fyEnd],
       ),
+      db.query(
+        `SELECT production_type,
+            ROUND(AVG(COALESCE(success_percent, germination_percent,
+                CASE WHEN seed_quantity > 0 THEN LEAST(100, (produced_quantity::NUMERIC/seed_quantity)*100)
+                     ELSE 0 END)), 1) AS avg_success_percent,
+            COUNT(*) AS batch_count
+         FROM production_batches
+         GROUP BY production_type
+         HAVING COUNT(*) > 0`,
+      ).catch(() => ({ rows: [] })),
     ]);
     res.json({
       success: true,
@@ -189,6 +200,7 @@ router.get("/dashboard/stats", authenticate, fyMiddleware, async (req, res) => {
         // Lists
         low_stock: lowStock.rows,
         recent_sales: recentSales.rows,
+        success_rates: successRates.rows,
         fy: req.fy,
       },
     });
