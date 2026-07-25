@@ -2597,4 +2597,181 @@ router.get("/daily-tip", authenticate, async (req, res) => {
 
 // end of notice getting
 
+// ============================================================
+// WORK REGISTER — ওভারশিয়ারের দৈনিক কাজের বিবরণ রেজিস্টার
+// ============================================================
+
+// কাজের তালিকা (Work Types) — Admin পরিচালনা করবে
+router.get("/work-types", authenticate, async (req, res) => {
+  try {
+    const r = await db.query("SELECT * FROM work_types WHERE is_active=true ORDER BY name");
+    res.json({ success: true, data: r.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post("/work-types", authenticate, adminOnly, async (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ success: false, message: "কাজের নাম দিন।" });
+  }
+  try {
+    const r = await db.query(
+      "INSERT INTO work_types (name) VALUES ($1) RETURNING *",
+      [name.trim()]
+    );
+    res.json({ success: true, data: r.rows[0], message: "যোগ হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.delete("/work-types/:id", authenticate, adminOnly, async (req, res) => {
+  try {
+    await db.query("UPDATE work_types SET is_active=false WHERE id=$1", [req.params.id]);
+    res.json({ success: true, message: "মুছে ফেলা হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// কাজের বিবরণ রেজিস্টার এন্ট্রি (তারিখ-ভিত্তিক)
+router.get("/work-register", authenticate, async (req, res) => {
+  const date = req.query.date || new Date().toISOString().slice(0, 10);
+  try {
+    const r = await db.query(
+      "SELECT * FROM work_register_entries WHERE entry_date=$1 ORDER BY id",
+      [date]
+    );
+    res.json({ success: true, data: r.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post("/work-register", authenticate, async (req, res) => {
+  const {
+    entry_date, work_type_name, reference_no, employee_name,
+    materials_used, quantity_progress, wage_rate, wage_cost,
+    material_cost, subofficer_signature, controller_note,
+  } = req.body;
+  if (!entry_date || !work_type_name) {
+    return res.status(400).json({ success: false, message: "তারিখ ও কাজের বিবরণ দিন।" });
+  }
+  try {
+    const r = await db.query(
+      `INSERT INTO work_register_entries
+       (entry_date, work_type_name, reference_no, employee_name, materials_used,
+        quantity_progress, wage_rate, wage_cost, material_cost, subofficer_signature,
+        controller_note, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      [
+        entry_date, work_type_name, reference_no || "", employee_name || "",
+        materials_used || "", quantity_progress || "", Number(wage_rate) || 0,
+        Number(wage_cost) || 0, Number(material_cost) || 0,
+        subofficer_signature || "", controller_note || "", req.user?.id || null,
+      ]
+    );
+    res.json({ success: true, data: r.rows[0], message: "সংরক্ষণ হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.put("/work-register/:id", authenticate, async (req, res) => {
+  const {
+    work_type_name, reference_no, employee_name, materials_used,
+    quantity_progress, wage_rate, wage_cost, material_cost,
+    subofficer_signature, controller_note,
+  } = req.body;
+  try {
+    const r = await db.query(
+      `UPDATE work_register_entries SET
+       work_type_name=$1, reference_no=$2, employee_name=$3, materials_used=$4,
+       quantity_progress=$5, wage_rate=$6, wage_cost=$7, material_cost=$8,
+       subofficer_signature=$9, controller_note=$10
+       WHERE id=$11 RETURNING *`,
+      [
+        work_type_name, reference_no || "", employee_name || "", materials_used || "",
+        quantity_progress || "", Number(wage_rate) || 0, Number(wage_cost) || 0,
+        Number(material_cost) || 0, subofficer_signature || "", controller_note || "",
+        req.params.id,
+      ]
+    );
+    if (!r.rows.length) return res.status(404).json({ success: false, message: "পাওয়া যায়নি।" });
+    res.json({ success: true, data: r.rows[0], message: "আপডেট হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.delete("/work-register/:id", authenticate, async (req, res) => {
+  try {
+    await db.query("DELETE FROM work_register_entries WHERE id=$1", [req.params.id]);
+    res.json({ success: true, message: "মুছে ফেলা হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// সাপ্তাহিক কাজের পরিকল্পনা (আগামী ৭ দিন)
+router.get("/work-plans", authenticate, async (req, res) => {
+  try {
+    const r = await db.query(
+      `SELECT * FROM work_plans
+       WHERE planned_date >= CURRENT_DATE AND planned_date <= CURRENT_DATE + INTERVAL '7 days'
+         AND status='planned'
+       ORDER BY planned_date`
+    );
+    res.json({ success: true, data: r.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post("/work-plans", authenticate, async (req, res) => {
+  const { planned_date, work_type_name, employee_name, notes } = req.body;
+  if (!planned_date || !work_type_name) {
+    return res.status(400).json({ success: false, message: "তারিখ ও কাজের বিবরণ দিন।" });
+  }
+  try {
+    const r = await db.query(
+      `INSERT INTO work_plans (planned_date, work_type_name, employee_name, notes, created_by)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [planned_date, work_type_name, employee_name || "", notes || "", req.user?.id || null]
+    );
+    res.json({ success: true, data: r.rows[0], message: "পরিকল্পনা যোগ হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.delete("/work-plans/:id", authenticate, async (req, res) => {
+  try {
+    await db.query("DELETE FROM work_plans WHERE id=$1", [req.params.id]);
+    res.json({ success: true, message: "মুছে ফেলা হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// পরিকল্পনা → রেজিস্টারে রূপান্তর (এক ক্লিকে)
+router.post("/work-plans/:id/convert", authenticate, async (req, res) => {
+  try {
+    const plan = await db.query("SELECT * FROM work_plans WHERE id=$1", [req.params.id]);
+    if (!plan.rows.length) return res.status(404).json({ success: false, message: "পরিকল্পনা পাওয়া যায়নি।" });
+    const p = plan.rows[0];
+    const r = await db.query(
+      `INSERT INTO work_register_entries (entry_date, work_type_name, employee_name, controller_note, created_by)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [p.planned_date, p.work_type_name, p.employee_name, p.notes, req.user?.id || null]
+    );
+    await db.query("UPDATE work_plans SET status='converted' WHERE id=$1", [req.params.id]);
+    res.json({ success: true, data: r.rows[0], message: "রেজিস্টারে যোগ হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

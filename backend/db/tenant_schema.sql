@@ -327,3 +327,38 @@ CREATE TABLE IF NOT EXISTS budget_demands (
   updated_at TIMESTAMP DEFAULT now(),
   UNIQUE(leaf_code, fiscal_year, period_id)
 );
+
+CREATE TABLE IF NOT EXISTS work_types (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(200) NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS work_register_entries (
+  id SERIAL PRIMARY KEY,
+  entry_date DATE NOT NULL,
+  work_type_name VARCHAR(200),
+  reference_no VARCHAR(100),
+  employee_name VARCHAR(200),
+  materials_used VARCHAR(300),
+  quantity_progress VARCHAR(200),
+  wage_rate NUMERIC DEFAULT 0,
+  wage_cost NUMERIC DEFAULT 0,
+  material_cost NUMERIC DEFAULT 0,
+  subofficer_signature VARCHAR(200),
+  controller_note TEXT,
+  created_by INTEGER,
+  created_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS work_plans (
+  id SERIAL PRIMARY KEY,
+  planned_date DATE NOT NULL,
+  work_type_name VARCHAR(200),
+  employee_name VARCHAR(200),
+  notes TEXT,
+  status VARCHAR(20) DEFAULT 'planned',
+  created_by INTEGER,
+  created_at TIMESTAMP DEFAULT now()
+);

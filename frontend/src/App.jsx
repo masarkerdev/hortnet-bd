@@ -1,6 +1,7 @@
 import Catalog from "./pages/Catalog";
 import Reports from "./pages/Reports";
 import Budget from "./pages/Budget";
+import WorkRegister from "./pages/WorkRegister";
 import DevPanel from "./pages/DevPanel";
 import About from "./pages/About";
 import TenantLogin from "./pages/TenantLogin";
@@ -81,6 +82,7 @@ export default function App() {
         <Route path="damages" element={<Damages />} />
         <Route path="reports" element={<Reports />} />
         <Route path="budget" element={<Budget />} />
+        <Route path="work-register" element={<WorkRegister />} />
         <Route path="customers" element={<Customers />} />
         <Route path="users" element={<Users />} />
         <Route path="employees" element={<Employees />} />
