@@ -19,7 +19,7 @@ export default function Production() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  const load = useCallback(() => { api.get('/production').then((r) => setAll(r.data?.data || [])).catch(() => {}); }, []);
+  const load = useCallback(() => { api.get('/production?limit=2000').then((r) => setAll(r.data?.data || [])).catch(() => {}); }, []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     api.get('/seedlings?limit=500').then((r) => setSeedlings(r.data?.data || [])).catch(() => {});
