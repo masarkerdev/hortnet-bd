@@ -185,65 +185,87 @@ export default function WorkRegister() {
           </div>
 
           <div style={{ background: '#fff', border: '1px solid #e8f5ed', borderRadius: 14, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={th}>তারিখ ও বার</th>
-                  <th style={th}>কাজের বিবরণ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthLoading ? (
-                  <tr><td colSpan={2} style={{ ...td, textAlign: 'center', padding: 30 }}>লোড হচ্ছে...</td></tr>
-                ) : (
-                  monthDays.map(day => {
-                    const isOff = day.is_weekend || day.holiday_name;
-                    return (
-                      <tr key={day.date} style={{ background: isOff ? '#fef8f0' : 'transparent', verticalAlign: 'top' }}>
-                        <td style={{ ...td, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                          {BN_DATE(day.date)}<br />
-                          <span style={{ fontSize: 11, color: isOff ? '#b45309' : '#9ca3af', fontWeight: 500 }}>
-                            {day.holiday_name ? `${day.holiday_name} (ছুটি)` : day.is_weekend ? `${day.weekday} (অফ ডে)` : day.weekday}
-                          </span>
-                        </td>
-                        <td style={td}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1000 }}>
+                <thead>
+                  <tr>
+                    <th style={th}>তারিখ</th>
+                    <th style={th}>কাজের বিবরণ</th>
+                    <th style={th}>রেফা./ব্লক</th>
+                    <th style={th}>কর্মচারীর নাম</th>
+                    <th style={th}>মালামাল</th>
+                    <th style={th}>পরিমাণ/অগ্রগতি</th>
+                    <th style={th}>মজুরী খরচ</th>
+                    <th style={th}>মালামাল খরচ</th>
+                    <th style={th}>স্বাক্ষর</th>
+                    <th style={th}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthLoading ? (
+                    <tr><td colSpan={10} style={{ ...td, textAlign: 'center', padding: 30 }}>লোড হচ্ছে...</td></tr>
+                  ) : (
+                    monthDays.map(day => {
+                      const isOff = day.is_weekend || day.holiday_name;
+                      const offLabel = day.holiday_name ? `${day.holiday_name} (ছুটি)` : `${day.weekday} (অফ ডে)`;
+                      const totalWage = day.entries.reduce((s, e) => s + Number(e.wage_cost || 0), 0);
+                      const totalMaterial = day.entries.reduce((s, e) => s + Number(e.material_cost || 0), 0);
+                      return (
+                        <tr key={day.date} style={{ background: isOff ? '#fef8f0' : 'transparent', verticalAlign: 'top' }}>
+                          <td style={{ ...td, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            {BN_DATE(day.date)}
+                            <div style={{ fontSize: 10.5, color: '#9ca3af', fontWeight: 400 }}>{day.weekday}</div>
+                          </td>
                           {isOff ? (
-                            <span style={{ color: '#b45309' }}>— সরকারি বন্ধ —</span>
+                            <td colSpan={9} style={{ ...td, color: '#b45309', fontWeight: 600 }}>— {offLabel} —</td>
                           ) : day.entries.length === 0 ? (
-                            <span style={{ color: '#9ca3af' }}>কোনো কাজ নেই</span>
+                            <td colSpan={9} style={{ ...td, color: '#9ca3af' }}>কোনো কাজ নেই</td>
                           ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                              {day.entries.map(e => (
-                                <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, padding: '6px 10px', background: e.is_approved ? '#f7fdf9' : '#fffdf5', borderRadius: 6, border: `1px solid ${e.is_approved ? '#c8e0cc' : '#fde68a'}` }}>
-                                  <div>
-                                    <b>{e.work_type_name}</b> — {e.employee_name || 'কর্মচারী উল্লেখ নেই'}
-                                    {e.quantity_progress && <span style={{ color: '#6b7280' }}> ({e.quantity_progress})</span>}
-                                    {(Number(e.wage_cost) > 0 || Number(e.material_cost) > 0) && (
-                                      <span style={{ color: '#6b7280', fontSize: 11.5 }}> — মজুরী ৳{fmtN(e.wage_cost)} + মালামাল ৳{fmtN(e.material_cost)}</span>
-                                    )}
-                                  </div>
-                                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                            <>
+                              <td style={td}>
+                                {day.entries.map((e, i) => <div key={i} style={{ marginBottom: i < day.entries.length - 1 ? 4 : 0 }}>• {e.work_type_name}</div>)}
+                              </td>
+                              <td style={td}>
+                                {day.entries.map((e, i) => <div key={i} style={{ marginBottom: i < day.entries.length - 1 ? 4 : 0 }}>{e.reference_no || '-'}</div>)}
+                              </td>
+                              <td style={td}>
+                                {day.entries.map((e, i) => <div key={i} style={{ marginBottom: i < day.entries.length - 1 ? 4 : 0 }}>{e.employee_name || '-'} <span style={{ color: '#9ca3af', fontSize: 10.5 }}>({e.work_type_name})</span></div>)}
+                              </td>
+                              <td style={td}>
+                                {day.entries.map((e, i) => <div key={i} style={{ marginBottom: i < day.entries.length - 1 ? 4 : 0 }}>{e.materials_used || '-'}</div>)}
+                              </td>
+                              <td style={td}>
+                                {day.entries.map((e, i) => <div key={i} style={{ marginBottom: i < day.entries.length - 1 ? 4 : 0 }}>{e.quantity_progress || '-'}</div>)}
+                              </td>
+                              <td style={{ ...td, fontWeight: 600 }}>৳{fmtN(totalWage)}</td>
+                              <td style={{ ...td, fontWeight: 600 }}>৳{fmtN(totalMaterial)}</td>
+                              <td style={td}>
+                                {day.entries.map((e, i) => <div key={i} style={{ marginBottom: i < day.entries.length - 1 ? 4 : 0 }}>{e.subofficer_signature || '-'}</div>)}
+                              </td>
+                              <td style={td}>
+                                {day.entries.map((e, i) => (
+                                  <div key={i} style={{ display: 'flex', gap: 6, marginBottom: i < day.entries.length - 1 ? 4 : 0 }}>
                                     {e.is_approved ? (
-                                      <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap' }}>✓ অনুমোদিত</span>
+                                      <span style={{ fontSize: 10.5, color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap' }}>✓ অনুমোদিত</span>
                                     ) : (
                                       <button onClick={() => approveEntry(e.id)}
-                                        style={{ padding: '3px 8px', borderRadius: 5, background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', cursor: 'pointer', fontSize: 11, fontFamily: FONT, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                        ✓ অনুমোদন
+                                        style={{ padding: '2px 6px', borderRadius: 5, background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', cursor: 'pointer', fontSize: 10.5, fontFamily: FONT, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                        অনুমোদন
                                       </button>
                                     )}
-                                    <button onClick={() => deleteEntry(e.id)} style={{ border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                                    <button onClick={() => deleteEntry(e.id)} style={{ border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 11 }}>✕</button>
                                   </div>
-                                </div>
-                              ))}
-                            </div>
+                                ))}
+                              </td>
+                            </>
                           )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
