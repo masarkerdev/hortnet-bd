@@ -681,43 +681,71 @@ router.get("/connections", devAuth, async (req, res) => {
   }
 });
 
-// GET /api/dev/daily-tip — বর্তমান tip/বার্তা দেখা (Dev Panel-এর জন্য)
+async function ensureDailyTipTable() {
+  await masterDb.query(
+    `CREATE TABLE IF NOT EXISTS daily_tip (
+      id SERIAL PRIMARY KEY,
+      content TEXT NOT NULL,
+      is_active BOOLEAN DEFAULT true,
+      display_order INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now()
+    )`
+  );
+}
+
+// GET /api/dev/daily-tip — সব tip-এর তালিকা (Dev Panel-এর জন্য)
 router.get("/daily-tip", devAuth, async (req, res) => {
   try {
-    await masterDb.query(
-      `CREATE TABLE IF NOT EXISTS daily_tip (
-        id SERIAL PRIMARY KEY,
-        content TEXT NOT NULL,
-        updated_at TIMESTAMPTZ DEFAULT now()
-      )`
-    );
-    const r = await masterDb.query("SELECT * FROM daily_tip ORDER BY id DESC LIMIT 1");
-    res.json({ success: true, data: r.rows[0] || null });
+    await ensureDailyTipTable();
+    const r = await masterDb.query("SELECT * FROM daily_tip ORDER BY display_order, id");
+    res.json({ success: true, data: r.rows });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// PUT /api/dev/daily-tip — নতুন tip সেট করা (পুরনোটা replace হবে)
-router.put("/daily-tip", devAuth, async (req, res) => {
+// POST /api/dev/daily-tip — নতুন tip যোগ করা
+router.post("/daily-tip", devAuth, async (req, res) => {
   const { content } = req.body;
   if (!content || !content.trim()) {
     return res.status(400).json({ success: false, message: "লেখা দিন।" });
   }
   try {
-    await masterDb.query(
-      `CREATE TABLE IF NOT EXISTS daily_tip (
-        id SERIAL PRIMARY KEY,
-        content TEXT NOT NULL,
-        updated_at TIMESTAMPTZ DEFAULT now()
-      )`
-    );
-    await masterDb.query("DELETE FROM daily_tip");
+    await ensureDailyTipTable();
+    const maxOrder = await masterDb.query("SELECT COALESCE(MAX(display_order),0) AS m FROM daily_tip");
     const r = await masterDb.query(
-      "INSERT INTO daily_tip (content) VALUES ($1) RETURNING *",
-      [content.trim()]
+      "INSERT INTO daily_tip (content, display_order) VALUES ($1,$2) RETURNING *",
+      [content.trim(), Number(maxOrder.rows[0].m) + 1]
     );
+    res.json({ success: true, data: r.rows[0], message: "যোগ হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/dev/daily-tip/:id — নির্দিষ্ট একটা tip সম্পাদনা/সক্রিয়-নিষ্ক্রিয় করা
+router.put("/daily-tip/:id", devAuth, async (req, res) => {
+  const { content, is_active } = req.body;
+  try {
+    await ensureDailyTipTable();
+    const r = await masterDb.query(
+      "UPDATE daily_tip SET content=COALESCE($1,content), is_active=COALESCE($2,is_active), updated_at=now() WHERE id=$3 RETURNING *",
+      [content?.trim() || null, is_active === undefined ? null : is_active, req.params.id]
+    );
+    if (!r.rows.length) return res.status(404).json({ success: false, message: "পাওয়া যায়নি।" });
     res.json({ success: true, data: r.rows[0], message: "আপডেট হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE /api/dev/daily-tip/:id — নির্দিষ্ট একটা tip মুছে ফেলা
+router.delete("/daily-tip/:id", devAuth, async (req, res) => {
+  try {
+    await ensureDailyTipTable();
+    await masterDb.query("DELETE FROM daily_tip WHERE id=$1", [req.params.id]);
+    res.json({ success: true, message: "মুছে ফেলা হয়েছে ✅" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

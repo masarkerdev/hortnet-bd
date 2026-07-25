@@ -122,26 +122,35 @@ function Panel({ dev, onLogout }) {
   const [dbSizesLoading, setDbSizesLoading] = useState(false);
   const [connections, setConnections] = useState(null);
   const [connectionsLoading, setConnectionsLoading] = useState(false);
-  const [dailyTip, setDailyTip] = useState('');
-  const [dailyTipCurrent, setDailyTipCurrent] = useState(null);
+  const [dailyTips, setDailyTips] = useState([]);
+  const [newTipText, setNewTipText] = useState('');
   const [dailyTipSaving, setDailyTipSaving] = useState(false);
   const [dailyTipMsg, setDailyTipMsg] = useState('');
 
   async function loadDailyTip() {
     try {
       const r = await devApi('/daily-tip');
-      if (r.success && r.data) { setDailyTipCurrent(r.data); setDailyTip(r.data.content); }
+      if (r.success) setDailyTips(r.data || []);
     } catch (e) {}
   }
 
-  async function saveDailyTip() {
-    if (!dailyTip.trim()) return;
+  async function addDailyTip() {
+    if (!newTipText.trim()) return;
     setDailyTipSaving(true); setDailyTipMsg('');
     try {
-      const r = await devApi('/daily-tip', { method: 'PUT', body: JSON.stringify({ content: dailyTip }) });
-      if (r.success) { setDailyTipMsg('✓ আপডেট হয়েছে'); loadDailyTip(); }
+      const r = await devApi('/daily-tip', { method: 'POST', body: JSON.stringify({ content: newTipText }) });
+      if (r.success) { setDailyTipMsg('✓ যোগ হয়েছে'); setNewTipText(''); loadDailyTip(); }
       else setDailyTipMsg(r.message || 'সমস্যা হয়েছে');
     } catch (e) { setDailyTipMsg('সমস্যা হয়েছে'); } finally { setDailyTipSaving(false); }
+  }
+
+  async function toggleTipActive(tip) {
+    try { await devApi(`/daily-tip/${tip.id}`, { method: 'PUT', body: JSON.stringify({ is_active: !tip.is_active }) }); loadDailyTip(); } catch (e) {}
+  }
+
+  async function deleteTip(id) {
+    if (!window.confirm('এই Tip-টা মুছে ফেলবেন?')) return;
+    try { await devApi(`/daily-tip/${id}`, { method: 'DELETE' }); loadDailyTip(); } catch (e) {}
   }
 
   useEffect(() => { if (tab === 'dailytip') loadDailyTip(); }, [tab]);
@@ -699,25 +708,41 @@ function Panel({ dev, onLogout }) {
 
           {/* Daily Tip */}
           {tab==='dailytip' && (
-            <div style={{ maxWidth:600 }}>
-              <div style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>💡 Daily Tip — Dashboard-এ দেখানোর বার্তা</div>
+            <div style={{ maxWidth:650 }}>
+              <div style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>💡 Daily Tip — টপবারে স্ক্রল করে দেখানোর বার্তা</div>
               <div style={{ background:'#1f2d3f', border:`1px solid ${V.blue}`, borderRadius:8, padding:'10px 12px', fontSize:12, color:V.blue, marginBottom:14 }}>
-                ℹ️ এখানে যা লিখবে সেটাই সব সেন্টারের Dashboard পেজে দেখাবে (কুরানের আয়াত, বীজ বপনের সময়, 
-                সায়ন কালেকশনের সময় ইত্যাদি)। যখন ইচ্ছা পরিবর্তন করতে পারবে।
+                ℹ️ একাধিক Tip যোগ করতে পারবে — এগুলো Dashboard-এর টপবারে সংবাদ শিরোনামের মতো একটার পর একটা 
+                স্ক্রল হয়ে দেখাবে (কুরানের আয়াত, বীজ বপনের সময়, সায়ন কালেকশনের সময় ইত্যাদি)।
               </div>
-              {dailyTipCurrent && (
-                <div style={{ fontSize:11, color:V.muted, marginBottom:10 }}>
-                  সর্বশেষ আপডেট: {new Date(dailyTipCurrent.updated_at).toLocaleString('bn-BD')}
-                </div>
-              )}
-              <textarea value={dailyTip} onChange={e=>setDailyTip(e.target.value)} rows={5}
-                placeholder="যেমন: সূরা আর-রাহমান, আয়াত ১০-১৩... অথবা: এই সময়ে আম গাছের কলম করার উপযুক্ত সময়..."
-                style={{ width:'100%', padding:'12px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:14, outline:'none', boxSizing:'border-box', marginBottom:12, resize:'vertical', background:V.bg, color:V.text }}/>
+              <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+                <input value={newTipText} onChange={e=>setNewTipText(e.target.value)}
+                  placeholder="নতুন Tip লিখুন..."
+                  style={{ flex:1, padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:14, outline:'none', background:V.bg, color:V.text }}/>
+                <button onClick={addDailyTip} disabled={dailyTipSaving}
+                  style={{ padding:'10px 20px', borderRadius:8, background:V.green, color:'#fff', border:'none', cursor:'pointer', fontSize:14, fontFamily:FONT, fontWeight:600 }}>
+                  {dailyTipSaving ? '...' : '+ যোগ করুন'}
+                </button>
+              </div>
               {dailyTipMsg && <div style={{ color: dailyTipMsg.startsWith('✓') ? V.green : V.red, fontSize:13, marginBottom:12 }}>{dailyTipMsg}</div>}
-              <button onClick={saveDailyTip} disabled={dailyTipSaving}
-                style={{ padding:'10px 22px', borderRadius:8, background:V.green, color:'#fff', border:'none', cursor:'pointer', fontSize:14, fontFamily:FONT, fontWeight:600 }}>
-                {dailyTipSaving ? 'সংরক্ষণ হচ্ছে...' : '✓ প্রকাশ করুন'}
-              </button>
+              <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, overflow:'hidden' }}>
+                {dailyTips.length === 0 ? (
+                  <div style={{ padding:30, textAlign:'center', color:V.muted }}>এখনো কোনো Tip যোগ করা হয়নি</div>
+                ) : (
+                  dailyTips.map((tip) => (
+                    <div key={tip.id} style={{ padding:'12px 14px', borderBottom:`1px solid ${V.border}`, display:'flex', alignItems:'center', gap:10, opacity: tip.is_active ? 1 : 0.5 }}>
+                      <span style={{ flex:1, fontSize:13 }}>{tip.content}</span>
+                      <button onClick={()=>toggleTipActive(tip)}
+                        style={{ padding:'4px 10px', borderRadius:6, fontSize:11, fontFamily:FONT, cursor:'pointer', border:`1px solid ${tip.is_active ? V.green : V.border}`, background:tip.is_active ? '#0d2818' : 'transparent', color: tip.is_active ? V.green : V.muted }}>
+                        {tip.is_active ? '✓ সক্রিয়' : 'নিষ্ক্রিয়'}
+                      </button>
+                      <button onClick={()=>deleteTip(tip.id)}
+                        style={{ padding:'4px 10px', borderRadius:6, fontSize:11, fontFamily:FONT, cursor:'pointer', border:`1px solid ${V.red}`, background:'transparent', color:V.red }}>
+                        🗑️
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           )}
 

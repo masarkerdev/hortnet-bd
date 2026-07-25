@@ -268,13 +268,24 @@ export default function Layout() {
   const [notices, setNotices] = useState([]);
   const [showNotices, setShowNotices] = useState(false);
   const [unseenCount, setUnseenCount] = useState(0);
-  const [dailyTip, setDailyTip] = useState(null);
+  const [dailyTips, setDailyTips] = useState([]);
+  const [tipIndex, setTipIndex] = useState(0);
 
   useEffect(() => {
     api.get("/daily-tip").then((r) => {
-      if (r.data?.success) setDailyTip(r.data.content);
+      if (r.data?.success) setDailyTips(r.data.tips || []);
     }).catch(() => {});
   }, []);
+
+  // প্রতি ৬ সেকেন্ডে পরের tip-এ যাবে (সংবাদ শিরোনামের মতো ঘুরবে)
+  useEffect(() => {
+    if (dailyTips.length <= 1) return;
+    const t = setInterval(() => {
+      setTipIndex((i) => (i + 1) % dailyTips.length);
+    }, 6000);
+    return () => clearInterval(t);
+  }, [dailyTips.length]);
+
   const [unseenBudgetNotice, setUnseenBudgetNotice] = useState(false);
 
   // বাংলা সংখ্যা ইনপুট: inputMode numeric/decimal ফিল্ডে ০-৯ টাইপ করলে ইংরেজিতে রূপান্তর
@@ -523,6 +534,42 @@ export default function Layout() {
             <IcMenu className="h-5 w-5" />
           </button>
           <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+
+          {dailyTips.length > 0 && (
+            <>
+              <style>{`@keyframes tipFadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+              <div
+                className="hidden md:flex"
+              style={{
+                flex: 1,
+                marginLeft: 16,
+                marginRight: 16,
+                minWidth: 0,
+                alignItems: "center",
+                gap: 8,
+                overflow: "hidden",
+                background: "var(--g50, #f0faf3)",
+                borderRadius: 8,
+                padding: "6px 12px",
+              }}
+            >
+              <span style={{ fontSize: 15, flexShrink: 0 }}>💡</span>
+              <span
+                key={tipIndex}
+                style={{
+                  fontSize: 12.5,
+                  color: "var(--g600)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  animation: "tipFadeIn .4s ease",
+                }}
+              >
+                {dailyTips[tipIndex]}
+              </span>
+            </div>
+            </>
+          )}
 
           <div className="ml-auto flex items-center gap-2">
             {can("prod") && (
@@ -847,24 +894,6 @@ export default function Layout() {
             </button>
           </div>
         </header>
-
-        {dailyTip && loc.pathname === "/dashboard" && (
-          <div
-            style={{
-              background: "linear-gradient(135deg,#0f4f29,#2d8a52)",
-              color: "#fff",
-              padding: "10px 20px",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              fontSize: 13,
-              lineHeight: 1.6,
-            }}
-          >
-            <span style={{ fontSize: 17, flexShrink: 0 }}>💡</span>
-            <span style={{ whiteSpace: "pre-wrap" }}>{dailyTip}</span>
-          </div>
-        )}
 
         <main className="mx-auto max-w-[1400px] p-4 lg:p-6">
           <Outlet key={fy} context={{ fy, setFy }} />

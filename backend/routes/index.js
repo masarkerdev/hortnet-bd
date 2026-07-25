@@ -2574,8 +2574,10 @@ router.get("/notices", authenticate, async (req, res) => {
 // GET /api/daily-tip — Dashboard-এ দেখানোর জন্য বর্তমান tip/বার্তা
 router.get("/daily-tip", authenticate, async (req, res) => {
   try {
-    const r = await masterDb.query("SELECT content FROM daily_tip ORDER BY id DESC LIMIT 1").catch(() => ({ rows: [] }));
-    res.json({ success: true, content: r.rows[0]?.content || null });
+    const r = await masterDb.query(
+      "SELECT content FROM daily_tip WHERE is_active = true ORDER BY display_order, id"
+    ).catch(() => ({ rows: [] }));
+    res.json({ success: true, tips: r.rows.map((row) => row.content) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
