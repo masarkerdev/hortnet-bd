@@ -1126,7 +1126,7 @@ router.get(
     const { fyStart, fyEnd } = req;
     try {
       const result = await db.query(
-        `SELECT TO_CHAR(COALESCE(sowing_date,propagation_date),'YYYY-MM') AS month_key, TO_CHAR(COALESCE(sowing_date,propagation_date),'Mon') AS month_name, EXTRACT(MONTH FROM COALESCE(sowing_date,propagation_date)) AS month_num, EXTRACT(YEAR FROM COALESCE(sowing_date,propagation_date)) AS year_num, SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE 0 END) AS seed_qty, SUM(CASE WHEN production_type!='seed' THEN produced_quantity ELSE 0 END) AS asexual_qty, SUM(produced_quantity) AS total_qty FROM production_batches WHERE COALESCE(sowing_date,propagation_date) BETWEEN $1 AND $2 GROUP BY month_key,month_name,month_num,year_num ORDER BY year_num,month_num`,
+        `SELECT TO_CHAR(COALESCE(sowing_date,propagation_date),'YYYY-MM') AS month_key, TO_CHAR(COALESCE(sowing_date,propagation_date),'Mon') AS month_name, EXTRACT(MONTH FROM COALESCE(sowing_date,propagation_date)) AS month_num, EXTRACT(YEAR FROM COALESCE(sowing_date,propagation_date)) AS year_num, SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE 0 END) AS seed_qty, SUM(CASE WHEN production_type!='seed' THEN COALESCE(success_quantity,produced_quantity) ELSE 0 END) AS asexual_qty, SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END) AS total_qty FROM production_batches WHERE COALESCE(sowing_date,propagation_date) BETWEEN $1 AND $2 GROUP BY month_key,month_name,month_num,year_num ORDER BY year_num,month_num`,
         [fyStart, fyEnd],
       );
       res.json({ success: true, data: result.rows });
