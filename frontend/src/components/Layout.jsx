@@ -269,22 +269,12 @@ export default function Layout() {
   const [showNotices, setShowNotices] = useState(false);
   const [unseenCount, setUnseenCount] = useState(0);
   const [dailyTips, setDailyTips] = useState([]);
-  const [tipIndex, setTipIndex] = useState(0);
 
   useEffect(() => {
     api.get("/daily-tip").then((r) => {
       if (r.data?.success) setDailyTips(r.data.tips || []);
     }).catch(() => {});
   }, []);
-
-  // প্রতি ৬ সেকেন্ডে পরের tip-এ যাবে (সংবাদ শিরোনামের মতো ঘুরবে)
-  useEffect(() => {
-    if (dailyTips.length <= 1) return;
-    const t = setInterval(() => {
-      setTipIndex((i) => (i + 1) % dailyTips.length);
-    }, 6000);
-    return () => clearInterval(t);
-  }, [dailyTips.length]);
 
   const [unseenBudgetNotice, setUnseenBudgetNotice] = useState(false);
 
@@ -537,37 +527,43 @@ export default function Layout() {
 
           {dailyTips.length > 0 && (
             <>
-              <style>{`@keyframes tipFadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+              <style>{`
+                @keyframes tipMarquee {
+                  from { transform: translateX(100%); }
+                  to { transform: translateX(-100%); }
+                }
+              `}</style>
               <div
                 className="hidden md:flex"
-              style={{
-                flex: 1,
-                marginLeft: 16,
-                marginRight: 16,
-                minWidth: 0,
-                alignItems: "center",
-                gap: 8,
-                overflow: "hidden",
-                background: "var(--g50, #f0faf3)",
-                borderRadius: 8,
-                padding: "6px 12px",
-              }}
-            >
-              <span style={{ fontSize: 15, flexShrink: 0 }}>💡</span>
-              <span
-                key={tipIndex}
                 style={{
-                  fontSize: 12.5,
-                  color: "var(--g600)",
-                  whiteSpace: "nowrap",
+                  flex: 1,
+                  marginLeft: 16,
+                  marginRight: 16,
+                  minWidth: 0,
+                  alignItems: "center",
+                  gap: 8,
                   overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  animation: "tipFadeIn .4s ease",
+                  background: "var(--g50, #f0faf3)",
+                  borderRadius: 8,
+                  padding: "6px 12px",
+                  position: "relative",
                 }}
               >
-                {dailyTips[tipIndex]}
-              </span>
-            </div>
+                <span style={{ fontSize: 15, flexShrink: 0, zIndex: 1 }}>💡</span>
+                <div style={{ flex: 1, overflow: "hidden", position: "relative", height: 20 }}>
+                  <span
+                    style={{
+                      position: "absolute",
+                      whiteSpace: "nowrap",
+                      fontSize: 12.5,
+                      color: "var(--g600)",
+                      animation: `tipMarquee ${Math.max(dailyTips.join("     •     ").length * 0.18, 15)}s linear infinite`,
+                    }}
+                  >
+                    {dailyTips.join("     •     ")}
+                  </span>
+                </div>
+              </div>
             </>
           )}
 
