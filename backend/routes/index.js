@@ -2664,8 +2664,8 @@ router.post("/work-register", authenticate, async (req, res) => {
       `INSERT INTO work_register_entries
        (entry_date, work_type_name, reference_no, employee_name, materials_used,
         quantity_progress, wage_rate, wage_cost, material_cost, subofficer_signature,
-        controller_note, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        controller_note, created_by, is_approved)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,false) RETURNING *`,
       [
         entry_date, work_type_name, reference_no || "", employee_name || "",
         materials_used || "", quantity_progress || "", Number(wage_rate) || 0,
@@ -2673,7 +2673,7 @@ router.post("/work-register", authenticate, async (req, res) => {
         subofficer_signature || "", controller_note || "", req.user?.id || null,
       ]
     );
-    res.json({ success: true, data: r.rows[0], message: "সংরক্ষণ হয়েছে ✅" });
+    res.json({ success: true, data: r.rows[0], message: "সংরক্ষণ হয়েছে ✅ (অনুমোদনের অপেক্ষায়)" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -2710,6 +2710,20 @@ router.delete("/work-register/:id", authenticate, async (req, res) => {
   try {
     await db.query("DELETE FROM work_register_entries WHERE id=$1", [req.params.id]);
     res.json({ success: true, message: "মুছে ফেলা হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// দিনের শেষে Center Admin/Manager entry অনুমোদন করবেন
+router.put("/work-register/:id/approve", authenticate, adminOnly, async (req, res) => {
+  try {
+    const r = await db.query(
+      "UPDATE work_register_entries SET is_approved=true, approved_by=$1, approved_at=now() WHERE id=$2 RETURNING *",
+      [req.user?.id || null, req.params.id]
+    );
+    if (!r.rows.length) return res.status(404).json({ success: false, message: "পাওয়া যায়নি।" });
+    res.json({ success: true, data: r.rows[0], message: "অনুমোদন করা হয়েছে ✅" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -2763,8 +2777,8 @@ router.post("/work-plans/:id/convert", authenticate, async (req, res) => {
     if (!plan.rows.length) return res.status(404).json({ success: false, message: "পরিকল্পনা পাওয়া যায়নি।" });
     const p = plan.rows[0];
     const r = await db.query(
-      `INSERT INTO work_register_entries (entry_date, work_type_name, employee_name, controller_note, created_by)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      `INSERT INTO work_register_entries (entry_date, work_type_name, employee_name, controller_note, created_by, is_approved)
+       VALUES ($1,$2,$3,$4,$5,false) RETURNING *`,
       [p.planned_date, p.work_type_name, p.employee_name, p.notes, req.user?.id || null]
     );
     await db.query("UPDATE work_plans SET status='converted' WHERE id=$1", [req.params.id]);

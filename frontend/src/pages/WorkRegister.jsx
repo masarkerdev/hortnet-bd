@@ -61,6 +61,9 @@ export default function WorkRegister() {
     if (!window.confirm('এই এন্ট্রি মুছে ফেলবেন?')) return;
     try { await api.delete(`/work-register/${id}`); loadEntries(); } catch (e) {}
   }
+  async function approveEntry(id) {
+    try { await api.put(`/work-register/${id}/approve`); loadEntries(); } catch (e) {}
+  }
   async function savePlan() {
     if (!planForm.work_type_name || !planForm.planned_date) return;
     try {
@@ -129,7 +132,7 @@ export default function WorkRegister() {
 
           <div style={{ background: '#fff', border: '1px solid #e8f5ed', borderRadius: 14, overflow: 'hidden' }}>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 950 }}>
                 <thead>
                   <tr>
                     <th style={th}>কাজের বিবরণ</th>
@@ -141,17 +144,18 @@ export default function WorkRegister() {
                     <th style={th}>মজুরী খরচ</th>
                     <th style={th}>মালামাল খরচ</th>
                     <th style={th}>উপ-সহকারীর স্বাক্ষর</th>
+                    <th style={th}>স্ট্যাটাস</th>
                     <th style={th}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={10} style={{ ...td, textAlign: 'center', padding: 30 }}>লোড হচ্ছে...</td></tr>
+                    <tr><td colSpan={11} style={{ ...td, textAlign: 'center', padding: 30 }}>লোড হচ্ছে...</td></tr>
                   ) : entries.length === 0 ? (
-                    <tr><td colSpan={10} style={{ ...td, textAlign: 'center', padding: 30, color: '#6b7280' }}>{BN_DATE(date)} তারিখে কোনো এন্ট্রি নেই</td></tr>
+                    <tr><td colSpan={11} style={{ ...td, textAlign: 'center', padding: 30, color: '#6b7280' }}>{BN_DATE(date)} তারিখে কোনো এন্ট্রি নেই</td></tr>
                   ) : (
                     entries.map(e => (
-                      <tr key={e.id}>
+                      <tr key={e.id} style={{ background: e.is_approved ? '#f7fdf9' : 'transparent' }}>
                         <td style={td}>{e.work_type_name}</td>
                         <td style={td}>{e.reference_no || '-'}</td>
                         <td style={td}>{e.employee_name || '-'}</td>
@@ -161,6 +165,16 @@ export default function WorkRegister() {
                         <td style={td}>৳{fmtN(e.wage_cost)}</td>
                         <td style={td}>৳{fmtN(e.material_cost)}</td>
                         <td style={td}>{e.subofficer_signature || '-'}</td>
+                        <td style={td}>
+                          {e.is_approved ? (
+                            <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ অনুমোদিত</span>
+                          ) : (
+                            <button onClick={() => approveEntry(e.id)}
+                              style={{ padding: '4px 10px', borderRadius: 6, background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', cursor: 'pointer', fontSize: 11, fontFamily: FONT, fontWeight: 600 }}>
+                              ✓ অনুমোদন করুন
+                            </button>
+                          )}
+                        </td>
                         <td style={td}>
                           <button onClick={() => deleteEntry(e.id)} style={{ border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>✕</button>
                         </td>
@@ -172,7 +186,7 @@ export default function WorkRegister() {
                       <td style={td} colSpan={6}>সর্বমোট</td>
                       <td style={td}>৳{fmtN(totalWage)}</td>
                       <td style={td}>৳{fmtN(totalMaterial)}</td>
-                      <td style={td} colSpan={2}></td>
+                      <td style={td} colSpan={3}></td>
                     </tr>
                   )}
                 </tbody>
