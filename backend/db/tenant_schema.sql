@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
   is_active               BOOLEAN DEFAULT true,
   pending_password        TEXT,
   password_request_status TEXT,
+  custom_permissions      TEXT,
   created_at              TIMESTAMP DEFAULT now(),
   updated_at              TIMESTAMP DEFAULT now()
 );
@@ -340,7 +341,7 @@ CREATE TABLE IF NOT EXISTS work_register_entries (
   entry_date DATE NOT NULL,
   work_type_name VARCHAR(200),
   reference_no VARCHAR(100),
-  employee_name VARCHAR(200),
+  employee_name TEXT,
   materials_used VARCHAR(300),
   quantity_progress VARCHAR(200),
   wage_rate NUMERIC DEFAULT 0,
@@ -348,6 +349,9 @@ CREATE TABLE IF NOT EXISTS work_register_entries (
   material_cost NUMERIC DEFAULT 0,
   subofficer_signature VARCHAR(200),
   controller_note TEXT,
+  is_approved BOOLEAN DEFAULT false,
+  approved_by INTEGER,
+  approved_at TIMESTAMP,
   created_by INTEGER,
   created_at TIMESTAMP DEFAULT now()
 );
@@ -359,6 +363,14 @@ CREATE TABLE IF NOT EXISTS work_plans (
   employee_name VARCHAR(200),
   notes TEXT,
   status VARCHAR(20) DEFAULT 'planned',
+  created_by INTEGER,
+  created_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS work_holidays (
+  id SERIAL PRIMARY KEY,
+  holiday_date DATE NOT NULL UNIQUE,
+  name VARCHAR(200) NOT NULL,
   created_by INTEGER,
   created_at TIMESTAMP DEFAULT now()
 );
