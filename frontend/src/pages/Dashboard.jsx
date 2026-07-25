@@ -198,7 +198,7 @@ export default function Dashboard() {
         <div className="cd">
           <div className="cdt">⚠ কম স্টক সতর্কতা <span style={{ color:'var(--c400)' }}>{toBn(d.low_stock_count)}টি</span></div>
           {(!low.length) ? <div className="text-[12px]" style={{ color:'var(--g600)' }}>সব স্টক ঠিক আছে ✅</div> :
-            low.map((s) => <div className="ai" key={s.id}><IcAlert className="mt-[1px] h-4 w-4 shrink-0" /><div><strong>{s.name_bn}</strong> — মাত্র {toBn(s.current_stock)}টি বাকি</div></div>)}
+            low.map((s) => <div className="ai" key={s.id}><IcAlert className="mt-[1px] h-4 w-4 shrink-0" /><div><strong>{s.name_bn}</strong>{s.variety && <span style={{ color:'var(--tm)', fontWeight:400 }}> ({s.variety})</span>} — মাত্র {toBn(s.current_stock)}টি বাকি</div></div>)}
         </div>
         <div className="cd">
           <div className="cdt">উৎপাদন সাফল্যের হার</div>
