@@ -2785,34 +2785,54 @@ function TopsheetReport() {
                   </tr>
                 </thead>
                 <tbody>
-                  {catDetail.map((item, i) => (
-                    <tr
-                      key={i}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.background = V.green3)
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.background = "transparent")
-                      }
-                    >
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 12,
-                          color: V.muted,
-                        }}
-                      >
-                        {toBn(i + 1)}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 13,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {item.common_name}
-                      </td>
+                  {(() => {
+                    // rowSpan সঠিকভাবে কাজ করার জন্য একই নামের row গুলো consecutive হওয়া জরুরি
+                    const sorted = [...catDetail].sort((a, b) =>
+                      (a.common_name || "").localeCompare(b.common_name || "", "bn")
+                    );
+                    // একই "নাম (বাংলা)" (common_name) অনুযায়ী group করি, 
+                    // rowSpan দিয়ে সেই কলামটা একবারই দেখাবো (বাকি সব কলাম/রঙ অপরিবর্তিত)
+                    const groupSizes = {};
+                    sorted.forEach((item) => {
+                      groupSizes[item.common_name] = (groupSizes[item.common_name] || 0) + 1;
+                    });
+                    const seen = {};
+                    return sorted.map((item, i) => {
+                      const isFirstOfGroup = !seen[item.common_name];
+                      seen[item.common_name] = true;
+                      return (
+                        <tr
+                          key={i}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.background = V.green3)
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.background = "transparent")
+                          }
+                        >
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 12,
+                              color: V.muted,
+                            }}
+                          >
+                            {toBn(i + 1)}
+                          </td>
+                          {isFirstOfGroup && (
+                            <td
+                              rowSpan={groupSizes[item.common_name]}
+                              style={{
+                                padding: "8px 10px",
+                                fontSize: 13,
+                                fontWeight: 600,
+                                verticalAlign: "top",
+                                borderRight: `1px solid ${V.border}`,
+                              }}
+                            >
+                              {item.common_name}
+                            </td>
+                          )}
                       <td
                         style={{
                           padding: "8px 10px",
@@ -2921,8 +2941,10 @@ function TopsheetReport() {
                       >
                         {fmtN(item.current_stock)}
                       </td>
-                    </tr>
-                  ))}
+                        </tr>
+                      );
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>
