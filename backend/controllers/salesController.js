@@ -218,6 +218,8 @@ const createSale = async (req, res) => {
 
       // কোনো নির্দিষ্ট batch select করা না থাকলেও, automatic সবচেয়ে পুরনো 
       // batch থেকে আগে কেটে নেওয়া হয় (FIFO), যতক্ষণ না পুরো বিক্রিত পরিমাণ কভার হয়
+      // প্রতিটা batch-এর deduction আলাদা stock_transactions row হিসেবে রাখা হয়,
+      // যাতে sale delete হলে ঠিক কোন batch-এ কত ফেরত দিতে হবে তা জানা যায়
       let remainingToDeduct = item.quantity;
       const activeBatches = await client.query(
         `SELECT id, available_quantity FROM production_batches
@@ -235,22 +237,39 @@ const createSale = async (req, res) => {
           "UPDATE production_batches SET available_quantity=$1, status=$2 WHERE id=$3",
           [newAvailable, newStatus, batch.id],
         );
+        await client.query(
+          `INSERT INTO stock_transactions
+                   (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
+                   VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
+          [
+            item.seedling_id,
+            batch.id,
+            deductNow,
+            newStock,
+            sale.id,
+            `চালান ${sale.invoice_no} থেকে বিক্রয়`,
+            req.user.id,
+          ],
+        );
         remainingToDeduct -= deductNow;
       }
-      await client.query(
-        `INSERT INTO stock_transactions
-                 (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
-                 VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
-        [
-          item.seedling_id,
-          item.batch_id || null,
-          item.quantity,
-          newStock,
-          sale.id,
-          `চালান ${sale.invoice_no} থেকে বিক্রয়`,
-          req.user.id,
-        ],
-      );
+      // যদি কোনো active batch না পাওয়া যায় (edge case), তাও একটা transaction log রাখি batch_id ছাড়া
+      if (activeBatches.rows.length === 0) {
+        await client.query(
+          `INSERT INTO stock_transactions
+                   (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
+                   VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
+          [
+            item.seedling_id,
+            null,
+            item.quantity,
+            newStock,
+            sale.id,
+            `চালান ${sale.invoice_no} থেকে বিক্রয়`,
+            req.user.id,
+          ],
+        );
+      }
     }
 
     await client.query("COMMIT");

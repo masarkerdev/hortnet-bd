@@ -780,6 +780,29 @@ router.delete("/sales/:id", authenticate, adminOrManager, async (req, res) => {
         );
       }
     }
+    // stock_transactions থেকে দেখে নিই ঠিক কোন কোন batch থেকে কত কাটা হয়েছিল, 
+    // এবং সেগুলো batch-এ ফেরত দিই (available_quantity বাড়িয়ে, status ঠিক করে)
+    const batchTxns = await client.query(
+      "SELECT batch_id, quantity FROM stock_transactions WHERE reference_type='sale' AND reference_id=$1 AND batch_id IS NOT NULL",
+      [req.params.id],
+    );
+    for (const txn of batchTxns.rows) {
+      const batchR = await client.query(
+        "SELECT available_quantity, produced_quantity FROM production_batches WHERE id=$1",
+        [txn.batch_id],
+      );
+      if (batchR.rows.length) {
+        const restored = Math.min(
+          Number(batchR.rows[0].produced_quantity || 0),
+          Number(batchR.rows[0].available_quantity || 0) + Number(txn.quantity || 0),
+        );
+        const newStatus = restored <= 0 ? "sold_out" : restored >= Number(batchR.rows[0].produced_quantity || 0) ? "active" : "partial";
+        await client.query(
+          "UPDATE production_batches SET available_quantity=$1, status=$2 WHERE id=$3",
+          [restored, newStatus, txn.batch_id],
+        );
+      }
+    }
     // stock_transactions মুছো
     await client.query(
       "DELETE FROM stock_transactions WHERE reference_type='sale' AND reference_id=$1",
