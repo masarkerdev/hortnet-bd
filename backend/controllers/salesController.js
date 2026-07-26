@@ -215,6 +215,26 @@ const createSale = async (req, res) => {
         "UPDATE seedlings SET current_stock = $1 WHERE id = $2",
         [newStock, item.seedling_id],
       );
+
+      // যেই batch থেকে বিক্রি হলো, তার available_quantity কমানো এবং
+      // ০ বা তার কম হয়ে গেলে automatic status='sold_out' করা
+      if (item.batch_id) {
+        const batchR = await client.query(
+          "SELECT available_quantity FROM production_batches WHERE id=$1",
+          [item.batch_id],
+        );
+        if (batchR.rows.length) {
+          const newAvailable = Math.max(
+            0,
+            Number(batchR.rows[0].available_quantity || 0) - item.quantity,
+          );
+          const newStatus = newAvailable <= 0 ? "sold_out" : "partial";
+          await client.query(
+            "UPDATE production_batches SET available_quantity=$1, status=$2 WHERE id=$3",
+            [newAvailable, newStatus, item.batch_id],
+          );
+        }
+      }
       await client.query(
         `INSERT INTO stock_transactions
                  (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
