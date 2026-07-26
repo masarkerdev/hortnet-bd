@@ -1013,14 +1013,6 @@ export default function Reports() {
           gap: 10,
         }}
       >
-        <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
-            📊 রিপোর্ট ও বিশ্লেষণ — টপশিট
-          </h2>
-          <p style={{ fontSize: 13, color: "#6b7280" }}>
-            মাসিক চারা ও কলম উৎপাদন বিতরণ রিপোর্ট
-          </p>
-        </div>
         <div
           style={{
             display: "flex",
@@ -1143,6 +1135,14 @@ export default function Reports() {
           ⚠️ {error}
         </div>
       )}
+      <div>
+        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
+          📊 রিপোর্ট ও বিশ্লেষণ — টপশিট
+        </h2>
+        <p style={{ fontSize: 13, color: "#6b7280" }}>
+          মাসিক চারা ও কলম উৎপাদন বিতরণ রিপোর্ট
+        </p>
+      </div>
 
       {/* Topsheet Table */}
       <div
@@ -1681,147 +1681,171 @@ export default function Reports() {
                   </tr>
                 </thead>
                 <tbody>
-                  {catDetail.map((item, i) => (
-                    <tr
-                      key={i}
-                      style={{ borderBottom: "1px solid #f5f7f5" }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.background = "#f0faf3")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.background = "transparent")
-                      }
-                    >
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 12,
-                          color: "#6b7280",
-                        }}
-                      >
-                        {toBn(i + 1)}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 13,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {item.common_name}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 12,
-                          color: "#6b7280",
-                        }}
-                      >
-                        {item.variety || "—"}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 12,
-                          textAlign: "right",
-                        }}
-                      >
-                        {fmtN(item.production.current_month)}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 12,
-                          textAlign: "right",
-                        }}
-                      >
-                        {fmtN(item.production.prev_months_total)}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 12,
-                          textAlign: "right",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {fmtN(item.production.subtotal)}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 12,
-                          textAlign: "right",
-                        }}
-                      >
-                        {fmtN(item.production.prev_year_balance)}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 12,
-                          textAlign: "right",
-                          fontWeight: 700,
-                          color: "#059669",
-                        }}
-                      >
-                        {fmtN(item.production.grand_total)}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 12,
-                          textAlign: "right",
-                        }}
-                      >
-                        {fmtN(item.distribution.current_month)}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 12,
-                          textAlign: "right",
-                        }}
-                      >
-                        {fmtN(item.distribution.prev_months_total)}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 12,
-                          textAlign: "right",
-                          color:
-                            item.distribution.damaged > 0
-                              ? "#dc2626"
-                              : "inherit",
-                        }}
-                      >
-                        {fmtN(item.distribution.damaged)}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 12,
-                          textAlign: "right",
-                          fontWeight: 700,
-                          color: "#b45309",
-                        }}
-                      >
-                        {fmtN(item.distribution.grand_total)}
-                      </td>
-                      <td
-                        style={{
-                          padding: "8px 10px",
-                          fontSize: 13,
-                          fontWeight: 700,
-                          color: "#1d4ed8",
-                          textAlign: "right",
-                        }}
-                      >
-                        {fmtN(item.current_stock)}
-                      </td>
-                    </tr>
-                  ))}
+                  {(() => {
+                    // rowSpan সঠিকভাবে কাজ করার জন্য একই নামের row গুলো consecutive হওয়া জরুরি
+                    const sorted = [...catDetail].sort((a, b) =>
+                      (a.common_name || "").localeCompare(
+                        b.common_name || "",
+                        "bn",
+                      ),
+                    );
+                    const groupSizes = {};
+                    sorted.forEach((item) => {
+                      groupSizes[item.common_name] =
+                        (groupSizes[item.common_name] || 0) + 1;
+                    });
+                    const seen = {};
+                    return sorted.map((item, i) => {
+                      const isFirstOfGroup = !seen[item.common_name];
+                      seen[item.common_name] = true;
+                      return (
+                        <tr
+                          key={i}
+                          style={{ borderBottom: "1px solid #f5f7f5" }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.background = "#f0faf3")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.background = "transparent")
+                          }
+                        >
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 12,
+                              color: "#6b7280",
+                            }}
+                          >
+                            {toBn(i + 1)}
+                          </td>
+                          {isFirstOfGroup && (
+                            <td
+                              rowSpan={groupSizes[item.common_name]}
+                              style={{
+                                padding: "8px 10px",
+                                fontSize: 13,
+                                fontWeight: 600,
+                                verticalAlign: "top",
+                                borderRight: "1px solid #f5f7f5",
+                              }}
+                            >
+                              {item.common_name}
+                            </td>
+                          )}
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 12,
+                              color: "#6b7280",
+                            }}
+                          >
+                            {item.variety || "—"}
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 12,
+                              textAlign: "right",
+                            }}
+                          >
+                            {fmtN(item.production.current_month)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 12,
+                              textAlign: "right",
+                            }}
+                          >
+                            {fmtN(item.production.prev_months_total)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 12,
+                              textAlign: "right",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {fmtN(item.production.subtotal)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 12,
+                              textAlign: "right",
+                            }}
+                          >
+                            {fmtN(item.production.prev_year_balance)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 12,
+                              textAlign: "right",
+                              fontWeight: 700,
+                              color: "#059669",
+                            }}
+                          >
+                            {fmtN(item.production.grand_total)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 12,
+                              textAlign: "right",
+                            }}
+                          >
+                            {fmtN(item.distribution.current_month)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 12,
+                              textAlign: "right",
+                            }}
+                          >
+                            {fmtN(item.distribution.prev_months_total)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 12,
+                              textAlign: "right",
+                              color:
+                                item.distribution.damaged > 0
+                                  ? "#dc2626"
+                                  : "inherit",
+                            }}
+                          >
+                            {fmtN(item.distribution.damaged)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 12,
+                              textAlign: "right",
+                              fontWeight: 700,
+                              color: "#b45309",
+                            }}
+                          >
+                            {fmtN(item.distribution.grand_total)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px 10px",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              color: "#1d4ed8",
+                              textAlign: "right",
+                            }}
+                          >
+                            {fmtN(item.current_stock)}
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>

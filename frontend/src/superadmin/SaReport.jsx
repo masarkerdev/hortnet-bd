@@ -2790,13 +2790,12 @@ function TopsheetReport() {
                     const sorted = [...catDetail].sort((a, b) =>
                       (a.common_name || "").localeCompare(b.common_name || "", "bn")
                     );
-                    // একই "নাম (বাংলা)" (common_name) অনুযায়ী group করি, 
-                    // rowSpan দিয়ে সেই কলামটা একবারই দেখাবো (বাকি সব কলাম/রঙ অপরিবর্তিত)
                     const groupSizes = {};
                     sorted.forEach((item) => {
                       groupSizes[item.common_name] = (groupSizes[item.common_name] || 0) + 1;
                     });
                     const seen = {};
+                    const cellBorder = { borderBottom: `1px solid ${V.border}` };
                     return sorted.map((item, i) => {
                       const isFirstOfGroup = !seen[item.common_name];
                       seen[item.common_name] = true;
@@ -2815,6 +2814,7 @@ function TopsheetReport() {
                               padding: "8px 10px",
                               fontSize: 12,
                               color: V.muted,
+                              ...cellBorder,
                             }}
                           >
                             {toBn(i + 1)}
@@ -2828,6 +2828,7 @@ function TopsheetReport() {
                                 fontWeight: 600,
                                 verticalAlign: "top",
                                 borderRight: `1px solid ${V.border}`,
+                                borderBottom: `1px solid ${V.border}`,
                               }}
                             >
                               {item.common_name}
@@ -2838,6 +2839,7 @@ function TopsheetReport() {
                           padding: "8px 10px",
                           fontSize: 12,
                           color: V.muted,
+                          ...cellBorder,
                         }}
                       >
                         {item.variety || "—"}
@@ -2847,6 +2849,7 @@ function TopsheetReport() {
                           padding: "8px 10px",
                           fontSize: 12,
                           textAlign: "right",
+                          ...cellBorder,
                         }}
                       >
                         {fmtN(item.production.current_month)}
@@ -2856,6 +2859,7 @@ function TopsheetReport() {
                           padding: "8px 10px",
                           fontSize: 12,
                           textAlign: "right",
+                          ...cellBorder,
                         }}
                       >
                         {fmtN(item.production.prev_months_total)}
@@ -2866,6 +2870,7 @@ function TopsheetReport() {
                           fontSize: 12,
                           textAlign: "right",
                           fontWeight: 600,
+                          ...cellBorder,
                         }}
                       >
                         {fmtN(item.production.subtotal)}
@@ -2875,6 +2880,7 @@ function TopsheetReport() {
                           padding: "8px 10px",
                           fontSize: 12,
                           textAlign: "right",
+                          ...cellBorder,
                         }}
                       >
                         {fmtN(item.production.prev_year_balance)}
@@ -2886,6 +2892,7 @@ function TopsheetReport() {
                           textAlign: "right",
                           fontWeight: 700,
                           color: "#059669",
+                          ...cellBorder,
                         }}
                       >
                         {fmtN(item.production.grand_total)}
@@ -2895,6 +2902,7 @@ function TopsheetReport() {
                           padding: "8px 10px",
                           fontSize: 12,
                           textAlign: "right",
+                          ...cellBorder,
                         }}
                       >
                         {fmtN(item.distribution.current_month)}
@@ -2904,6 +2912,7 @@ function TopsheetReport() {
                           padding: "8px 10px",
                           fontSize: 12,
                           textAlign: "right",
+                          ...cellBorder,
                         }}
                       >
                         {fmtN(item.distribution.prev_months_total)}
@@ -2915,6 +2924,7 @@ function TopsheetReport() {
                           textAlign: "right",
                           color:
                             item.distribution.damaged > 0 ? V.red : "inherit",
+                          ...cellBorder,
                         }}
                       >
                         {fmtN(item.distribution.damaged)}
@@ -2926,6 +2936,7 @@ function TopsheetReport() {
                           textAlign: "right",
                           fontWeight: 700,
                           color: "#b45309",
+                          ...cellBorder,
                         }}
                       >
                         {fmtN(item.distribution.grand_total)}
@@ -2937,6 +2948,7 @@ function TopsheetReport() {
                           fontWeight: 700,
                           color: "#1d4ed8",
                           textAlign: "right",
+                          ...cellBorder,
                         }}
                       >
                         {fmtN(item.current_stock)}
