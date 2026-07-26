@@ -375,3 +375,10 @@
   --sa: #8e44ad;
   --st: #f4ecf7;
 }
+
+/* মোবাইল ডিভাইসে পেজের নামের (h2 title) ফন্ট ছোট করা */
+@media (max-width: 640px) {
+  main h2 {
+    font-size: 16px !important;
+  }
+}

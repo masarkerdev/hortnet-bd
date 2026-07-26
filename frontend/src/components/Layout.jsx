@@ -540,7 +540,7 @@ export default function Layout() {
           >
             <IcMenu className="h-5 w-5" />
           </button>
-          <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+          <h1 className="text-base sm:text-xl font-bold tracking-tight">{title}</h1>
 
           {dailyTips.length > 0 && (
             <>
