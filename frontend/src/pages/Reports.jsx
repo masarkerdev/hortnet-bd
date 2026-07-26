@@ -1012,55 +1012,7 @@ export default function Reports() {
           flexWrap: "wrap",
           gap: 10,
         }}
-      >
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          <select
-            value={fy}
-            onChange={(e) => setFy(Number(e.target.value))}
-            style={{
-              padding: "8px 12px",
-              border: "1px solid #e0e0e0",
-              borderRadius: 8,
-              fontSize: 13,
-              fontFamily: FONT,
-              outline: "none",
-              background: "#fff",
-            }}
-          >
-            {[curFY(), curFY() - 1, curFY() - 2].map((y) => (
-              <option key={y} value={y}>
-                FY {toBn(y)}-{toBn(y + 1)}
-              </option>
-            ))}
-          </select>
-          <select
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            style={{
-              padding: "8px 12px",
-              border: "1px solid #e0e0e0",
-              borderRadius: 8,
-              fontSize: 13,
-              fontFamily: FONT,
-              outline: "none",
-              background: "#fff",
-            }}
-          >
-            {MONTHS.map((m, i) => (
-              <option key={i} value={i + 1}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      ></div>
 
       {summary && (
         <div
@@ -1135,6 +1087,9 @@ export default function Reports() {
           ⚠️ {error}
         </div>
       )}
+
+      {/* Topsheet Table */}
+
       <div>
         <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
           📊 রিপোর্ট ও বিশ্লেষণ — টপশিট
@@ -1143,8 +1098,54 @@ export default function Reports() {
           মাসিক চারা ও কলম উৎপাদন বিতরণ রিপোর্ট
         </p>
       </div>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <select
+          value={fy}
+          onChange={(e) => setFy(Number(e.target.value))}
+          style={{
+            padding: "8px 12px",
+            border: "1px solid #e0e0e0",
+            borderRadius: 8,
+            fontSize: 13,
+            fontFamily: FONT,
+            outline: "none",
+            background: "#fff",
+          }}
+        >
+          {[curFY(), curFY() - 1, curFY() - 2].map((y) => (
+            <option key={y} value={y}>
+              FY {toBn(y)}-{toBn(y + 1)}
+            </option>
+          ))}
+        </select>
+        <select
+          value={month}
+          onChange={(e) => setMonth(Number(e.target.value))}
+          style={{
+            padding: "8px 12px",
+            border: "1px solid #e0e0e0",
+            borderRadius: 8,
+            fontSize: 13,
+            fontFamily: FONT,
+            outline: "none",
+            background: "#fff",
+          }}
+        >
+          {MONTHS.map((m, i) => (
+            <option key={i} value={i + 1}>
+              {m}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      {/* Topsheet Table */}
       <div
         style={{
           background: "#fff",
@@ -1152,6 +1153,7 @@ export default function Reports() {
           borderRadius: 14,
           overflow: "hidden",
           marginBottom: 20,
+          marginTop: 20,
         }}
       >
         <div
