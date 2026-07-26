@@ -75,7 +75,7 @@ export default function BatchManagement() {
               const dt = b.production_type === 'seed' ? b.sowing_date : b.propagation_date;
               const sp = b.success_percent || b.germination_percent || 0;
               const avail = b.available_quantity ?? b.produced_quantity;
-              const sold = Math.max(0, b.produced_quantity - avail - (b.failed_quantity || 0));
+              const sold = Math.max(0, b.produced_quantity - avail);
               const sb = STATUS_BADGE[b.status] || { t:b.status, c:'' };
               return (
                 <tr key={b.id}>
