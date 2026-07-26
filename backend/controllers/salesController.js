@@ -216,24 +216,26 @@ const createSale = async (req, res) => {
         [newStock, item.seedling_id],
       );
 
-      // যেই batch থেকে বিক্রি হলো, তার available_quantity কমানো এবং
-      // ০ বা তার কম হয়ে গেলে automatic status='sold_out' করা
-      if (item.batch_id) {
-        const batchR = await client.query(
-          "SELECT available_quantity FROM production_batches WHERE id=$1",
-          [item.batch_id],
+      // কোনো নির্দিষ্ট batch select করা না থাকলেও, automatic সবচেয়ে পুরনো 
+      // batch থেকে আগে কেটে নেওয়া হয় (FIFO), যতক্ষণ না পুরো বিক্রিত পরিমাণ কভার হয়
+      let remainingToDeduct = item.quantity;
+      const activeBatches = await client.query(
+        `SELECT id, available_quantity FROM production_batches
+         WHERE seedling_id=$1 AND available_quantity > 0 AND status != 'sold_out'
+         ORDER BY COALESCE(sowing_date, propagation_date, created_at::date) ASC, id ASC`,
+        [item.seedling_id],
+      );
+      for (const batch of activeBatches.rows) {
+        if (remainingToDeduct <= 0) break;
+        const currentAvailable = Number(batch.available_quantity || 0);
+        const deductNow = Math.min(currentAvailable, remainingToDeduct);
+        const newAvailable = currentAvailable - deductNow;
+        const newStatus = newAvailable <= 0 ? "sold_out" : "partial";
+        await client.query(
+          "UPDATE production_batches SET available_quantity=$1, status=$2 WHERE id=$3",
+          [newAvailable, newStatus, batch.id],
         );
-        if (batchR.rows.length) {
-          const newAvailable = Math.max(
-            0,
-            Number(batchR.rows[0].available_quantity || 0) - item.quantity,
-          );
-          const newStatus = newAvailable <= 0 ? "sold_out" : "partial";
-          await client.query(
-            "UPDATE production_batches SET available_quantity=$1, status=$2 WHERE id=$3",
-            [newAvailable, newStatus, item.batch_id],
-          );
-        }
+        remainingToDeduct -= deductNow;
       }
       await client.query(
         `INSERT INTO stock_transactions
