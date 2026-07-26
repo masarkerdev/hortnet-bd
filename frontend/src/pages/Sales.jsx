@@ -477,6 +477,19 @@ export function SaleModal({ open, onClose, seedlings, sale, onSaved }) {
                         </option>
                       ))}
                     </select>
+                    {it.seedling_id && (() => {
+                      const sel = seedlings.find((s) => String(s.id) === String(it.seedling_id));
+                      if (!sel) return null;
+                      const stock = Number(sel.current_stock || 0);
+                      return (
+                        <div
+                          className="text-[11px]"
+                          style={{ color: stock <= 10 ? "var(--r600)" : "var(--tm)", marginTop: 2 }}
+                        >
+                          বর্তমান স্টক: <strong>{stock}</strong>টি
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div style={{ width: 80 }}>
                     <label
