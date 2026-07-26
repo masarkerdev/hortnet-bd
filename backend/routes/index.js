@@ -657,6 +657,28 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
         );
       }
     }
+    // পুরনো stock_transactions দেখে batch-এর available_quantity ফেরত দিই (মুছার আগে)
+    const oldBatchTxns = await client.query(
+      "SELECT batch_id, quantity FROM stock_transactions WHERE reference_type='sale' AND reference_id=$1 AND batch_id IS NOT NULL",
+      [saleId],
+    );
+    for (const txn of oldBatchTxns.rows) {
+      const batchR = await client.query(
+        "SELECT available_quantity, produced_quantity FROM production_batches WHERE id=$1",
+        [txn.batch_id],
+      );
+      if (batchR.rows.length) {
+        const restored = Math.min(
+          Number(batchR.rows[0].produced_quantity || 0),
+          Number(batchR.rows[0].available_quantity || 0) + Number(txn.quantity || 0),
+        );
+        const newStatus = restored <= 0 ? "sold_out" : restored >= Number(batchR.rows[0].produced_quantity || 0) ? "active" : "partial";
+        await client.query(
+          "UPDATE production_batches SET available_quantity=$1, status=$2 WHERE id=$3",
+          [restored, newStatus, txn.batch_id],
+        );
+      }
+    }
     await client.query(
       "DELETE FROM stock_transactions WHERE reference_type='sale' AND reference_id=$1",
       [saleId],
@@ -718,20 +740,58 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
         newStock,
         it.seedling_id,
       ]);
-      await client.query(
-        `INSERT INTO stock_transactions
-         (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
-         VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
-        [
-          it.seedling_id,
-          it.batch_id || null,
-          it.quantity,
-          newStock,
-          saleId,
-          `চালান ${invNo} এডিট`,
-          req.user.id,
-        ],
+
+      // কোনো নির্দিষ্ট batch select করা না থাকলেও, automatic সবচেয়ে পুরনো
+      // batch থেকে আগে কেটে নেওয়া হয় (FIFO)
+      let remainingToDeduct = it.quantity;
+      const activeBatches = await client.query(
+        `SELECT id, available_quantity FROM production_batches
+         WHERE seedling_id=$1 AND available_quantity > 0 AND status != 'sold_out'
+         ORDER BY COALESCE(sowing_date, propagation_date, created_at::date) ASC, id ASC`,
+        [it.seedling_id],
       );
+      for (const batch of activeBatches.rows) {
+        if (remainingToDeduct <= 0) break;
+        const currentAvailable = Number(batch.available_quantity || 0);
+        const deductNow = Math.min(currentAvailable, remainingToDeduct);
+        const newAvailable = currentAvailable - deductNow;
+        const newStatus = newAvailable <= 0 ? "sold_out" : "partial";
+        await client.query(
+          "UPDATE production_batches SET available_quantity=$1, status=$2 WHERE id=$3",
+          [newAvailable, newStatus, batch.id],
+        );
+        await client.query(
+          `INSERT INTO stock_transactions
+           (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
+           VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
+          [
+            it.seedling_id,
+            batch.id,
+            deductNow,
+            newStock,
+            saleId,
+            `চালান ${invNo} এডিট`,
+            req.user.id,
+          ],
+        );
+        remainingToDeduct -= deductNow;
+      }
+      if (activeBatches.rows.length === 0) {
+        await client.query(
+          `INSERT INTO stock_transactions
+           (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
+           VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
+          [
+            it.seedling_id,
+            null,
+            it.quantity,
+            newStock,
+            saleId,
+            `চালান ${invNo} এডিট`,
+            req.user.id,
+          ],
+        );
+      }
     }
     await client.query("COMMIT");
     res.json({ success: true, message: "বিক্রয় আপডেট হয়েছে।" });
