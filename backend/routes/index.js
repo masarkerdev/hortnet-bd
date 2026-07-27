@@ -31,6 +31,7 @@ const {
   getAllBatches,
   createSeedBatch,
   createAsexualBatch,
+  approveBatch,
   getBatchById,
 } = require("../controllers/productionController");
 const {
@@ -39,6 +40,7 @@ const {
   createSale,
   getTodaySummary,
   getMonthlySales,
+  approveSale,
 } = require("../controllers/salesController");
 const {
   getStockSummary,
@@ -114,11 +116,11 @@ router.get("/dashboard/stats", authenticate, fyMiddleware, async (req, res) => {
       successRates,
     ] = await Promise.all([
       db.query(
-        `SELECT COUNT(*) AS total_invoices, COALESCE(SUM(total_amount),0) AS total_revenue, COALESCE(SUM(CASE WHEN payment_status='due' THEN total_amount ELSE 0 END),0) AS due_amount FROM sales WHERE sale_date BETWEEN $1 AND $2`,
+        `SELECT COUNT(*) AS total_invoices, COALESCE(SUM(total_amount),0) AS total_revenue, COALESCE(SUM(CASE WHEN payment_status='due' THEN total_amount ELSE 0 END),0) AS due_amount FROM sales WHERE sale_date BETWEEN $1 AND $2 AND is_approved=true`,
         [fyStart, fyEnd],
       ),
       db.query(
-        `SELECT COALESCE(SUM(total_amount),0) AS today_revenue, COUNT(*) AS today_invoices FROM sales WHERE sale_date=CURRENT_DATE`,
+        `SELECT COALESCE(SUM(total_amount),0) AS today_revenue, COUNT(*) AS today_invoices FROM sales WHERE sale_date=CURRENT_DATE AND is_approved=true`,
       ),
       db.query(
         `SELECT COUNT(*) AS total_batches,
@@ -128,7 +130,7 @@ router.get("/dashboard/stats", authenticate, fyMiddleware, async (req, res) => {
                       COALESCE(AVG(CASE WHEN success_percent>0 THEN success_percent END),0) AS avg_success,
                       COUNT(CASE WHEN status='active' THEN 1 END) AS active_batches
                       FROM production_batches
-                      WHERE (
+                      WHERE is_approved=true AND (
                           (sowing_date IS NOT NULL AND sowing_date BETWEEN $1 AND $2)
                           OR (sowing_date IS NULL AND propagation_date IS NOT NULL AND propagation_date BETWEEN $1 AND $2)
                           OR (sowing_date IS NULL AND propagation_date IS NULL AND DATE(created_at) BETWEEN $1 AND $2)
@@ -146,13 +148,13 @@ router.get("/dashboard/stats", authenticate, fyMiddleware, async (req, res) => {
         `SELECT s.name_bn, s.seedling_code, s.current_stock, s.min_stock_alert FROM seedlings s WHERE s.is_active=TRUE AND s.current_stock<=s.min_stock_alert ORDER BY s.current_stock ASC LIMIT 5`,
       ),
       db.query(
-        `SELECT s.invoice_no, s.customer_name, s.total_amount, s.payment_status, s.sale_date FROM sales s WHERE s.sale_date BETWEEN $1 AND $2 ORDER BY s.created_at DESC LIMIT 5`,
+        `SELECT s.invoice_no, s.customer_name, s.total_amount, s.payment_status, s.sale_date, s.is_approved FROM sales s WHERE s.sale_date BETWEEN $1 AND $2 ORDER BY s.created_at DESC LIMIT 5`,
         [fyStart, fyEnd],
       ),
       db.query(
         `SELECT COALESCE(SUM(CASE WHEN income_date BETWEEN $1 AND $2 THEN amount ELSE 0 END),0) AS total,
                   COALESCE(SUM(CASE WHEN income_date=CURRENT_DATE THEN amount ELSE 0 END),0) AS today
-             FROM other_income`,
+             FROM other_income WHERE is_approved=true`,
         [fyStart, fyEnd],
       ),
       db.query(
@@ -162,6 +164,7 @@ router.get("/dashboard/stats", authenticate, fyMiddleware, async (req, res) => {
                      ELSE 0 END)), 1) AS avg_success_percent,
             COUNT(*) AS batch_count
          FROM production_batches
+         WHERE is_approved=true
          GROUP BY production_type
          HAVING COUNT(*) > 0`,
       ).catch(() => ({ rows: [] })),
@@ -366,6 +369,7 @@ router.post(
   canProduce,
   createAsexualBatch,
 );
+router.put("/production/:id/approve", authenticate, adminOnly, approveBatch);
 router.post(
   "/production/:id/update",
   authenticate,
@@ -586,6 +590,7 @@ router.get("/sales", authenticate, fyMiddleware, async (req, res) => {
 });
 router.get("/sales/today", authenticate, getTodaySummary);
 router.get("/sales/monthly", authenticate, getMonthlySales);
+router.put("/sales/:id/approve", authenticate, adminOnly, approveSale);
 router.get("/sales/:id", authenticate, getSaleById);
 router.post("/sales", authenticate, canSell, createSale);
 router.put("/sales/:id", authenticate, canSell, async (req, res) => {
@@ -644,17 +649,19 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
     }
     const invNo = cur.rows[0].invoice_no;
 
-    // পুরোনো আইটেমের স্টক ফেরত দাও
-    const old = await client.query(
-      "SELECT seedling_id, quantity FROM sales_items WHERE sale_id=$1",
-      [saleId],
-    );
-    for (const si of old.rows) {
-      if (si.seedling_id && si.quantity > 0) {
-        await client.query(
-          "UPDATE seedlings SET current_stock=current_stock+$1 WHERE id=$2",
-          [si.quantity, si.seedling_id],
-        );
+    // পুরোনো আইটেমের স্টক ফেরত দাও — শুধু অনুমোদিত sale-এর জন্য দরকার
+    if (cur.rows[0].is_approved) {
+      const old = await client.query(
+        "SELECT seedling_id, quantity FROM sales_items WHERE sale_id=$1",
+        [saleId],
+      );
+      for (const si of old.rows) {
+        if (si.seedling_id && si.quantity > 0) {
+          await client.query(
+            "UPDATE seedlings SET current_stock=current_stock+$1 WHERE id=$2",
+            [si.quantity, si.seedling_id],
+          );
+        }
       }
     }
     // পুরনো stock_transactions দেখে batch-এর available_quantity ফেরত দিই (মুছার আগে)
@@ -710,7 +717,8 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
       ],
     );
 
-    // নতুন আইটেম বসাও + স্টক কমাও + stock_transactions
+    // নতুন আইটেম বসাও — স্টক শুধু অনুমোদিত (already approved) sale-এর জন্যই কমবে
+    const wasApproved = cur.rows[0].is_approved;
     for (const it of items) {
       const sc = await client.query(
         "SELECT current_stock, name_bn FROM seedlings WHERE id=$1",
@@ -719,7 +727,7 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
       if (!sc.rows.length)
         throw new Error(`চারা ID ${it.seedling_id} পাওয়া যায়নি।`);
       const curStock = parseInt(sc.rows[0].current_stock);
-      if (curStock < it.quantity)
+      if (wasApproved && curStock < it.quantity)
         throw new Error(
           `${sc.rows[0].name_bn} এর স্টক পর্যাপ্ত নেই। আছে: ${curStock}, চাইলেন: ${it.quantity}`,
         );
@@ -735,6 +743,9 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
           it.quantity * it.unit_price,
         ],
       );
+
+      if (!wasApproved) continue; // pending sale — স্টক/ব্যাচ এখনো কমবে না, অনুমোদনের সময় কমবে
+
       const newStock = curStock - it.quantity;
       await client.query("UPDATE seedlings SET current_stock=$1 WHERE id=$2", [
         newStock,
@@ -746,7 +757,7 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
       let remainingToDeduct = it.quantity;
       const activeBatches = await client.query(
         `SELECT id, available_quantity FROM production_batches
-         WHERE seedling_id=$1 AND available_quantity > 0 AND status != 'sold_out'
+         WHERE seedling_id=$1 AND available_quantity > 0 AND status != 'sold_out' AND is_approved=true
          ORDER BY COALESCE(sowing_date, propagation_date, created_at::date) ASC, id ASC`,
         [it.seedling_id],
       );
@@ -827,17 +838,20 @@ router.delete("/sales/:id", authenticate, adminOrManager, async (req, res) => {
         req.user.id,
       ],
     );
-    // Stock restore — sold items ফিরিয়ে দাও
-    const saleItems = await client.query(
-      "SELECT seedling_id, quantity FROM sales_items WHERE sale_id=$1",
-      [req.params.id],
-    );
-    for (const si of saleItems.rows) {
-      if (si.seedling_id && si.quantity > 0) {
-        await client.query(
-          "UPDATE seedlings SET current_stock=current_stock+$1 WHERE id=$2",
-          [si.quantity, si.seedling_id],
-        );
+    // Stock restore — শুধু অনুমোদিত (approved) sale-এর জন্যই দরকার, 
+    // কারণ pending sale-এ স্টক কখনো কমানোই হয়নি
+    if (item.rows[0].is_approved) {
+      const saleItems = await client.query(
+        "SELECT seedling_id, quantity FROM sales_items WHERE sale_id=$1",
+        [req.params.id],
+      );
+      for (const si of saleItems.rows) {
+        if (si.seedling_id && si.quantity > 0) {
+          await client.query(
+            "UPDATE seedlings SET current_stock=current_stock+$1 WHERE id=$2",
+            [si.quantity, si.seedling_id],
+          );
+        }
       }
     }
     // stock_transactions থেকে দেখে নিই ঠিক কোন কোন batch থেকে কত কাটা হয়েছিল, 
@@ -1758,8 +1772,8 @@ router.post("/other-income", authenticate, async (req, res) => {
       `INSERT INTO other_income
         (income_type,category,amount,income_date,description,
          quantity,unit_price,produce_price_id,room_category_id,check_in,check_out,
-         guest_name,guest_mobile,guest_occupation,created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+         guest_name,guest_mobile,guest_occupation,created_by,is_approved)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,false) RETURNING *`,
       [
         income_type,
         category || null,
@@ -1781,8 +1795,21 @@ router.post("/other-income", authenticate, async (req, res) => {
     res.json({
       success: true,
       data: result.rows[0],
-      message: "আয় সংরক্ষিত হয়েছে।",
+      message: "আয় সংরক্ষিত হয়েছে (অনুমোদনের অপেক্ষায়)।",
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+router.put("/other-income/:id/approve", authenticate, adminOnly, async (req, res) => {
+  try {
+    const result = await db.query(
+      "UPDATE other_income SET is_approved=true, approved_by=$1, approved_at=now() WHERE id=$2 RETURNING *",
+      [req.user.id, req.params.id],
+    );
+    if (!result.rows.length)
+      return res.status(404).json({ success: false, message: "পাওয়া যায়নি।" });
+    res.json({ success: true, message: "আয় অনুমোদন করা হয়েছে ✅", data: result.rows[0] });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -2952,6 +2979,42 @@ router.post("/work-plans/:id/convert", authenticate, async (req, res) => {
     );
     await db.query("UPDATE work_plans SET status='converted' WHERE id=$1", [req.params.id]);
     res.json({ success: true, data: r.rows[0], message: "রেজিস্টারে যোগ হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// সব ধরনের (বিক্রয়, উৎপাদন, আয়) অপেক্ষমাণ entry একসাথে দেখার route
+router.get("/pending-approvals", authenticate, async (req, res) => {
+  try {
+    const [sales, production, income] = await Promise.all([
+      db.query(
+        `SELECT s.*, COALESCE(json_agg(json_build_object('seedling_name', sd.name_bn, 'quantity', si.quantity, 'unit_price', si.unit_price)) FILTER (WHERE si.id IS NOT NULL), '[]') AS items
+         FROM sales s
+         LEFT JOIN sales_items si ON si.sale_id = s.id
+         LEFT JOIN seedlings sd ON sd.id = si.seedling_id
+         WHERE s.is_approved=false
+         GROUP BY s.id ORDER BY s.created_at DESC`,
+      ),
+      db.query(
+        `SELECT pb.*, s.name_bn AS seedling_name
+         FROM production_batches pb
+         LEFT JOIN seedlings s ON s.id = pb.seedling_id
+         WHERE pb.is_approved=false
+         ORDER BY pb.created_at DESC`,
+      ),
+      db.query(
+        `SELECT * FROM other_income WHERE is_approved=false ORDER BY created_at DESC`,
+      ),
+    ]);
+    res.json({
+      success: true,
+      data: {
+        sales: sales.rows,
+        production: production.rows,
+        income: income.rows,
+      },
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

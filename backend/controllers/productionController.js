@@ -116,8 +116,8 @@ const createSeedBatch = async (req, res) => {
       `INSERT INTO production_batches
              (seedling_id, production_type, seed_source, seed_quantity, sowing_date,
               germination_date, germination_percent, produced_quantity, success_quantity,
-              failed_quantity, available_quantity, remarks, created_by)
-             VALUES ($1,'seed',$2,$3,$4,$5,$6,$7,$8,$9,$7,$10,$11)
+              failed_quantity, available_quantity, remarks, created_by, is_approved)
+             VALUES ($1,'seed',$2,$3,$4,$5,$6,$7,$8,$9,$7,$10,$11,false)
              RETURNING *`,
       [
         seedling_id,
@@ -136,38 +136,10 @@ const createSeedBatch = async (req, res) => {
 
     const batch = batchResult.rows[0];
 
-    // স্টক লেনদেন যোগ করুন
-    const stockResult = await client.query(
-      `SELECT COALESCE(current_stock, 0) FROM seedlings WHERE id = $1`,
-      [seedling_id],
-    );
-    const currentStock = parseInt(stockResult.rows[0].coalesce);
-    const newBalance = currentStock + parseInt(produced_quantity);
-
-    await client.query(
-      `INSERT INTO stock_transactions
-             (seedling_id, batch_id, txn_type, quantity, direction, balance_after, notes, created_by)
-             VALUES ($1,$2,'production',$3,'+',$4,$5,$6)`,
-      [
-        seedling_id,
-        batch.id,
-        produced_quantity,
-        newBalance,
-        `ব্যাচ ${batch.batch_code} থেকে উৎপাদন`,
-        req.user.id,
-      ],
-    );
-
-    // চারার স্টক আপডেট করুন
-    await client.query(
-      "UPDATE seedlings SET current_stock = $1 WHERE id = $2",
-      [newBalance, seedling_id],
-    );
-
     await client.query("COMMIT");
     res.status(201).json({
       success: true,
-      message: "বীজ উৎপাদন ব্যাচ তৈরি হয়েছে।",
+      message: "বীজ উৎপাদন ব্যাচ তৈরি হয়েছে (অনুমোদনের অপেক্ষায়)।",
       data: batch,
     });
   } catch (err) {
@@ -218,8 +190,8 @@ const createAsexualBatch = async (req, res) => {
       `INSERT INTO production_batches
              (seedling_id, production_type, mother_plant_id, rootstock, scion_variety,
               propagation_date, produced_quantity, success_quantity, failed_quantity,
-              success_percent, available_quantity, remarks, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$8,$11,$12)
+              success_percent, available_quantity, remarks, created_by, is_approved)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$8,$11,$12,false)
              RETURNING *`,
       [
         seedling_id,
@@ -239,37 +211,10 @@ const createAsexualBatch = async (req, res) => {
 
     const batch = batchResult.rows[0];
 
-    // স্টক আপডেট করুন
-    const stockResult = await client.query(
-      "SELECT COALESCE(current_stock, 0) FROM seedlings WHERE id = $1",
-      [seedling_id],
-    );
-    const currentStock = parseInt(stockResult.rows[0].coalesce);
-    const newBalance = currentStock + successQty;
-
-    await client.query(
-      `INSERT INTO stock_transactions
-             (seedling_id, batch_id, txn_type, quantity, direction, balance_after, notes, created_by)
-             VALUES ($1,$2,'production',$3,'+',$4,$5,$6)`,
-      [
-        seedling_id,
-        batch.id,
-        successQty,
-        newBalance,
-        `ব্যাচ ${batch.batch_code} থেকে ${production_type} উৎপাদন`,
-        req.user.id,
-      ],
-    );
-
-    await client.query(
-      "UPDATE seedlings SET current_stock = $1 WHERE id = $2",
-      [newBalance, seedling_id],
-    );
-
     await client.query("COMMIT");
     res.status(201).json({
       success: true,
-      message: "অঙ্গজ বংশবিস্তার ব্যাচ তৈরি হয়েছে।",
+      message: "অঙ্গজ বংশবিস্তার ব্যাচ তৈরি হয়েছে (অনুমোদনের অপেক্ষায়)।",
       data: batch,
     });
   } catch (err) {
@@ -305,9 +250,77 @@ const getBatchById = async (req, res) => {
   }
 };
 
+const approveBatch = async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query("BEGIN");
+    const batchR = await client.query(
+      "SELECT * FROM production_batches WHERE id=$1",
+      [req.params.id],
+    );
+    if (!batchR.rows.length) {
+      await client.query("ROLLBACK");
+      return res
+        .status(404)
+        .json({ success: false, message: "ব্যাচ পাওয়া যায়নি।" });
+    }
+    const batch = batchR.rows[0];
+    if (batch.is_approved) {
+      await client.query("ROLLBACK");
+      return res
+        .status(400)
+        .json({ success: false, message: "এই ব্যাচ ইতিমধ্যে অনুমোদিত।" });
+    }
+    const qtyToAdd =
+      batch.production_type === "seed"
+        ? batch.produced_quantity
+        : batch.success_quantity;
+
+    const stockR = await client.query(
+      "SELECT COALESCE(current_stock,0) AS cs FROM seedlings WHERE id=$1",
+      [batch.seedling_id],
+    );
+    const newBalance = parseInt(stockR.rows[0].cs) + parseInt(qtyToAdd || 0);
+
+    await client.query(
+      "UPDATE seedlings SET current_stock=$1 WHERE id=$2",
+      [newBalance, batch.seedling_id],
+    );
+    await client.query(
+      `INSERT INTO stock_transactions
+       (seedling_id, batch_id, txn_type, quantity, direction, balance_after, notes, created_by)
+       VALUES ($1,$2,'production',$3,'+',$4,$5,$6)`,
+      [
+        batch.seedling_id,
+        batch.id,
+        qtyToAdd,
+        newBalance,
+        `ব্যাচ ${batch.batch_code} অনুমোদিত`,
+        req.user.id,
+      ],
+    );
+    const updated = await client.query(
+      "UPDATE production_batches SET is_approved=true, approved_by=$1, approved_at=now() WHERE id=$2 RETURNING *",
+      [req.user.id, req.params.id],
+    );
+    await client.query("COMMIT");
+    res.json({
+      success: true,
+      message: "ব্যাচ অনুমোদন করা হয়েছে ✅",
+      data: updated.rows[0],
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getAllBatches,
   createSeedBatch,
   createAsexualBatch,
   getBatchById,
+  approveBatch,
 };

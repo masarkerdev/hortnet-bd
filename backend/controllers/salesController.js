@@ -131,8 +131,8 @@ const createSale = async (req, res) => {
     const saleResult = await client.query(
       `INSERT INTO sales
              (customer_id, customer_name, customer_phone, customer_address, sale_date,
-              subtotal, discount, total_amount, payment_method, payment_status, notes, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+              subtotal, discount, total_amount, payment_method, payment_status, notes, created_by, is_approved)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,false)
              RETURNING *`,
       [
         customer_id,
@@ -183,7 +183,7 @@ const createSale = async (req, res) => {
       }
     }
 
-    // আইটেম যোগ করুন ও স্টক কমান
+    // আইটেম যোগ করুন — স্টক এখনই কমানো হবে না, Admin অনুমোদন করার পরই কমবে
     for (const item of items) {
       const stockCheck = await client.query(
         "SELECT current_stock, name_bn FROM seedlings WHERE id = $1",
@@ -210,72 +210,12 @@ const createSale = async (req, res) => {
           item.quantity * item.unit_price,
         ],
       );
-      const newStock = currentStock - item.quantity;
-      await client.query(
-        "UPDATE seedlings SET current_stock = $1 WHERE id = $2",
-        [newStock, item.seedling_id],
-      );
-
-      // কোনো নির্দিষ্ট batch select করা না থাকলেও, automatic সবচেয়ে পুরনো 
-      // batch থেকে আগে কেটে নেওয়া হয় (FIFO), যতক্ষণ না পুরো বিক্রিত পরিমাণ কভার হয়
-      // প্রতিটা batch-এর deduction আলাদা stock_transactions row হিসেবে রাখা হয়,
-      // যাতে sale delete হলে ঠিক কোন batch-এ কত ফেরত দিতে হবে তা জানা যায়
-      let remainingToDeduct = item.quantity;
-      const activeBatches = await client.query(
-        `SELECT id, available_quantity FROM production_batches
-         WHERE seedling_id=$1 AND available_quantity > 0 AND status != 'sold_out'
-         ORDER BY COALESCE(sowing_date, propagation_date, created_at::date) ASC, id ASC`,
-        [item.seedling_id],
-      );
-      for (const batch of activeBatches.rows) {
-        if (remainingToDeduct <= 0) break;
-        const currentAvailable = Number(batch.available_quantity || 0);
-        const deductNow = Math.min(currentAvailable, remainingToDeduct);
-        const newAvailable = currentAvailable - deductNow;
-        const newStatus = newAvailable <= 0 ? "sold_out" : "partial";
-        await client.query(
-          "UPDATE production_batches SET available_quantity=$1, status=$2 WHERE id=$3",
-          [newAvailable, newStatus, batch.id],
-        );
-        await client.query(
-          `INSERT INTO stock_transactions
-                   (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
-                   VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
-          [
-            item.seedling_id,
-            batch.id,
-            deductNow,
-            newStock,
-            sale.id,
-            `চালান ${sale.invoice_no} থেকে বিক্রয়`,
-            req.user.id,
-          ],
-        );
-        remainingToDeduct -= deductNow;
-      }
-      // যদি কোনো active batch না পাওয়া যায় (edge case), তাও একটা transaction log রাখি batch_id ছাড়া
-      if (activeBatches.rows.length === 0) {
-        await client.query(
-          `INSERT INTO stock_transactions
-                   (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
-                   VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
-          [
-            item.seedling_id,
-            null,
-            item.quantity,
-            newStock,
-            sale.id,
-            `চালান ${sale.invoice_no} থেকে বিক্রয়`,
-            req.user.id,
-          ],
-        );
-      }
     }
 
     await client.query("COMMIT");
     res.status(201).json({
       success: true,
-      message: `বিক্রয় সম্পন্ন! চালান নম্বর: ${sale.invoice_no}`,
+      message: `বিক্রয় সংরক্ষিত হয়েছে (অনুমোদনের অপেক্ষায়)! চালান নম্বর: ${sale.invoice_no}`,
       data: sale,
     });
   } catch (err) {
@@ -326,10 +266,117 @@ const getMonthlySales = async (req, res) => {
   }
 };
 
+const approveSale = async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query("BEGIN");
+    const saleR = await client.query("SELECT * FROM sales WHERE id=$1", [
+      req.params.id,
+    ]);
+    if (!saleR.rows.length) {
+      await client.query("ROLLBACK");
+      return res
+        .status(404)
+        .json({ success: false, message: "বিক্রয় পাওয়া যায়নি।" });
+    }
+    const sale = saleR.rows[0];
+    if (sale.is_approved) {
+      await client.query("ROLLBACK");
+      return res
+        .status(400)
+        .json({ success: false, message: "এই বিক্রয় ইতিমধ্যে অনুমোদিত।" });
+    }
+    const itemsR = await client.query(
+      "SELECT * FROM sales_items WHERE sale_id=$1",
+      [req.params.id],
+    );
+
+    for (const item of itemsR.rows) {
+      const stockCheck = await client.query(
+        "SELECT current_stock FROM seedlings WHERE id=$1",
+        [item.seedling_id],
+      );
+      const currentStock = parseInt(stockCheck.rows[0]?.current_stock || 0);
+      const newStock = currentStock - item.quantity;
+      await client.query(
+        "UPDATE seedlings SET current_stock=$1 WHERE id=$2",
+        [newStock, item.seedling_id],
+      );
+
+      let remainingToDeduct = item.quantity;
+      const activeBatches = await client.query(
+        `SELECT id, available_quantity FROM production_batches
+         WHERE seedling_id=$1 AND available_quantity > 0 AND status != 'sold_out' AND is_approved=true
+         ORDER BY COALESCE(sowing_date, propagation_date, created_at::date) ASC, id ASC`,
+        [item.seedling_id],
+      );
+      for (const batch of activeBatches.rows) {
+        if (remainingToDeduct <= 0) break;
+        const currentAvailable = Number(batch.available_quantity || 0);
+        const deductNow = Math.min(currentAvailable, remainingToDeduct);
+        const newAvailable = currentAvailable - deductNow;
+        const newStatus = newAvailable <= 0 ? "sold_out" : "partial";
+        await client.query(
+          "UPDATE production_batches SET available_quantity=$1, status=$2 WHERE id=$3",
+          [newAvailable, newStatus, batch.id],
+        );
+        await client.query(
+          `INSERT INTO stock_transactions
+           (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
+           VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
+          [
+            item.seedling_id,
+            batch.id,
+            deductNow,
+            newStock,
+            sale.id,
+            `চালান ${sale.invoice_no} অনুমোদিত`,
+            req.user.id,
+          ],
+        );
+        remainingToDeduct -= deductNow;
+      }
+      if (activeBatches.rows.length === 0 || remainingToDeduct > 0) {
+        await client.query(
+          `INSERT INTO stock_transactions
+           (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
+           VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
+          [
+            item.seedling_id,
+            null,
+            remainingToDeduct > 0 ? remainingToDeduct : item.quantity,
+            newStock,
+            sale.id,
+            `চালান ${sale.invoice_no} অনুমোদিত`,
+            req.user.id,
+          ],
+        );
+      }
+    }
+
+    const updated = await client.query(
+      "UPDATE sales SET is_approved=true, approved_by=$1, approved_at=now() WHERE id=$2 RETURNING *",
+      [req.user.id, req.params.id],
+    );
+    await client.query("COMMIT");
+    res.json({
+      success: true,
+      message: "বিক্রয় অনুমোদন করা হয়েছে ✅",
+      data: updated.rows[0],
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getAllSales,
   getSaleById,
   createSale,
   getTodaySummary,
   getMonthlySales,
+  approveSale,
 };
