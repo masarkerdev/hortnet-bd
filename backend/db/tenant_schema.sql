@@ -374,3 +374,25 @@ CREATE TABLE IF NOT EXISTS work_holidays (
   created_by INTEGER,
   created_at TIMESTAMP DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS historical_revenue (
+  id SERIAL PRIMARY KEY,
+  fiscal_year INTEGER UNIQUE,
+  amount NUMERIC DEFAULT 0,
+  notes TEXT,
+  created_by INTEGER,
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS bank_deposits (
+  id SERIAL PRIMARY KEY,
+  fiscal_year INTEGER,
+  month_label VARCHAR(50),
+  challan_no VARCHAR(100),
+  deposit_date DATE,
+  amount NUMERIC DEFAULT 0,
+  remarks TEXT,
+  created_by INTEGER,
+  created_at TIMESTAMP DEFAULT now()
+);
