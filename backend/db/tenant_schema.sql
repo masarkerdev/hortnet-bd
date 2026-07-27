@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
   email                   VARCHAR(150) NOT NULL UNIQUE,
   password                VARCHAR(255) NOT NULL,
   role                    VARCHAR(30)  NOT NULL DEFAULT 'viewer',
+  phone                   VARCHAR(20),
   is_active               BOOLEAN DEFAULT true,
   pending_password        TEXT,
   password_request_status TEXT,
