@@ -84,6 +84,9 @@ CREATE TABLE IF NOT EXISTS production_batches (
   available_quantity  INTEGER DEFAULT 0,
   remarks             TEXT,
   status              VARCHAR(20) DEFAULT 'active',
+  is_approved         BOOLEAN DEFAULT false,
+  approved_by         INTEGER,
+  approved_at         TIMESTAMP,
   created_by          INTEGER REFERENCES users(id),
   created_at          TIMESTAMP DEFAULT now(),
   updated_at          TIMESTAMP DEFAULT now()
@@ -129,6 +132,9 @@ CREATE TABLE IF NOT EXISTS sales (
   payment_method   VARCHAR(20) DEFAULT 'cash',
   payment_status   VARCHAR(20) DEFAULT 'paid',
   notes            TEXT,
+  is_approved      BOOLEAN DEFAULT false,
+  approved_by      INTEGER,
+  approved_at      TIMESTAMP,
   created_by       INTEGER REFERENCES users(id),
   created_at       TIMESTAMP DEFAULT now(),
   updated_at       TIMESTAMP DEFAULT now()
@@ -199,7 +205,10 @@ CREATE TABLE IF NOT EXISTS other_income (
   check_out         DATE,
   guest_name        VARCHAR(200),
   guest_mobile      VARCHAR(20),
-  guest_occupation  VARCHAR(200)
+  guest_occupation  VARCHAR(200),
+  is_approved       BOOLEAN DEFAULT false,
+  approved_by       INTEGER,
+  approved_at       TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS recycle_bin (
