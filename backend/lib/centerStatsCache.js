@@ -128,8 +128,16 @@ async function refreshAllStats() {
 
 async function getCachedStats() {
   await ensureCacheTable();
-  const r = await masterDb.query("SELECT data FROM center_stats_cache ORDER BY slug");
-  return r.rows.map((row) => row.data);
+  const r = await masterDb.query("SELECT data FROM center_stats_cache");
+  const rows = r.rows.map((row) => row.data);
+  // ক্যাটাগরি অনুযায়ী, তারপর একই ক্যাটাগরির ভেতরে বাংলা নাম বর্ণানুক্রমিকভাবে সাজানো
+  // (database collation বাংলা বর্ণানুক্রম সঠিকভাবে নাও মানতে পারে, তাই JS-এ localeCompare ব্যবহার)
+  rows.sort((a, b) => {
+    const catCompare = (a.category || "").localeCompare(b.category || "", "bn");
+    if (catCompare !== 0) return catCompare;
+    return (a.name_bn || "").localeCompare(b.name_bn || "", "bn");
+  });
+  return rows;
 }
 
 // প্রতি ২ মিনিটে automatic background refresh শুরু করে (server চালু হলে)
