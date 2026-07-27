@@ -303,6 +303,25 @@ export default function Layout() {
   }, []);
 
   const [unseenBudgetNotice, setUnseenBudgetNotice] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (!can("pend")) return;
+    function loadPendingCount() {
+      api
+        .get("/pending-approvals")
+        .then((r) => {
+          if (r.data?.success) {
+            const d = r.data.data;
+            setPendingCount((d.sales?.length || 0) + (d.production?.length || 0) + (d.income?.length || 0));
+          }
+        })
+        .catch(() => {});
+    }
+    loadPendingCount();
+    const t = setInterval(loadPendingCount, 60 * 1000); // প্রতি ১ মিনিটে আপডেট
+    return () => clearInterval(t);
+  }, []);
 
   // বাংলা সংখ্যা ইনপুট: inputMode numeric/decimal ফিল্ডে ০-৯ টাইপ করলে ইংরেজিতে রূপান্তর
   useEffect(() => {
@@ -507,6 +526,21 @@ export default function Layout() {
                     >
                       <it.icon className="h-[18px] w-[18px]" />
                       {it.label}
+                      {it.to === "/dashboard/pending-approvals" && pendingCount > 0 && (
+                        <span
+                          style={{
+                            marginLeft: "auto",
+                            background: "#dc2626",
+                            color: "#fff",
+                            borderRadius: 10,
+                            fontSize: 10.5,
+                            fontWeight: 700,
+                            padding: "1px 7px",
+                          }}
+                        >
+                          {pendingCount}
+                        </span>
+                      )}
                     </NavLink>
                   ))}
                 </div>

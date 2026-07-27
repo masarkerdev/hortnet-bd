@@ -423,15 +423,25 @@ router.post(
         return res.json({ success: true, message: "কিছু পরিবর্তন নেই।" });
       }
       values.push(id);
-      const result = await client.query(
-        `UPDATE production_batches SET ${setClauses.join(", ")} WHERE id = $${idx} RETURNING *`,
-        values,
-      );
 
-      // ✅ produced_quantity পরিবর্তন হলে current_stock sync করো
+      // Admin/Manager ছাড়া অন্য কেউ ইতিমধ্যে-অনুমোদিত batch edit করলে,
+      // সেটা আবার "অনুমোদনের অপেক্ষায়" ফিরে যাবে — stock সরাসরি পরিবর্তন হবে না
+      const isAdminOrManager = req.user.role === "admin" || req.user.role === "manager";
+      const revertToPending = old.is_approved && !isAdminOrManager;
+      let updateSql = `UPDATE production_batches SET ${setClauses.join(", ")}`;
+      if (revertToPending) {
+        updateSql += `, is_approved=false, approved_by=NULL, approved_at=NULL`;
+      }
+      updateSql += ` WHERE id = $${idx} RETURNING *`;
+      const result = await client.query(updateSql, values);
+
+      // ✅ produced_quantity পরিবর্তন হলে current_stock sync করো — 
+      // কিন্তু শুধু তখনই যদি batch টা এখনো "অনুমোদিত" অবস্থাতেই থাকে (pending-এ ফিরে না গেলে)
       const newProduced = parseInt(fields.produced_quantity);
       const oldProduced = parseInt(old.produced_quantity || 0);
       if (
+        !revertToPending &&
+        old.is_approved &&
         !isNaN(newProduced) &&
         newProduced !== oldProduced &&
         old.seedling_id
@@ -440,6 +450,17 @@ router.post(
         await client.query(
           "UPDATE seedlings SET current_stock = GREATEST(0, current_stock + $1) WHERE id = $2",
           [diff, old.seedling_id],
+        );
+      } else if (revertToPending && old.is_approved) {
+        // আগে থেকে approved ছিল বলে যা stock যোগ হয়েছিল, তা ফেরত নিয়ে নিই 
+        // (কারণ এখন আবার pending, নতুন করে অনুমোদন হলে তখনই যোগ হবে)
+        const qtyToReverse =
+          old.production_type === "seed"
+            ? old.produced_quantity
+            : old.success_quantity;
+        await client.query(
+          "UPDATE seedlings SET current_stock = GREATEST(0, current_stock - $1) WHERE id = $2",
+          [qtyToReverse || 0, old.seedling_id],
         );
       }
 
@@ -698,10 +719,17 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
       subtotal += Number(it.quantity) * Number(it.unit_price);
     const totalAmount = subtotal - (Number(discount) || 0);
 
+    // Admin/Manager ছাড়া অন্য কেউ ইতিমধ্যে-অনুমোদিত sale edit করলে,
+    // সেটা আবার "অনুমোদনের অপেক্ষায়" (pending) অবস্থায় ফিরে যাবে — 
+    // যাতে Admin আবার review না করেই পরিবর্তন সরাসরি effective না হয়ে যায়
+    const isAdminOrManager = req.user.role === "admin" || req.user.role === "manager";
+    const revertToPending = cur.rows[0].is_approved && !isAdminOrManager;
+
     await client.query(
       `UPDATE sales SET customer_name=COALESCE($1,customer_name), customer_phone=COALESCE($2,customer_phone),
          customer_address=COALESCE($3,customer_address), payment_method=COALESCE($4,payment_method),
          payment_status=COALESCE($5,payment_status), discount=$6, subtotal=$7, total_amount=$8, notes=COALESCE($9,notes)
+         ${revertToPending ? ", is_approved=false, approved_by=NULL, approved_at=NULL" : ""}
        WHERE id=$10`,
       [
         customer_name,
@@ -717,8 +745,8 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
       ],
     );
 
-    // নতুন আইটেম বসাও — স্টক শুধু অনুমোদিত (already approved) sale-এর জন্যই কমবে
-    const wasApproved = cur.rows[0].is_approved;
+    // নতুন আইটেম বসাও — স্টক শুধু অনুমোদিত (already approved, এবং re-pending না হলে) sale-এর জন্যই কমবে
+    const wasApproved = cur.rows[0].is_approved && !revertToPending;
     for (const it of items) {
       const sc = await client.query(
         "SELECT current_stock, name_bn FROM seedlings WHERE id=$1",

@@ -88,7 +88,16 @@ export default function BatchManagement() {
                   <td>{toBn(sold)}</td>
                   <td>{toBn(b.failed_quantity || 0)}</td>
                   <td><span className={`b ${(+sp)>=75?'bg':'ba'}`}>{sp ? toBn(sp) : '-'}%</span></td>
-                  <td><span className={`b ${sb.c}`}>{sb.t}</span></td>
+                  <td>
+                    <span className={`b ${sb.c}`}>{sb.t}</span>
+                    <div style={{ marginTop: 4 }}>
+                      {b.is_approved ? (
+                        <span className="b bg" style={{ fontSize: 10 }}>✓ Admin অনুমোদন করেছেন</span>
+                      ) : (
+                        <span className="b" style={{ fontSize: 10, background: '#fef3c7', color: '#92400e' }}>⏳ অনুমোদনের অপেক্ষায়</span>
+                      )}
+                    </div>
+                  </td>
                   <td>
                     <div className="flex gap-1.5">
                       <button className="act-btn act-edit" onClick={()=>{ setEditing(b); setOpen(true); }} title="এডিট"><IcEdit className="h-[15px] w-[15px]" /></button>

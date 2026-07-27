@@ -200,6 +200,13 @@ export default function Sales() {
                     >
                       {SN[x.payment_status] || x.payment_status}
                     </span>
+                    <div style={{ marginTop: 4 }}>
+                      {x.is_approved ? (
+                        <span className="b bg" style={{ fontSize: 10.5 }}>✓ Admin অনুমোদন করেছেন</span>
+                      ) : (
+                        <span className="b" style={{ fontSize: 10.5, background: '#fef3c7', color: '#92400e' }}>⏳ অনুমোদনের অপেক্ষায়</span>
+                      )}
+                    </div>
                   </td>
                   <td>
                     <div className="flex gap-1.5">
