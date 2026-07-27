@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /superadmin/
+Disallow: /login
+
+Sitemap: https://hortnet-bd.com/sitemap.xml

@@ -42,6 +42,14 @@ export default function Catalog() {
   const searchRef = useRef(null);
 
   useEffect(() => {
+    if (selectedCenter) {
+      document.title = `${selectedCenter.name_bn} — চারা ক্যাটালগ | HortNet-BD`;
+    } else {
+      document.title = "হর্টিকালচার সেন্টার নেটওয়ার্ক-বাংলাদেশ | চারা ও কলম ক্যাটালগ";
+    }
+  }, [selectedCenter]);
+
+  useEffect(() => {
     fetch(`${API}/api/public/centers`, {
       cache: "no-store",
       headers: { "Cache-Control": "no-store", Pragma: "no-cache" },
