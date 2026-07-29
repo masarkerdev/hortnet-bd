@@ -23,6 +23,16 @@ function saAuth(req, res, next) {
   }
 }
 
+// GET /api/budget-admin/codes — সব বাজেট কোডের তালিকা (period-এর কোড নির্বাচনের জন্য)
+router.get("/codes", saAuth, async (req, res) => {
+  try {
+    const r = await masterDb.query("SELECT * FROM budget_codes ORDER BY display_order");
+    res.json({ success: true, data: r.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 function directorOnly(req, res, next) {
   if (req.saUser.role !== "director")
     return res.status(403).json({ success: false, message: "শুধু পরিচালক করতে পারবেন।" });
@@ -43,6 +53,16 @@ async function ensurePeriodsTable() {
   await masterDb.query(
     `ALTER TABLE budget_periods ADD COLUMN IF NOT EXISTS notice_id INTEGER`
   );
+  // এই কিস্তিতে ঠিক কোন কোন কোডের জন্য চাহিদা চাওয়া হচ্ছে তা রাখার টেবিল —
+  // কোনো row না থাকলে (পুরনো কিস্তি) সব কোডই দেখানো হবে (backward compatible)
+  await masterDb.query(`
+    CREATE TABLE IF NOT EXISTS budget_period_codes (
+      id SERIAL PRIMARY KEY,
+      period_id INTEGER NOT NULL,
+      leaf_code VARCHAR(50) NOT NULL,
+      UNIQUE(period_id, leaf_code)
+    );
+  `);
 }
 
 // GET /api/budget-admin/periods?fy=2026 — এই অর্থবছরের সব কিস্তির তালিকা
@@ -63,7 +83,7 @@ router.get("/periods", saAuth, async (req, res) => {
 
 // POST /api/budget-admin/periods — নতুন কিস্তি তৈরি (শুধু director)
 router.post("/periods", saAuth, directorOnly, async (req, res) => {
-  const { fiscal_year, name, message } = req.body;
+  const { fiscal_year, name, message, codes } = req.body;
   if (!fiscal_year || !name || !name.trim()) {
     return res.status(400).json({ success: false, message: "অর্থবছর ও কিস্তির নাম দিন।" });
   }
@@ -73,6 +93,14 @@ router.post("/periods", saAuth, directorOnly, async (req, res) => {
       "INSERT INTO budget_periods (fiscal_year, name, created_by) VALUES ($1,$2,$3) RETURNING *",
       [fiscal_year, name.trim(), req.saUser.id]
     );
+
+    // নির্দিষ্ট কোড select করা থাকলে (খালি না হলে) সেগুলোই এই কিস্তির জন্য সংরক্ষণ করি
+    if (Array.isArray(codes) && codes.length > 0) {
+      const values = codes.map((c) => `(${r.rows[0].id}, '${c.replace(/'/g, "''")}')`).join(",");
+      await masterDb.query(
+        `INSERT INTO budget_period_codes (period_id, leaf_code) VALUES ${values} ON CONFLICT DO NOTHING`
+      );
+    }
 
     // Center App-এ notice হিসেবে জানিয়ে দিই — পরিচালকের লেখা বার্তা অনুযায়ী
     try {
@@ -107,7 +135,7 @@ router.post("/periods", saAuth, directorOnly, async (req, res) => {
 
 // PUT /api/budget-admin/periods/:id — কিস্তির নাম সংশোধন (শুধু director)
 router.put("/periods/:id", saAuth, directorOnly, async (req, res) => {
-  const { name, message } = req.body;
+  const { name, message, codes } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ success: false, message: "কিস্তির নাম দিন।" });
   }
@@ -118,6 +146,16 @@ router.put("/periods/:id", saAuth, directorOnly, async (req, res) => {
     );
     if (!r.rows.length) {
       return res.status(404).json({ success: false, message: "কিস্তি পাওয়া যায়নি।" });
+    }
+    // কোড নির্বাচন আপডেট করি — পুরনোগুলো মুছে নতুন করে বসাই
+    if (Array.isArray(codes)) {
+      await masterDb.query("DELETE FROM budget_period_codes WHERE period_id=$1", [req.params.id]);
+      if (codes.length > 0) {
+        const values = codes.map((c) => `(${req.params.id}, '${c.replace(/'/g, "''")}')`).join(",");
+        await masterDb.query(
+          `INSERT INTO budget_period_codes (period_id, leaf_code) VALUES ${values} ON CONFLICT DO NOTHING`
+        );
+      }
     }
     // যুক্ত notice-এর বার্তাও আপডেট করি (যদি notice_id থাকে)
     if (r.rows[0].notice_id && message !== undefined) {
@@ -135,6 +173,19 @@ router.put("/periods/:id", saAuth, directorOnly, async (req, res) => {
       }
     }
     res.json({ success: true, data: r.rows[0], message: "কিস্তির নাম আপডেট হয়েছে ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/budget-admin/periods/:id/codes — এই কিস্তির জন্য নির্বাচিত কোডের তালিকা
+router.get("/periods/:id/codes", saAuth, async (req, res) => {
+  try {
+    const r = await masterDb.query(
+      "SELECT leaf_code FROM budget_period_codes WHERE period_id=$1",
+      [req.params.id]
+    );
+    res.json({ success: true, data: r.rows.map((row) => row.leaf_code) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

@@ -43,7 +43,16 @@ router.get("/demands", authenticate, async (req, res) => {
   if (!fy) return res.status(400).json({ success: false, message: "অর্থবছর দিন।" });
   if (!periodId) return res.status(400).json({ success: false, message: "কিস্তি বেছে নিন।" });
   try {
-    const codes = await masterDb.query("SELECT * FROM budget_codes ORDER BY display_order");
+    let codes = await masterDb.query("SELECT * FROM budget_codes ORDER BY display_order");
+    // এই কিস্তির জন্য নির্দিষ্ট কোড select করা থাকলে (খালি না হলে), শুধু সেগুলোই দেখাবো
+    const periodCodes = await masterDb.query(
+      "SELECT leaf_code FROM budget_period_codes WHERE period_id=$1",
+      [periodId]
+    );
+    if (periodCodes.rows.length > 0) {
+      const allowedSet = new Set(periodCodes.rows.map((r) => r.leaf_code));
+      codes = { rows: codes.rows.filter((c) => allowedSet.has(c.leaf_code)) };
+    }
     const demands = await db.query(
       "SELECT leaf_code, demanded_amount, remarks FROM budget_demands WHERE fiscal_year=$1 AND period_id=$2",
       [fy, periodId]
@@ -97,8 +106,23 @@ router.post("/demands", authenticate, async (req, res) => {
       allocatedCodes = new Set(allocs.rows.map((a) => a.leaf_code));
     }
 
+    // এই কিস্তির জন্য নির্দিষ্ট কোড select করা থাকলে, শুধু সেই কোডগুলোতেই চাহিদা লেখা যাবে
+    // (frontend-এ hide করা থাকলেও, সরাসরি API call করে বাইপাস করা যেন না যায়)
+    const periodCodes = await masterDb.query(
+      "SELECT leaf_code FROM budget_period_codes WHERE period_id=$1",
+      [period_id]
+    );
+    const allowedCodes = periodCodes.rows.length > 0
+      ? new Set(periodCodes.rows.map((r) => r.leaf_code))
+      : null; // null মানে কোনো সীমাবদ্ধতা নেই (সব কোড অনুমোদিত)
+
     let skippedLocked = 0;
+    let skippedNotAllowed = 0;
     for (const d of demands) {
+      if (allowedCodes && !allowedCodes.has(d.leaf_code)) {
+        skippedNotAllowed++;
+        continue; // এই কিস্তির জন্য নির্বাচিত না এমন কোড গ্রহণযোগ্য না
+      }
       if (allocatedCodes.has(d.leaf_code)) {
         skippedLocked++;
         continue; // বরাদ্দ হয়ে গেছে এমন কোড আর পরিবর্তনযোগ্য না

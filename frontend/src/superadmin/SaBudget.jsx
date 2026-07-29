@@ -24,6 +24,8 @@ export default function SaBudget() {
   const [periodModal, setPeriodModal] = useState(false);
   const [newPeriodName, setNewPeriodName] = useState('');
   const [periodMessage, setPeriodMessage] = useState('');
+  const [allBudgetCodes, setAllBudgetCodes] = useState([]);
+  const [selectedCodes, setSelectedCodes] = useState([]);
   const [periodSaving, setPeriodSaving] = useState(false);
   const [periodMsg, setPeriodMsg] = useState('');
 
@@ -100,7 +102,7 @@ export default function SaBudget() {
     if (!newPeriodName.trim()) return;
     setPeriodSaving(true); setPeriodMsg('');
     try {
-      const r = await axios.post(`${apiBase()}/budget-admin/periods`, { fiscal_year: fy, name: newPeriodName.trim(), message: periodMessage.trim() }, { headers: authHeader() });
+      const r = await axios.post(`${apiBase()}/budget-admin/periods`, { fiscal_year: fy, name: newPeriodName.trim(), message: periodMessage.trim(), codes: selectedCodes }, { headers: authHeader() });
       if (r.data?.success) {
         setPeriodMsg('✓ কিস্তি তৈরি হয়েছে');
         setNewPeriodName('');
@@ -165,7 +167,10 @@ export default function SaBudget() {
               ✏️ নাম সংশোধন
             </button>
           )}
-          <button onClick={()=>{ setPeriodModal(true); setNewPeriodName(''); setPeriodMessage(''); setPeriodMsg(''); }}
+          <button onClick={()=>{
+            setPeriodModal(true); setNewPeriodName(''); setPeriodMessage(''); setPeriodMsg(''); setSelectedCodes([]);
+            axios.get(`${apiBase()}/budget-admin/codes`, { headers: authHeader() }).then(r => { if (r.data?.success) setAllBudgetCodes(r.data.data || []); }).catch(() => {});
+          }}
             style={{ padding:'8px 14px', borderRadius:8, background:V.green, color:'#fff', border:'none', cursor:'pointer', fontSize:13, fontFamily:FONT, fontWeight:600 }}>
             + নতুন কিস্তি
           </button>
@@ -231,6 +236,28 @@ export default function SaBudget() {
               placeholder="যেমন: এই কিস্তিতে শুধু পণ্য ও সেবা খাতের চাহিদা দিন। ২০ তারিখের মধ্যে জমা দিতে হবে।"
               style={{ width:'100%', padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:13, outline:'none', boxSizing:'border-box', marginBottom:12, resize:'vertical' }}
             />
+            <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>
+              এই কিস্তিতে কোন কোন কোডের জন্য চাহিদা চাইবেন? (কিছু select না করলে সব কোডই দেখাবে)
+            </label>
+            <div style={{ border:`1px solid ${V.border}`, borderRadius:8, padding:'8px 12px', marginBottom:12, maxHeight:160, overflowY:'auto' }}>
+              {allBudgetCodes.length === 0 ? (
+                <div style={{ fontSize:12, color:V.muted }}>লোড হচ্ছে...</div>
+              ) : (
+                allBudgetCodes.map(c => (
+                  <label key={c.leaf_code} style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0', fontSize:12.5, cursor:'pointer' }}>
+                    <input type="checkbox"
+                      checked={selectedCodes.includes(c.leaf_code)}
+                      onChange={(e) => {
+                        setSelectedCodes(e.target.checked
+                          ? [...selectedCodes, c.leaf_code]
+                          : selectedCodes.filter(x => x !== c.leaf_code));
+                      }}
+                    />
+                    {c.leaf_code} — {c.leaf_name || ''}
+                  </label>
+                ))
+              )}
+            </div>
             {periodMsg && <div style={{ color: periodMsg.startsWith('✓') ? V.green : V.red, fontSize:13, marginBottom:10 }}>{periodMsg}</div>}
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
               <button onClick={()=>setPeriodModal(false)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${V.border}`, background:V.bg, cursor:'pointer', fontSize:13, fontFamily:FONT }}>বাতিল</button>
