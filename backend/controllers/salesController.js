@@ -286,6 +286,28 @@ const approveSale = async (req, res) => {
         .status(400)
         .json({ success: false, message: "এই বিক্রয় ইতিমধ্যে অনুমোদিত।" });
     }
+
+    // ⚠️ Approval Workflow চালু হওয়ার আগে তৈরি হওয়া পুরনো বিক্রয়ের stock 
+    // তখনই (creation-এর সময়) কমে গিয়েছিল — সেই পুরনো transaction record 
+    // থাকলে আবার নতুন করে stock কমাব না (double-deduction এড়াতে)
+    const alreadyCounted = await client.query(
+      "SELECT id FROM stock_transactions WHERE reference_type='sale' AND reference_id=$1 AND notes LIKE '%থেকে%'",
+      [req.params.id],
+    );
+
+    if (alreadyCounted.rows.length > 0) {
+      const updated = await client.query(
+        "UPDATE sales SET is_approved=true, approved_by=$1, approved_at=now() WHERE id=$2 RETURNING *",
+        [req.user.id, req.params.id],
+      );
+      await client.query("COMMIT");
+      return res.json({
+        success: true,
+        message: "বিক্রয় অনুমোদিত হিসেবে চিহ্নিত হয়েছে ✅ (স্টক আগেই কমে গিয়েছিল)",
+        data: updated.rows[0],
+      });
+    }
+
     const itemsR = await client.query(
       "SELECT * FROM sales_items WHERE sale_id=$1",
       [req.params.id],

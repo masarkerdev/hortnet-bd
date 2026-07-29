@@ -271,6 +271,28 @@ const approveBatch = async (req, res) => {
         .status(400)
         .json({ success: false, message: "এই ব্যাচ ইতিমধ্যে অনুমোদিত।" });
     }
+
+    // ⚠️ Approval Workflow চালু হওয়ার আগে তৈরি হওয়া পুরনো ব্যাচের stock 
+    // তখনই (creation-এর সময়) যোগ হয়ে গিয়েছিল — সেই পুরনো transaction 
+    // record থাকলে আবার নতুন করে stock যোগ করব না (double-counting এড়াতে)
+    const alreadyCounted = await client.query(
+      "SELECT id FROM stock_transactions WHERE batch_id=$1 AND txn_type='production' AND notes LIKE '%থেকে%'",
+      [batch.id],
+    );
+
+    if (alreadyCounted.rows.length > 0) {
+      const updated = await client.query(
+        "UPDATE production_batches SET is_approved=true, approved_by=$1, approved_at=now() WHERE id=$2 RETURNING *",
+        [req.user.id, req.params.id],
+      );
+      await client.query("COMMIT");
+      return res.json({
+        success: true,
+        message: "ব্যাচ অনুমোদিত হিসেবে চিহ্নিত হয়েছে ✅ (স্টক আগেই যোগ হয়ে গিয়েছিল)",
+        data: updated.rows[0],
+      });
+    }
+
     const qtyToAdd =
       batch.production_type === "seed"
         ? batch.produced_quantity
