@@ -132,12 +132,16 @@ export default function Budget() {
                   </thead>
                   <tbody>
                     {group.items.map(d => {
-                      const isLocked = Number(d.allocated_amount) > 0;
+                      const isAllocated = Number(d.allocated_amount) > 0;
+                      const isNotOpen = d.is_open === false;
+                      const isLocked = isAllocated || isNotOpen;
                       return (
                       <tr key={d.leaf_code} style={{ borderTop: '1px solid #f5f7f5', background: isLocked ? '#f9fafb' : 'transparent' }}>
                         <td style={{ padding: '8px 12px', fontSize: 12, color: '#6b7280' }}>{d.leaf_code}</td>
                         <td style={{ padding: '8px 12px', fontSize: 13 }}>
-                          {d.leaf_name} {isLocked && <span title="বরাদ্দ প্রদত্ত, আর পরিবর্তনযোগ্য নয়" style={{ marginLeft: 4 }}>🔒</span>}
+                          {d.leaf_name}
+                          {isAllocated && <span title="বরাদ্দ প্রদত্ত, আর পরিবর্তনযোগ্য নয়" style={{ marginLeft: 4 }}>🔒</span>}
+                          {!isAllocated && isNotOpen && <span title="এই কিস্তিতে এই কোডের জন্য চাহিদা চাওয়া হয়নি" style={{ marginLeft: 4 }}>⛔</span>}
                         </td>
                         <td style={{ padding: '8px 12px' }}>
                           <input type="text" inputMode="numeric" style={{ ...inp, ...(isLocked ? { background: '#f0f0ee', color: '#9ca3af', cursor: 'not-allowed' } : {}) }}

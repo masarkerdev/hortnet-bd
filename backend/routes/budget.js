@@ -43,16 +43,15 @@ router.get("/demands", authenticate, async (req, res) => {
   if (!fy) return res.status(400).json({ success: false, message: "অর্থবছর দিন।" });
   if (!periodId) return res.status(400).json({ success: false, message: "কিস্তি বেছে নিন।" });
   try {
-    let codes = await masterDb.query("SELECT * FROM budget_codes ORDER BY display_order");
-    // এই কিস্তির জন্য নির্দিষ্ট কোড select করা থাকলে (খালি না হলে), শুধু সেগুলোই দেখাবো
+    const codes = await masterDb.query("SELECT * FROM budget_codes ORDER BY display_order");
+    // এই কিস্তির জন্য নির্দিষ্ট কোড select করা থাকলে, শুধু সেগুলোতেই ইনপুট করা যাবে —
+    // বাকি সব কোড দেখা যাবে (hide না), শুধু disabled/read-only থাকবে (is_open=false)
     const periodCodes = await masterDb.query(
       "SELECT leaf_code FROM budget_period_codes WHERE period_id=$1",
       [periodId]
     );
-    if (periodCodes.rows.length > 0) {
-      const allowedSet = new Set(periodCodes.rows.map((r) => r.leaf_code));
-      codes = { rows: codes.rows.filter((c) => allowedSet.has(c.leaf_code)) };
-    }
+    const hasRestriction = periodCodes.rows.length > 0;
+    const allowedSet = new Set(periodCodes.rows.map((r) => r.leaf_code));
     const demands = await db.query(
       "SELECT leaf_code, demanded_amount, remarks FROM budget_demands WHERE fiscal_year=$1 AND period_id=$2",
       [fy, periodId]
@@ -75,6 +74,7 @@ router.get("/demands", authenticate, async (req, res) => {
       const allocated = allocMap[c.leaf_code] || 0;
       return {
         ...c,
+        is_open: !hasRestriction || allowedSet.has(c.leaf_code),
         demanded_amount: demanded,
         remarks: demandMap[c.leaf_code]?.remarks || "",
         allocated_amount: allocated,
