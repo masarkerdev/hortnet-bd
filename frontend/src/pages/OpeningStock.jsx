@@ -35,10 +35,10 @@ export default function OpeningStock() {
   }
 
   const CARDS = stats ? [
-    { l:'মোট প্রারম্ভিক স্টক', v:toBn(stats.total_opening)+'টি', s:'App চালু পূর্বের এন্ট্রি', Icon:IcArchive, bg:'var(--b50)', fg:'var(--b600)' },
-    { l:'পূর্ববর্তী অর্থবছর', v:toBn(stats.prev_fy_stock)+'টি', s:'FY '+prevLabel, Icon:IcRefresh, bg:'var(--a50)', fg:'var(--a400)' },
-    { l:'চলতি অর্থবছর', v:toBn(stats.cur_fy_stock)+'টি', s:'FY '+curLabel, Icon:IcLeaf, bg:'var(--g50)', fg:'var(--g600)' },
-    { l:'মোট স্টক', v:toBn(stats.total_stock)+'টি', s:'সব মিলিয়ে বর্তমান', Icon:IcBox, bg:'var(--t50)', fg:'var(--t600)' },
+    { l:'মোট প্রারম্ভিক স্টক', v:toBn(stats.total_opening), s:'App চালু পূর্বের এন্ট্রি', Icon:IcArchive, bg:'var(--b50)', fg:'var(--b600)' },
+    { l:'পূর্ববর্তী অর্থবছর', v:toBn(stats.prev_fy_stock), s:'FY '+prevLabel, Icon:IcRefresh, bg:'var(--a50)', fg:'var(--a400)' },
+    { l:'চলতি অর্থবছর', v:toBn(stats.cur_fy_stock), s:'FY '+curLabel, Icon:IcLeaf, bg:'var(--g50)', fg:'var(--g600)' },
+    { l:'মোট স্টক', v:toBn(stats.total_stock), s:'সব মিলিয়ে বর্তমান', Icon:IcBox, bg:'var(--t50)', fg:'var(--t600)' },
   ] : [];
 
   return (
@@ -48,7 +48,7 @@ export default function OpeningStock() {
           <div className="sc" key={c.l}>
             <div className="si" style={{ background:c.bg }}><c.Icon className="h-[18px] w-[18px]" style={{ color:c.fg }} /></div>
             <div className="sl">{c.l}</div>
-            <div className="sv" style={{ color:c.fg }}>{c.v}</div>
+            <div className="sv" style={{ color:c.fg }}>{c.v}<span style={{ fontSize: 11, fontWeight: 500, marginLeft: 3 }}>টি চারা/কলম</span></div>
             <div className="ss2">{c.s}</div>
           </div>
         ))}
