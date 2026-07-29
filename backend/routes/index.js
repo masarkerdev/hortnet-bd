@@ -2267,19 +2267,20 @@ router.get("/stock/opening-balance/stats", authenticate, async (req, res) => {
                       FROM stock_transactions WHERE txn_type='opening_balance'
                       GROUP BY seedling_id`),
 
-      // পূর্ববর্তী FY উৎপাদন
+      // পূর্ববর্তী FY উৎপাদন (শুধু অনুমোদিত, এবং Dashboard-এর মতোই formula — 
+      // অঙ্গজ/গ্রাফটিং-এর জন্য success_quantity, বীজের জন্য produced_quantity)
       db.query(
-        `SELECT COALESCE(SUM(produced_quantity),0) AS total
+        `SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS total
                       FROM production_batches
-                      WHERE COALESCE(sowing_date, propagation_date, created_at::date) < $1`,
+                      WHERE is_approved=true AND COALESCE(sowing_date, propagation_date, created_at::date) < $1`,
         [fyStart],
       ),
 
-      // পূর্ববর্তী FY বিক্রয়
+      // পূর্ববর্তী FY বিক্রয় (শুধু অনুমোদিত)
       db.query(
         `SELECT COALESCE(SUM(si.quantity),0) AS total
                       FROM sales_items si JOIN sales s ON si.sale_id=s.id
-                      WHERE s.sale_date < $1`,
+                      WHERE s.is_approved=true AND s.sale_date < $1`,
         [fyStart],
       ),
 
@@ -2290,19 +2291,19 @@ router.get("/stock/opening-balance/stats", authenticate, async (req, res) => {
         [fyStart],
       ),
 
-      // চলতি FY উৎপাদন
+      // চলতি FY উৎপাদন (শুধু অনুমোদিত, এবং Dashboard-এর মতোই formula)
       db.query(
-        `SELECT COALESCE(SUM(produced_quantity),0) AS total
+        `SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS total
                       FROM production_batches
-                      WHERE COALESCE(sowing_date, propagation_date, created_at::date) BETWEEN $1 AND $2`,
+                      WHERE is_approved=true AND COALESCE(sowing_date, propagation_date, created_at::date) BETWEEN $1 AND $2`,
         [fyStart, fyEnd],
       ),
 
-      // চলতি FY বিক্রয়
+      // চলতি FY বিক্রয় (শুধু অনুমোদিত)
       db.query(
         `SELECT COALESCE(SUM(si.quantity),0) AS total
                       FROM sales_items si JOIN sales s ON si.sale_id=s.id
-                      WHERE s.sale_date BETWEEN $1 AND $2`,
+                      WHERE s.is_approved=true AND s.sale_date BETWEEN $1 AND $2`,
         [fyStart, fyEnd],
       ),
 
