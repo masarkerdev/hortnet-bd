@@ -287,15 +287,18 @@ const approveSale = async (req, res) => {
         .json({ success: false, message: "এই বিক্রয় ইতিমধ্যে অনুমোদিত।" });
     }
 
-    // ⚠️ Approval Workflow চালু হওয়ার আগে তৈরি হওয়া পুরনো বিক্রয়ের stock 
-    // তখনই (creation-এর সময়) কমে গিয়েছিল — সেই পুরনো transaction record 
-    // থাকলে আবার নতুন করে stock কমাব না (double-deduction এড়াতে)
-    const alreadyCounted = await client.query(
-      "SELECT id FROM stock_transactions WHERE reference_type='sale' AND reference_id=$1 AND notes LIKE '%থেকে%'",
+    // ⚠️ নোটের টেক্সট না দেখে, সরাসরি হিসাব করি এই বিক্রয়ের জন্য এখন পর্যন্ত 
+    // stock_transactions-এ নীট (net) কত পরিমাণ কমানো হয়ে আছে — শূন্য হলে 
+    // (কখনো কমানো হয়নি, বা সম্পূর্ণ reverse হয়ে গেছে) তবেই নতুন করে কমাব,
+    // নাহলে (আগে থেকেই কমানো আছে) আর কমাব না (double-deduction এড়াতে)
+    const netEffectR = await client.query(
+      `SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0) AS net
+       FROM stock_transactions WHERE reference_type='sale' AND reference_id=$1`,
       [req.params.id],
     );
+    const netEffect = Number(netEffectR.rows[0].net || 0);
 
-    if (alreadyCounted.rows.length > 0) {
+    if (netEffect !== 0) {
       const updated = await client.query(
         "UPDATE sales SET is_approved=true, approved_by=$1, approved_at=now() WHERE id=$2 RETURNING *",
         [req.user.id, req.params.id],

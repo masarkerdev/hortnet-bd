@@ -272,15 +272,18 @@ const approveBatch = async (req, res) => {
         .json({ success: false, message: "এই ব্যাচ ইতিমধ্যে অনুমোদিত।" });
     }
 
-    // ⚠️ Approval Workflow চালু হওয়ার আগে তৈরি হওয়া পুরনো ব্যাচের stock 
-    // তখনই (creation-এর সময়) যোগ হয়ে গিয়েছিল — সেই পুরনো transaction 
-    // record থাকলে আবার নতুন করে stock যোগ করব না (double-counting এড়াতে)
-    const alreadyCounted = await client.query(
-      "SELECT id FROM stock_transactions WHERE batch_id=$1 AND txn_type='production' AND notes LIKE '%থেকে%'",
+    // ⚠️ নোটের টেক্সট না দেখে, সরাসরি হিসাব করি এই batch-এর জন্য এখন পর্যন্ত 
+    // stock_transactions-এ নীট (net) কত পরিমাণ যোগ হয়ে আছে — শূন্য হলে 
+    // (কখনো যোগ হয়নি, বা সম্পূর্ণ reverse হয়ে গেছে) তবেই নতুন করে যোগ করব,
+    // নাহলে (আগে থেকেই কোনো পরিমাণ যোগ আছে) আর যোগ করব না (double-counting এড়াতে)
+    const netEffectR = await client.query(
+      `SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0) AS net
+       FROM stock_transactions WHERE batch_id=$1 AND txn_type='production'`,
       [batch.id],
     );
+    const netEffect = Number(netEffectR.rows[0].net || 0);
 
-    if (alreadyCounted.rows.length > 0) {
+    if (netEffect !== 0) {
       const updated = await client.query(
         "UPDATE production_batches SET is_approved=true, approved_by=$1, approved_at=now() WHERE id=$2 RETURNING *",
         [req.user.id, req.params.id],
