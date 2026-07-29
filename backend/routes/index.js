@@ -458,9 +458,29 @@ router.post(
           old.production_type === "seed"
             ? old.produced_quantity
             : old.success_quantity;
+        const revStockR = await client.query(
+          "SELECT COALESCE(current_stock,0) AS cs FROM seedlings WHERE id=$1",
+          [old.seedling_id],
+        );
+        const newBal = Math.max(0, parseInt(revStockR.rows[0].cs) - parseInt(qtyToReverse || 0));
         await client.query(
-          "UPDATE seedlings SET current_stock = GREATEST(0, current_stock - $1) WHERE id = $2",
-          [qtyToReverse || 0, old.seedling_id],
+          "UPDATE seedlings SET current_stock = $1 WHERE id = $2",
+          [newBal, old.seedling_id],
+        );
+        // ⚠️ এই reversal-টাও transaction হিসেবে লগ করি — নাহলে পরে re-approve 
+        // করার সময় "net effect" check ভুলভাবে মনে করবে stock এখনো যোগ আছে
+        await client.query(
+          `INSERT INTO stock_transactions
+           (seedling_id, batch_id, txn_type, quantity, direction, balance_after, notes, created_by)
+           VALUES ($1,$2,'production',$3,'-',$4,$5,$6)`,
+          [
+            old.seedling_id,
+            id,
+            qtyToReverse || 0,
+            newBal,
+            `ব্যাচ ${old.batch_code} — এডিটের কারণে পুনরায় অনুমোদনের অপেক্ষায় (আগের স্টক প্রত্যাহার)`,
+            req.user.id,
+          ],
         );
       }
 
