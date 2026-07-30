@@ -209,7 +209,7 @@ export default function Dashboard() {
         <div className="cd">
           <div className="cdt">উৎপাদন সাফল্যের হার</div>
           {(d.success_rates?.length) ? d.success_rates.map((r, i) => {
-            const col = { seed:'var(--g400)', grafting:'var(--t400)', cutting:'var(--a200)', budding:'var(--b400)' }[r.production_type] || 'var(--g400)';
+            const col = { seed:'var(--g400)', grafting:'var(--t400)', cutting:'var(--a200)', budding:'var(--b400)', purchase:'var(--a400)' }[r.production_type] || 'var(--g400)';
             return (
               <div key={i} className="mb-3">
                 <div className="mb-1 flex justify-between text-[12px]"><span>{MN[r.production_type] || r.production_type}</span><strong>{toBn(r.avg_success_percent)}%</strong></div>
