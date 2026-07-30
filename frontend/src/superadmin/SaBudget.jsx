@@ -32,6 +32,7 @@ export default function SaBudget() {
   const [editPeriodModal, setEditPeriodModal] = useState(false);
   const [editPeriodName, setEditPeriodName] = useState('');
   const [editPeriodMessage, setEditPeriodMessage] = useState('');
+  const [editSelectedCodes, setEditSelectedCodes] = useState([]);
   const [editPeriodMsg, setEditPeriodMsg] = useState('');
   const [editPeriodSaving, setEditPeriodSaving] = useState(false);
 
@@ -39,7 +40,7 @@ export default function SaBudget() {
     if (!editPeriodName.trim() || !periodId) return;
     setEditPeriodSaving(true); setEditPeriodMsg('');
     try {
-      const r = await axios.put(`${apiBase()}/budget-admin/periods/${periodId}`, { name: editPeriodName.trim(), message: editPeriodMessage.trim() }, { headers: authHeader() });
+      const r = await axios.put(`${apiBase()}/budget-admin/periods/${periodId}`, { name: editPeriodName.trim(), message: editPeriodMessage.trim(), codes: editSelectedCodes }, { headers: authHeader() });
       if (r.data?.success) {
         setEditPeriodMsg('✓ আপডেট হয়েছে');
         await loadPeriods();
@@ -162,6 +163,14 @@ export default function SaBudget() {
                 const r = await axios.get(`${apiBase()}/budget-admin/periods/${periodId}/notice`, { headers: authHeader() });
                 if (r.data?.success && r.data.data) setEditPeriodMessage(r.data.data.content || '');
               } catch (e) {}
+              try {
+                const rc = await axios.get(`${apiBase()}/budget-admin/codes`, { headers: authHeader() });
+                if (rc.data?.success) setAllBudgetCodes(rc.data.data || []);
+              } catch (e) {}
+              try {
+                const rsc = await axios.get(`${apiBase()}/budget-admin/periods/${periodId}/codes`, { headers: authHeader() });
+                if (rsc.data?.success) setEditSelectedCodes(rsc.data.data || []);
+              } catch (e) {}
             }}
               style={{ padding:'8px 14px', borderRadius:8, border:`1px solid ${V.border}`, background:V.bg, cursor:'pointer', fontSize:13, fontFamily:FONT }}>
               ✏️ নাম সংশোধন
@@ -205,6 +214,28 @@ export default function SaBudget() {
             <textarea value={editPeriodMessage} onChange={e=>setEditPeriodMessage(e.target.value)} rows={4}
               style={{ width:'100%', padding:'10px 14px', border:`1px solid ${V.border}`, borderRadius:8, fontFamily:FONT, fontSize:13, outline:'none', boxSizing:'border-box', marginBottom:12, resize:'vertical' }}
             />
+            <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>
+              এই কিস্তিতে কোন কোন কোডের জন্য চাহিদা চাইবেন? (কিছু select না করলে সব কোডই দেখাবে)
+            </label>
+            <div style={{ border:`1px solid ${V.border}`, borderRadius:8, padding:'8px 12px', marginBottom:12, maxHeight:160, overflowY:'auto' }}>
+              {allBudgetCodes.length === 0 ? (
+                <div style={{ fontSize:12, color:V.muted }}>লোড হচ্ছে...</div>
+              ) : (
+                allBudgetCodes.map(c => (
+                  <label key={c.leaf_code} style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0', fontSize:12.5, cursor:'pointer' }}>
+                    <input type="checkbox"
+                      checked={editSelectedCodes.includes(c.leaf_code)}
+                      onChange={(e) => {
+                        setEditSelectedCodes(e.target.checked
+                          ? [...editSelectedCodes, c.leaf_code]
+                          : editSelectedCodes.filter(x => x !== c.leaf_code));
+                      }}
+                    />
+                    {c.leaf_code} — {c.leaf_name || ''}
+                  </label>
+                ))
+              )}
+            </div>
             {editPeriodMsg && <div style={{ color: editPeriodMsg.startsWith('✓') ? V.green : V.red, fontSize:13, marginBottom:10 }}>{editPeriodMsg}</div>}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <button onClick={deletePeriod} disabled={editPeriodSaving} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${V.red}`, background:'transparent', color:V.red, cursor:'pointer', fontSize:13, fontFamily:FONT }}>
