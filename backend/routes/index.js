@@ -437,51 +437,56 @@ router.post(
 
       // ✅ produced_quantity পরিবর্তন হলে current_stock sync করো — 
       // কিন্তু শুধু তখনই যদি batch টা এখনো "অনুমোদিত" অবস্থাতেই থাকে (pending-এ ফিরে না গেলে)
-      const newProduced = parseInt(fields.produced_quantity);
-      const oldProduced = parseInt(old.produced_quantity || 0);
-      if (
-        !revertToPending &&
-        old.is_approved &&
-        !isNaN(newProduced) &&
-        newProduced !== oldProduced &&
-        old.seedling_id
-      ) {
-        const diff = newProduced - oldProduced;
-        await client.query(
-          "UPDATE seedlings SET current_stock = GREATEST(0, current_stock + $1) WHERE id = $2",
-          [diff, old.seedling_id],
+      // ✅ Robust পদ্ধতি — শুধুমাত্র batch-টা আগে থেকেই "অনুমোদিত" ছিল তখনই stock 
+      // touch করি (কখনো approve না হওয়া pending batch-এর জন্য কিছুই করার দরকার নেই)।
+      // প্রতিবার edit-এর পর, "এখন stock-এ কত থাকা উচিত" (target) এবং transaction 
+      // ledger অনুযায়ী "এখন কত আছে" (net effect) — এই দুটো সরাসরি গণনা করে মিলিয়ে 
+      // নিই, একাধিকবার edit হলেও এই পদ্ধতি সবসময় সঠিক থাকে
+      if (old.is_approved && old.seedling_id) {
+        const updatedBatch = result.rows[0];
+        const netEffectR = await client.query(
+          `SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0) AS net
+           FROM stock_transactions WHERE batch_id=$1 AND txn_type='production'`,
+          [id],
         );
-      } else if (revertToPending && old.is_approved) {
-        // আগে থেকে approved ছিল বলে যা stock যোগ হয়েছিল, তা ফেরত নিয়ে নিই 
-        // (কারণ এখন আবার pending, নতুন করে অনুমোদন হলে তখনই যোগ হবে)
-        const qtyToReverse =
-          old.production_type === "seed"
-            ? old.produced_quantity
-            : old.success_quantity;
-        const revStockR = await client.query(
-          "SELECT COALESCE(current_stock,0) AS cs FROM seedlings WHERE id=$1",
-          [old.seedling_id],
-        );
-        const newBal = Math.max(0, parseInt(revStockR.rows[0].cs) - parseInt(qtyToReverse || 0));
-        await client.query(
-          "UPDATE seedlings SET current_stock = $1 WHERE id = $2",
-          [newBal, old.seedling_id],
-        );
-        // ⚠️ এই reversal-টাও transaction হিসেবে লগ করি — নাহলে পরে re-approve 
-        // করার সময় "net effect" check ভুলভাবে মনে করবে stock এখনো যোগ আছে
-        await client.query(
-          `INSERT INTO stock_transactions
-           (seedling_id, batch_id, txn_type, quantity, direction, balance_after, notes, created_by)
-           VALUES ($1,$2,'production',$3,'-',$4,$5,$6)`,
-          [
-            old.seedling_id,
-            id,
-            qtyToReverse || 0,
-            newBal,
-            `ব্যাচ ${old.batch_code} — এডিটের কারণে পুনরায় অনুমোদনের অপেক্ষায় (আগের স্টক প্রত্যাহার)`,
-            req.user.id,
-          ],
-        );
+        const currentNet = Number(netEffectR.rows[0].net || 0);
+
+        // pending-এ ফিরে গেলে target = ০ (কোনো stock প্রতিফলিত থাকবে না)
+        // অ্যাডমিন edit করে approved-ই থাকলে target = নতুন সঠিক পরিমাণ
+        const targetQty = revertToPending
+          ? 0
+          : updatedBatch.production_type === "seed"
+            ? Number(updatedBatch.produced_quantity || 0)
+            : Number(updatedBatch.success_quantity || 0);
+
+        const diff = targetQty - currentNet;
+        if (diff !== 0) {
+          const stockR = await client.query(
+            "SELECT COALESCE(current_stock,0) AS cs FROM seedlings WHERE id=$1",
+            [old.seedling_id],
+          );
+          const newBal = Math.max(0, parseInt(stockR.rows[0].cs) + diff);
+          await client.query(
+            "UPDATE seedlings SET current_stock=$1 WHERE id=$2",
+            [newBal, old.seedling_id],
+          );
+          await client.query(
+            `INSERT INTO stock_transactions
+             (seedling_id, batch_id, txn_type, quantity, direction, balance_after, notes, created_by)
+             VALUES ($1,$2,'production',$3,$4,$5,$6,$7)`,
+            [
+              old.seedling_id,
+              id,
+              Math.abs(diff),
+              diff > 0 ? "+" : "-",
+              newBal,
+              revertToPending
+                ? `ব্যাচ ${old.batch_code} — এডিটের কারণে পুনরায় অনুমোদনের অপেক্ষায় (স্টক প্রত্যাহার)`
+                : `ব্যাচ ${old.batch_code} — এডিট করে সংশোধন করা হয়েছে`,
+              req.user.id,
+            ],
+          );
+        }
       }
 
       await client.query("COMMIT");
