@@ -31,20 +31,20 @@ async function fetchOneTenantStats(slug, tenant) {
     production, stock, lowStock, annualProdTarget, monthlyProdTarget,
     monthlyProdAchieved, otherIncomeTotal, annualProdAchieved,
   ] = await Promise.all([
-    db.query(`SELECT COALESCE(SUM(total_amount),0) AS total_revenue, COUNT(*) AS total_invoices FROM sales`),
-    db.query(`SELECT COALESCE(SUM(total_amount),0) AS today_revenue FROM sales WHERE sale_date=CURRENT_DATE`),
-    db.query(`SELECT COALESCE(SUM(total_amount),0) AS revenue FROM sales WHERE EXTRACT(MONTH FROM sale_date)=EXTRACT(MONTH FROM NOW()) AND EXTRACT(YEAR FROM sale_date)=EXTRACT(YEAR FROM NOW())`),
-    db.query(`SELECT COALESCE(SUM(total_amount),0) AS revenue FROM sales WHERE EXTRACT(MONTH FROM sale_date)=EXTRACT(MONTH FROM NOW()-INTERVAL '1 month') AND EXTRACT(YEAR FROM sale_date)=EXTRACT(YEAR FROM (NOW()-INTERVAL '1 month'))`),
+    db.query(`SELECT COALESCE(SUM(total_amount),0) AS total_revenue, COUNT(*) AS total_invoices FROM sales WHERE is_approved=true`),
+    db.query(`SELECT COALESCE(SUM(total_amount),0) AS today_revenue FROM sales WHERE sale_date=CURRENT_DATE AND is_approved=true`),
+    db.query(`SELECT COALESCE(SUM(total_amount),0) AS revenue FROM sales WHERE is_approved=true AND EXTRACT(MONTH FROM sale_date)=EXTRACT(MONTH FROM NOW()) AND EXTRACT(YEAR FROM sale_date)=EXTRACT(YEAR FROM NOW())`),
+    db.query(`SELECT COALESCE(SUM(total_amount),0) AS revenue FROM sales WHERE is_approved=true AND EXTRACT(MONTH FROM sale_date)=EXTRACT(MONTH FROM NOW()-INTERVAL '1 month') AND EXTRACT(YEAR FROM sale_date)=EXTRACT(YEAR FROM (NOW()-INTERVAL '1 month'))`),
     db.query(`SELECT COALESCE(target_amount,0) AS target_amount FROM targets WHERE target_type='sales' AND target_month=EXTRACT(MONTH FROM NOW()) AND target_year=EXTRACT(YEAR FROM NOW()) LIMIT 1`),
-    db.query(`SELECT COUNT(*) AS total_batches, COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS total_produced, COALESCE(AVG(CASE WHEN success_percent>0 THEN success_percent END),0) AS avg_success, COALESCE(SUM(available_quantity),0) AS total_available FROM production_batches`),
+    db.query(`SELECT COUNT(*) AS total_batches, COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS total_produced, COALESCE(AVG(CASE WHEN success_percent>0 THEN success_percent END),0) AS avg_success, COALESCE(SUM(available_quantity),0) AS total_available FROM production_batches WHERE is_approved=true`),
     db.query(`SELECT COALESCE(SUM(current_stock),0) AS total_stock, COALESCE(SUM(current_stock*unit_price),0) AS stock_value, COUNT(*) AS total_species FROM seedlings WHERE is_active=true`),
     db.query(`SELECT COUNT(*) AS low_count FROM seedlings WHERE is_active=true AND current_stock<=min_stock_alert`),
     db.query(`SELECT COALESCE(SUM(target_quantity),0) AS qty FROM targets WHERE target_type LIKE 'category_%' AND target_month=0 AND target_year=$1`, [fyStart]),
     db.query(`SELECT COALESCE(ROUND(SUM(target_quantity)/12.0),0) AS qty FROM targets WHERE target_type LIKE 'category_%' AND target_month=0 AND target_year=$1`, [fyStart]),
-    db.query(`SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS qty FROM production_batches WHERE EXTRACT(MONTH FROM COALESCE(sowing_date,propagation_date))=$1 AND EXTRACT(YEAR FROM COALESCE(sowing_date,propagation_date))=$2`, [curMonth, curYear]),
-    db.query(`SELECT COALESCE(SUM(amount),0) AS total FROM other_income`),
+    db.query(`SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS qty FROM production_batches WHERE is_approved=true AND EXTRACT(MONTH FROM COALESCE(sowing_date,propagation_date))=$1 AND EXTRACT(YEAR FROM COALESCE(sowing_date,propagation_date))=$2`, [curMonth, curYear]),
+    db.query(`SELECT COALESCE(SUM(amount),0) AS total FROM other_income WHERE is_approved=true`),
     // চলতি অর্থবছরের (জুলাই-জুন) মোট উৎপাদন — শুধু এই অর্থবছরের data, all-time না
-    db.query(`SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS qty FROM production_batches WHERE COALESCE(sowing_date,propagation_date) >= $1 AND COALESCE(sowing_date,propagation_date) <= $2`, [`${fyStart}-07-01`, `${fyStart + 1}-06-30`]),
+    db.query(`SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS qty FROM production_batches WHERE is_approved=true AND COALESCE(sowing_date,propagation_date) >= $1 AND COALESCE(sowing_date,propagation_date) <= $2`, [`${fyStart}-07-01`, `${fyStart + 1}-06-30`]),
   ]);
 
   const curRev = parseFloat(currentMonth.rows[0].revenue);
