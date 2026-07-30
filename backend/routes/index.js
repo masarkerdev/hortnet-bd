@@ -2419,8 +2419,6 @@ router.put(
              WHERE txn_type='opening_balance' AND seedling_id=$1`,
         [seedlingId],
       );
-      const oldQty = parseInt(oldResult.rows[0].old_qty || 0);
-      const diff = newQty - oldQty;
       // পুরানো opening_balance transactions মুছো
       await client.query(
         `DELETE FROM stock_transactions WHERE txn_type='opening_balance' AND seedling_id=$1`,
@@ -2428,24 +2426,21 @@ router.put(
       );
       // নতুন transaction তৈরি করো (newQty > 0 হলে)
       if (newQty > 0) {
-        const stockResult = await client.query(
-          "SELECT current_stock FROM seedlings WHERE id=$1",
-          [seedlingId],
-        );
-        const currentStock = parseInt(stockResult.rows[0]?.current_stock || 0);
         await client.query(
           `INSERT INTO stock_transactions (seedling_id, txn_type, quantity, direction, balance_after, notes, created_by)
-                 VALUES ($1,'opening_balance',$2,'+',$3,'প্রারম্ভিক স্টক (সংশোধিত)',$4)`,
-          [seedlingId, newQty, currentStock, req.user.id],
+                 VALUES ($1,'opening_balance',$2,'+',0,'প্রারম্ভিক স্টক (সংশোধিত)',$3)`,
+          [seedlingId, newQty, req.user.id],
         );
       }
-      // current_stock adjust করো
-      if (diff !== 0) {
-        await client.query(
-          `UPDATE seedlings SET current_stock=GREATEST(0, current_stock+$1) WHERE id=$2`,
-          [diff, seedlingId],
-        );
-      }
+      // ✅ ম্যানুয়াল যোগ/বিয়োগের বদলে, current_stock-কে সরাসরি ledger 
+      // (এই seedling-এর সব transaction)-এর সম্পূর্ণ যোগফল থেকে পুনর্গণনা করে বসাই
+      await client.query(
+        `UPDATE seedlings SET current_stock = (
+           SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0)
+           FROM stock_transactions WHERE seedling_id=$1
+         ) WHERE id=$1`,
+        [seedlingId],
+      );
       const updated = await client.query(
         "SELECT current_stock FROM seedlings WHERE id=$1",
         [seedlingId],
@@ -2497,27 +2492,29 @@ router.post(
         );
         if (!stockResult.rows.length) continue;
 
-        const currentStock = parseInt(stockResult.rows[0].current_stock);
         const addQty = parseInt(entry.quantity);
-        const newBalance = currentStock + addQty;
 
         await client.query(
           `INSERT INTO stock_transactions
                  (seedling_id, txn_type, quantity, direction, balance_after, notes, created_by)
-                 VALUES ($1,'opening_balance',$2,'+',$3,$4,$5)`,
+                 VALUES ($1,'opening_balance',$2,'+',0,$3,$4)`,
           [
             entry.seedling_id,
             addQty,
-            newBalance,
             entry.notes || "প্রারম্ভিক স্টক এন্ট্রি",
             req.user.id,
           ],
         );
 
-        await client.query(
-          "UPDATE seedlings SET current_stock=$1 WHERE id=$2",
-          [newBalance, entry.seedling_id],
+        // ✅ ম্যানুয়াল যোগের বদলে, current_stock-কে সরাসরি ledger থেকে পুনর্গণনা করে বসাই
+        const recalc = await client.query(
+          `UPDATE seedlings SET current_stock = (
+             SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0)
+             FROM stock_transactions WHERE seedling_id=$1
+           ) WHERE id=$1 RETURNING current_stock`,
+          [entry.seedling_id],
         );
+        const newBalance = recalc.rows[0].current_stock;
 
         results.push({
           name: stockResult.rows[0].name_bn,
