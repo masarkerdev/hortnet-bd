@@ -301,28 +301,27 @@ const approveBatch = async (req, res) => {
         ? batch.produced_quantity
         : batch.success_quantity;
 
-    const stockR = await client.query(
-      "SELECT COALESCE(current_stock,0) AS cs FROM seedlings WHERE id=$1",
-      [batch.seedling_id],
-    );
-    const newBalance = parseInt(stockR.rows[0].cs) + parseInt(qtyToAdd || 0);
-
-    await client.query(
-      "UPDATE seedlings SET current_stock=$1 WHERE id=$2",
-      [newBalance, batch.seedling_id],
-    );
     await client.query(
       `INSERT INTO stock_transactions
        (seedling_id, batch_id, txn_type, quantity, direction, balance_after, notes, created_by)
-       VALUES ($1,$2,'production',$3,'+',$4,$5,$6)`,
+       VALUES ($1,$2,'production',$3,'+',0,$4,$5)`,
       [
         batch.seedling_id,
         batch.id,
         qtyToAdd,
-        newBalance,
         `ব্যাচ ${batch.batch_code} অনুমোদিত`,
         req.user.id,
       ],
+    );
+    // ✅ current_stock ম্যানুয়ালি বাড়ানোর বদলে, সরাসরি stock_transactions 
+    // ledger-এর সম্পূর্ণ যোগফল থেকে পুনর্গণনা করে বসাই — এতে কখনো "drift" 
+    // হতে পারে না, current_stock সবসময় ledger-এর সাথে ১০০% মিলবে
+    await client.query(
+      `UPDATE seedlings SET current_stock = (
+         SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0)
+         FROM stock_transactions WHERE seedling_id=$1
+       ) WHERE id=$1`,
+      [batch.seedling_id],
     );
     const updated = await client.query(
       "UPDATE production_batches SET is_approved=true, approved_by=$1, approved_at=now() WHERE id=$2 RETURNING *",

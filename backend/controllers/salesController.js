@@ -317,17 +317,8 @@ const approveSale = async (req, res) => {
     );
 
     for (const item of itemsR.rows) {
-      const stockCheck = await client.query(
-        "SELECT current_stock FROM seedlings WHERE id=$1",
-        [item.seedling_id],
-      );
-      const currentStock = parseInt(stockCheck.rows[0]?.current_stock || 0);
-      const newStock = currentStock - item.quantity;
-      await client.query(
-        "UPDATE seedlings SET current_stock=$1 WHERE id=$2",
-        [newStock, item.seedling_id],
-      );
-
+      // প্রথমে transaction(গুলো) insert করি (batch_id-ভিত্তিক FIFO deduction), 
+      // balance_after আপাতত ০ রেখে — শেষে recompute করে সঠিক করা হবে
       let remainingToDeduct = item.quantity;
       const activeBatches = await client.query(
         `SELECT id, available_quantity FROM production_batches
@@ -348,12 +339,11 @@ const approveSale = async (req, res) => {
         await client.query(
           `INSERT INTO stock_transactions
            (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
-           VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
+           VALUES ($1,$2,'sale',$3,'-',0,$4,'sale',$5,$6)`,
           [
             item.seedling_id,
             batch.id,
             deductNow,
-            newStock,
             sale.id,
             `চালান ${sale.invoice_no} অনুমোদিত`,
             req.user.id,
@@ -365,18 +355,26 @@ const approveSale = async (req, res) => {
         await client.query(
           `INSERT INTO stock_transactions
            (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
-           VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
+           VALUES ($1,$2,'sale',$3,'-',0,$4,'sale',$5,$6)`,
           [
             item.seedling_id,
             null,
             remainingToDeduct > 0 ? remainingToDeduct : item.quantity,
-            newStock,
             sale.id,
             `চালান ${sale.invoice_no} অনুমোদিত`,
             req.user.id,
           ],
         );
       }
+      // ✅ current_stock ম্যানুয়ালি কমানোর বদলে, সরাসরি stock_transactions 
+      // ledger-এর সম্পূর্ণ যোগফল থেকে পুনর্গণনা করে বসাই — কখনো drift হবে না
+      await client.query(
+        `UPDATE seedlings SET current_stock = (
+           SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0)
+           FROM stock_transactions WHERE seedling_id=$1
+         ) WHERE id=$1`,
+        [item.seedling_id],
+      );
     }
 
     const updated = await client.query(

@@ -461,30 +461,30 @@ router.post(
 
         const diff = targetQty - currentNet;
         if (diff !== 0) {
-          const stockR = await client.query(
-            "SELECT COALESCE(current_stock,0) AS cs FROM seedlings WHERE id=$1",
-            [old.seedling_id],
-          );
-          const newBal = Math.max(0, parseInt(stockR.rows[0].cs) + diff);
-          await client.query(
-            "UPDATE seedlings SET current_stock=$1 WHERE id=$2",
-            [newBal, old.seedling_id],
-          );
           await client.query(
             `INSERT INTO stock_transactions
              (seedling_id, batch_id, txn_type, quantity, direction, balance_after, notes, created_by)
-             VALUES ($1,$2,'production',$3,$4,$5,$6,$7)`,
+             VALUES ($1,$2,'production',$3,$4,0,$5,$6)`,
             [
               old.seedling_id,
               id,
               Math.abs(diff),
               diff > 0 ? "+" : "-",
-              newBal,
               revertToPending
                 ? `ব্যাচ ${old.batch_code} — এডিটের কারণে পুনরায় অনুমোদনের অপেক্ষায় (স্টক প্রত্যাহার)`
                 : `ব্যাচ ${old.batch_code} — এডিট করে সংশোধন করা হয়েছে`,
               req.user.id,
             ],
+          );
+          // ✅ current_stock ম্যানুয়ালি যোগ/বিয়োগ না করে, সরাসরি সম্পূর্ণ 
+          // ledger (এই seedling-এর সব transaction) থেকে পুনর্গণনা করে বসাই — 
+          // এতে কোনো পুরনো drift থাকলেও এই ধাপেই সেটা স্বয়ংক্রিয়ভাবে ঠিক হয়ে যায়
+          await client.query(
+            `UPDATE seedlings SET current_stock = (
+               SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0)
+               FROM stock_transactions WHERE seedling_id=$1
+             ) WHERE id=$1`,
+            [old.seedling_id],
           );
         }
       }
@@ -695,20 +695,15 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
     }
     const invNo = cur.rows[0].invoice_no;
 
-    // পুরোনো আইটেমের স্টক ফেরত দাও — শুধু অনুমোদিত sale-এর জন্য দরকার
+    // পুরোনো আইটেমের seedling তালিকা মনে রাখি (পরে recompute করার জন্য) —
+    // শুধু অনুমোদিত sale-এর জন্যই দরকার
+    let affectedSeedlings = [];
     if (cur.rows[0].is_approved) {
       const old = await client.query(
-        "SELECT seedling_id, quantity FROM sales_items WHERE sale_id=$1",
+        "SELECT DISTINCT seedling_id FROM sales_items WHERE sale_id=$1",
         [saleId],
       );
-      for (const si of old.rows) {
-        if (si.seedling_id && si.quantity > 0) {
-          await client.query(
-            "UPDATE seedlings SET current_stock=current_stock+$1 WHERE id=$2",
-            [si.quantity, si.seedling_id],
-          );
-        }
-      }
+      affectedSeedlings = old.rows.map((r) => r.seedling_id).filter(Boolean);
     }
     // পুরনো stock_transactions দেখে batch-এর available_quantity ফেরত দিই (মুছার আগে)
     const oldBatchTxns = await client.query(
@@ -737,6 +732,17 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
       [saleId],
     );
     await client.query("DELETE FROM sales_items WHERE sale_id=$1", [saleId]);
+    // ✅ পুরনো transaction মুছে ফেলার পর, প্রতিটা প্রভাবিত seedling-এর 
+    // current_stock সম্পূর্ণ ledger থেকে পুনর্গণনা করে বসাই (drift-মুক্ত থাকার জন্য)
+    for (const sid of affectedSeedlings) {
+      await client.query(
+        `UPDATE seedlings SET current_stock = (
+           SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0)
+           FROM stock_transactions WHERE seedling_id=$1
+         ) WHERE id=$1`,
+        [sid],
+      );
+    }
 
     // নতুন হিসাব
     let subtotal = 0;
@@ -799,14 +805,8 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
 
       if (!wasApproved) continue; // pending sale — স্টক/ব্যাচ এখনো কমবে না, অনুমোদনের সময় কমবে
 
-      const newStock = curStock - it.quantity;
-      await client.query("UPDATE seedlings SET current_stock=$1 WHERE id=$2", [
-        newStock,
-        it.seedling_id,
-      ]);
-
       // কোনো নির্দিষ্ট batch select করা না থাকলেও, automatic সবচেয়ে পুরনো
-      // batch থেকে আগে কেটে নেওয়া হয় (FIFO)
+      // batch থেকে আগে কেটে নেওয়া হয় (FIFO) — আগে transaction(গুলো) insert করি
       let remainingToDeduct = it.quantity;
       const activeBatches = await client.query(
         `SELECT id, available_quantity FROM production_batches
@@ -827,12 +827,11 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
         await client.query(
           `INSERT INTO stock_transactions
            (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
-           VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
+           VALUES ($1,$2,'sale',$3,'-',0,$4,'sale',$5,$6)`,
           [
             it.seedling_id,
             batch.id,
             deductNow,
-            newStock,
             saleId,
             `চালান ${invNo} এডিট`,
             req.user.id,
@@ -840,22 +839,29 @@ router.put("/sales/:id", authenticate, canSell, async (req, res) => {
         );
         remainingToDeduct -= deductNow;
       }
-      if (activeBatches.rows.length === 0) {
+      if (activeBatches.rows.length === 0 || remainingToDeduct > 0) {
         await client.query(
           `INSERT INTO stock_transactions
            (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
-           VALUES ($1,$2,'sale',$3,'-',$4,$5,'sale',$6,$7)`,
+           VALUES ($1,$2,'sale',$3,'-',0,$4,'sale',$5,$6)`,
           [
             it.seedling_id,
             null,
-            it.quantity,
-            newStock,
+            remainingToDeduct > 0 ? remainingToDeduct : it.quantity,
             saleId,
             `চালান ${invNo} এডিট`,
             req.user.id,
           ],
         );
       }
+      // ✅ current_stock ম্যানুয়ালি কমানোর বদলে, সরাসরি ledger থেকে পুনর্গণনা করি
+      await client.query(
+        `UPDATE seedlings SET current_stock = (
+           SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0)
+           FROM stock_transactions WHERE seedling_id=$1
+         ) WHERE id=$1`,
+        [it.seedling_id],
+      );
     }
     await client.query("COMMIT");
     res.json({ success: true, message: "বিক্রয় আপডেট হয়েছে।" });
@@ -891,21 +897,17 @@ router.delete("/sales/:id", authenticate, adminOrManager, async (req, res) => {
         req.user.id,
       ],
     );
-    // Stock restore — শুধু অনুমোদিত (approved) sale-এর জন্যই দরকার, 
-    // কারণ pending sale-এ স্টক কখনো কমানোই হয়নি
+    // Stock restore — শুধু অনুমোদিত (approved) sale-এর জন্যই দরকার (নিচে recompute করা হবে)
+    // Stock restore-এর জন্য প্রভাবিত seedling তালিকা মনে রাখি (পরে recompute করব) — 
+    // শুধু অনুমোদিত (approved) sale-এর জন্যই দরকার, কারণ pending sale-এ 
+    // স্টক কখনো কমানোই হয়নি
+    let affectedSeedlings = [];
     if (item.rows[0].is_approved) {
       const saleItems = await client.query(
-        "SELECT seedling_id, quantity FROM sales_items WHERE sale_id=$1",
+        "SELECT DISTINCT seedling_id FROM sales_items WHERE sale_id=$1",
         [req.params.id],
       );
-      for (const si of saleItems.rows) {
-        if (si.seedling_id && si.quantity > 0) {
-          await client.query(
-            "UPDATE seedlings SET current_stock=current_stock+$1 WHERE id=$2",
-            [si.quantity, si.seedling_id],
-          );
-        }
-      }
+      affectedSeedlings = saleItems.rows.map((r) => r.seedling_id).filter(Boolean);
     }
     // stock_transactions থেকে দেখে নিই ঠিক কোন কোন batch থেকে কত কাটা হয়েছিল, 
     // এবং সেগুলো batch-এ ফেরত দিই (available_quantity বাড়িয়ে, status ঠিক করে)
@@ -935,6 +937,17 @@ router.delete("/sales/:id", authenticate, adminOrManager, async (req, res) => {
       "DELETE FROM stock_transactions WHERE reference_type='sale' AND reference_id=$1",
       [req.params.id],
     );
+    // ✅ মুছার পর, প্রতিটা প্রভাবিত seedling-এর current_stock বাকি ledger 
+    // থেকে সরাসরি পুনর্গণনা করে বসাই (drift-মুক্ত থাকার জন্য)
+    for (const sid of affectedSeedlings) {
+      await client.query(
+        `UPDATE seedlings SET current_stock = (
+           SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0)
+           FROM stock_transactions WHERE seedling_id=$1
+         ) WHERE id=$1`,
+        [sid],
+      );
+    }
     await client.query("DELETE FROM sales_items WHERE sale_id=$1", [
       req.params.id,
     ]);
@@ -1148,20 +1161,31 @@ router.delete(
             ],
           );
         } catch (e) {}
-        const produced = parseInt(item.rows[0].produced_quantity) || 0;
-        if (item.rows[0].seedling_id && produced > 0)
+        // ⚠️ শুধু "অনুমোদিত" (is_approved=true) batch-এরই stock প্রভাবিত হওয়া 
+        // উচিত — কখনো approve না হওয়া (pending) batch delete করলে stock touch 
+        // করার দরকারই নেই, কারণ সেটার stock কখনো যোগই হয়নি
+        if (item.rows[0].seedling_id && item.rows[0].is_approved) {
+          await db.query("DELETE FROM stock_transactions WHERE batch_id=$1", [
+            req.params.id,
+          ]);
+          // ✅ ম্যানুয়াল বিয়োগের বদলে, বাকি ledger থেকে সরাসরি পুনর্গণনা করি
           await db.query(
-            "UPDATE seedlings SET current_stock=GREATEST(0,current_stock-$1) WHERE id=$2",
-            [produced, item.rows[0].seedling_id],
+            `UPDATE seedlings SET current_stock = (
+               SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0)
+               FROM stock_transactions WHERE seedling_id=$1
+             ) WHERE id=$1`,
+            [item.rows[0].seedling_id],
           );
+        } else {
+          await db.query("DELETE FROM stock_transactions WHERE batch_id=$1", [
+            req.params.id,
+          ]);
+        }
       }
       await db.query("UPDATE damages SET batch_id=NULL WHERE batch_id=$1", [
         req.params.id,
       ]);
       await db.query("UPDATE sales_items SET batch_id=NULL WHERE batch_id=$1", [
-        req.params.id,
-      ]);
-      await db.query("DELETE FROM stock_transactions WHERE batch_id=$1", [
         req.params.id,
       ]);
       await db.query("DELETE FROM production_batches WHERE id=$1", [
