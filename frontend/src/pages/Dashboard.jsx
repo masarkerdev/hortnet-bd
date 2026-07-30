@@ -116,9 +116,9 @@ export default function Dashboard() {
     { l:'মোট রাজস্ব আদায়', v: money(d.total_revenue_all != null ? d.total_revenue_all : ((d.sales_revenue != null ? d.sales_revenue : (d.monthly_revenue||0)) + (d.other_income_total||0))), s:'চারা/কলম + অন্যান্য আয়', Icon:IcCoin, bg:'var(--b50)', fg:'var(--b600)' },
   ];
 
-  const pd = (monthly.length ? monthly : [{ month_name:'এই মাস', seed_qty:d.today_production||0, asexual_qty:0 }])
-    .map((r) => ({ m: BN_MON[r.month_name] || r.month_name, s:+r.seed_qty||0, a:+r.asexual_qty||0 }));
-  const mx = Math.max(...pd.map((x) => x.s + x.a), 1);
+  const pd = (monthly.length ? monthly : [{ month_name:'এই মাস', seed_qty:d.today_production||0, asexual_qty:0, purchase_qty:0 }])
+    .map((r) => ({ m: BN_MON[r.month_name] || r.month_name, s:+r.seed_qty||0, a:+r.asexual_qty||0, p:+r.purchase_qty||0 }));
+  const mx = Math.max(...pd.map((x) => x.s + x.a + x.p), 1);
 
   const activeCats = cats.filter((c) => parseFloat(c.total_sales) > 0);
 
@@ -146,11 +146,12 @@ export default function Dashboard() {
           <FyAchievement data={fyData} />
         </div>
         <div className="cd">
-          <div className="cdt">মাসিক উৎপাদন <span>বীজ ও অঙ্গজ</span></div>
+          <div className="cdt">মাসিক উৎপাদন <span>বীজ, অঙ্গজ ও ক্রয়</span></div>
           <div className="flex items-end gap-2" style={{ height: 120 }}>
             {pd.map((x, i) => {
               const sh = Math.max(Math.round((x.s / mx) * 96), x.s ? 3 : 0);
               const ah = Math.max(Math.round((x.a / mx) * 96), x.a ? 3 : 0);
+              const ph = Math.max(Math.round((x.p / mx) * 96), x.p ? 3 : 0);
               return (
                 <div className="bcl" key={i}>
                   <div className="flex w-full items-end justify-center gap-[2px]" style={{ height: 96 }}>
@@ -162,6 +163,10 @@ export default function Dashboard() {
                       {x.a > 0 && <div className="mb-0.5 text-[9px] font-semibold leading-none" style={{ color:'var(--t600)' }}>{toBn(x.a)}</div>}
                       <div className="bar w-full" style={{ height: ah, background:'var(--t400)' }} title={`অঙ্গজ: ${toBn(x.a)}`} />
                     </div>
+                    <div className="flex flex-1 flex-col items-center justify-end">
+                      {x.p > 0 && <div className="mb-0.5 text-[9px] font-semibold leading-none" style={{ color:'var(--a400)' }}>{toBn(x.p)}</div>}
+                      <div className="bar w-full" style={{ height: ph, background:'var(--a400)' }} title={`ক্রয়: ${toBn(x.p)}`} />
+                    </div>
                   </div>
                   <div className="brlbl">{x.m}</div>
                 </div>
@@ -171,6 +176,7 @@ export default function Dashboard() {
           <div className="mt-3 flex gap-4 text-[11px]" style={{ color:'var(--tm)' }}>
             <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background:'var(--g400)' }} />বীজ</span>
             <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background:'var(--t400)' }} />অঙ্গজ</span>
+            <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background:'var(--a400)' }} />ক্রয়</span>
           </div>
         </div>
         <div className="cd">
