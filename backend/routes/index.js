@@ -1422,11 +1422,13 @@ router.get(
     const { fyStart, fyEnd, fy } = req;
     try {
       const prodTotal = await db.query(
-        `SELECT COALESCE(SUM(pb.produced_quantity),0) AS total FROM production_batches pb WHERE pb.sowing_date BETWEEN $1 AND $2`,
+        `SELECT COALESCE(SUM(CASE WHEN pb.production_type='seed' THEN pb.produced_quantity ELSE COALESCE(pb.success_quantity,pb.produced_quantity) END),0) AS total 
+         FROM production_batches pb 
+         WHERE pb.is_approved=true AND COALESCE(pb.sowing_date, pb.propagation_date) BETWEEN $1 AND $2`,
         [fyStart, fyEnd],
       );
       const saleTotal = await db.query(
-        `SELECT COALESCE(SUM(total_amount),0) AS total, COUNT(*) AS invoices FROM sales WHERE sale_date BETWEEN $1 AND $2`,
+        `SELECT COALESCE(SUM(total_amount),0) AS total, COUNT(*) AS invoices FROM sales WHERE sale_date BETWEEN $1 AND $2 AND is_approved=true`,
         [fyStart, fyEnd],
       );
       const catSales = await db.query(
@@ -1441,7 +1443,11 @@ router.get(
         [curMonth, curYear],
       );
       const curMonthActual = await db.query(
-        `SELECT COALESCE(SUM(produced_quantity),0) AS total FROM production_batches WHERE EXTRACT(MONTH FROM sowing_date)=$1 AND EXTRACT(YEAR FROM sowing_date)=$2`,
+        `SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS total 
+         FROM production_batches 
+         WHERE is_approved=true 
+           AND EXTRACT(MONTH FROM COALESCE(sowing_date, propagation_date))=$1 
+           AND EXTRACT(YEAR FROM COALESCE(sowing_date, propagation_date))=$2`,
         [curMonth, curYear],
       );
       const prodAnnualTgt = await db.query(
