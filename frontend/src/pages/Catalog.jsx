@@ -1036,6 +1036,24 @@ export default function Catalog() {
                             {c.mobile}
                           </span>
                         )}
+                        {c.total_stock !== null && c.total_stock !== undefined && (
+                          <span
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                              fontSize: 12,
+                              color: "#1a6b3a",
+                              fontWeight: 600,
+                            }}
+                          >
+                            <i
+                              className="ti ti-leaf"
+                              style={{ fontSize: 13 }}
+                            />
+                            {toBn(c.total_stock)}টি চারা/কলম
+                          </span>
+                        )}
                       </div>
                       <div
                         style={{

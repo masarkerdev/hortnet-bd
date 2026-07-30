@@ -11,6 +11,7 @@ router.use((req, res, next) => {
 });
 const { Pool } = require("pg");
 const { getTenants } = require("../lib/tenantCache");
+const { getCachedStats } = require("../lib/centerStatsCache");
 
 async function queryTenant(dbUrl, sql, params = []) {
   const { getPool } = require("../config/poolManager");
@@ -28,6 +29,13 @@ async function queryTenant(dbUrl, sql, params = []) {
 router.get("/centers", async (req, res) => {
   try {
     const tenants = await getTenants();
+    let statsMap = {};
+    try {
+      const allStats = await getCachedStats();
+      allStats.forEach((s) => {
+        statsMap[s.slug] = s.total_stock;
+      });
+    } catch (e) {}
     const centers = Object.entries(tenants)
       .filter(([, t]) => t.active !== false)
       .map(([slug, t]) => ({
@@ -40,6 +48,7 @@ router.get("/centers", async (req, res) => {
         thana: t.thana || "",
         category: t.category,
         mobile: t.mobile || "",
+        total_stock: statsMap[slug] ?? null,
       }))
       .sort((a, b) => (a.name_bn || "").localeCompare(b.name_bn || "", "bn"));
     res.json({ success: true, data: centers });
