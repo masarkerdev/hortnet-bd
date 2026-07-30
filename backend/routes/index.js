@@ -989,13 +989,27 @@ router.put("/damages/:id", authenticate, adminOrManager, async (req, res) => {
       "SELECT quantity, seedling_id FROM damages WHERE id=$1",
       [req.params.id],
     );
-    if (old.rows.length) {
-      const diff = parseInt(quantity) - parseInt(old.rows[0].quantity);
-      if (diff !== 0 && old.rows[0].seedling_id)
+    if (old.rows.length && old.rows[0].seedling_id) {
+      // পুরনো quantity-র transaction record-টাও নতুন quantity দিয়ে আপডেট করি
+      await db.query(
+        "UPDATE stock_transactions SET quantity=$1, seedling_id=$2 WHERE reference_type='damage' AND reference_id=$3",
+        [quantity, seedling_id || old.rows[0].seedling_id, req.params.id],
+      );
+      // ✅ পুরনো seedling এবং নতুন seedling (যদি বদলে থাকে) — দুটোরই 
+      // current_stock সরাসরি ledger থেকে পুনর্গণনা করি
+      const seedlingsToRecalc = new Set([
+        old.rows[0].seedling_id,
+        seedling_id || old.rows[0].seedling_id,
+      ]);
+      for (const sid of seedlingsToRecalc) {
         await db.query(
-          "UPDATE seedlings SET current_stock=GREATEST(0,current_stock-$1) WHERE id=$2",
-          [diff, old.rows[0].seedling_id],
+          `UPDATE seedlings SET current_stock = (
+             SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0)
+             FROM stock_transactions WHERE seedling_id=$1
+           ) WHERE id=$1`,
+          [sid],
         );
+      }
     }
     await db.query(
       `UPDATE damages SET seedling_id=$1,batch_id=$2,damage_date=$3,quantity=$4,reason=$5,remarks=$6 WHERE id=$7`,
@@ -1038,18 +1052,21 @@ router.delete(
           ],
         );
         const qty = parseInt(item.rows[0].quantity) || 0;
-        // Stock restore
-        if (item.rows[0].seedling_id && qty > 0) {
-          await client.query(
-            "UPDATE seedlings SET current_stock=current_stock+$1 WHERE id=$2",
-            [qty, item.rows[0].seedling_id],
-          );
-        }
-        // stock_transactions মুছো
+        // stock_transactions মুছো (আগে, যাতে recompute সঠিক ফলাফল দেয়)
         await client.query(
           "DELETE FROM stock_transactions WHERE reference_type='damage' AND reference_id=$1",
           [req.params.id],
         );
+        // ✅ ম্যানুয়াল যোগের বদলে, current_stock-কে সরাসরি বাকি ledger থেকে পুনর্গণনা করি
+        if (item.rows[0].seedling_id && qty > 0) {
+          await client.query(
+            `UPDATE seedlings SET current_stock = (
+               SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0)
+               FROM stock_transactions WHERE seedling_id=$1
+             ) WHERE id=$1`,
+            [item.rows[0].seedling_id],
+          );
+        }
       }
       await client.query("DELETE FROM damages WHERE id=$1", [req.params.id]);
       await client.query("COMMIT");

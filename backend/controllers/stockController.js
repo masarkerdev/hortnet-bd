@@ -154,23 +154,21 @@ const reportDamage = async (req, res) => {
              quantity, reason, remarks, req.user.id]
         );
 
-        // স্টক কমান
-        const stockResult = await client.query(
-            'SELECT current_stock FROM seedlings WHERE id = $1', [seedling_id]
-        );
-        const currentStock = parseInt(stockResult.rows[0].current_stock);
-        const newBalance = Math.max(0, currentStock - parseInt(quantity));
-
+        // আগে transaction log করি, তারপর current_stock-কে সম্পূর্ণ ledger থেকে 
+        // পুনর্গণনা করে বসাই — এতে কখনো drift হতে পারে না
         await client.query(
             `INSERT INTO stock_transactions
              (seedling_id, batch_id, txn_type, quantity, direction, balance_after, reference_id, reference_type, notes, created_by)
-             VALUES ($1,$2,'damage',$3,'-',$4,$5,'damage',$6,$7)`,
-            [seedling_id, batch_id || null, quantity, newBalance,
+             VALUES ($1,$2,'damage',$3,'-',0,$4,'damage',$5,$6)`,
+            [seedling_id, batch_id || null, quantity,
              damageResult.rows[0].id, `ক্ষতি: ${reason}`, req.user.id]
         );
 
         await client.query(
-            'UPDATE seedlings SET current_stock = $1 WHERE id = $2', [newBalance, seedling_id]
+            `UPDATE seedlings SET current_stock = (
+               SELECT COALESCE(SUM(CASE WHEN direction='+' THEN quantity ELSE -quantity END), 0)
+               FROM stock_transactions WHERE seedling_id=$1
+             ) WHERE id = $1`, [seedling_id]
         );
 
         // ব্যাচ আপডেট করুন
