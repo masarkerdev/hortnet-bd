@@ -68,9 +68,11 @@ function HCard({ c, onClick }) {
       onMouseLeave={() => setHov(false)}
       style={{
         background: V.card,
-        border: `1px solid ${hov ? V.border2 : V.border}`,
+        borderTop: `1px solid ${hov ? V.border2 : V.border}`,
+        borderRight: `1px solid ${hov ? V.border2 : V.border}`,
+        borderBottom: `1px solid ${hov ? V.border2 : V.border}`,
         borderRadius: 10,
-        borderLeft: `3px solid ${catBorder}`,
+        borderLeft: hov ? "3px solid transparent" : `3px solid ${catBorder}`,
         padding: "14px 18px",
         display: "flex",
         alignItems: "center",
@@ -180,33 +182,42 @@ function HCard({ c, onClick }) {
       </div>
       {/* h-card-actions */}
       <div className="h-card-actions" style={{ flexShrink: 0 }}>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick();
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = V.green2)}
-          onMouseLeave={(e) => (e.currentTarget.style.background = V.green)}
-          style={{
-            padding: "7px 14px",
-            borderRadius: 7,
-            fontSize: 13,
-            cursor: "pointer",
-            fontFamily: FONT,
-            background: V.green,
-            color: "#fff",
-            border: `1px solid ${V.green}`,
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            transition: ".15s",
-          }}
-        >
-          <i className="ti ti-eye" />{" "}
-          <span className="h-card-btn-text">দেখুন</span>
-        </button>
+        <ViewButton onClick={onClick} />
       </div>
     </div>
+  );
+}
+
+// দেখুন বাটন — আলাদা component হিসেবে নিজের hover state রাখে, 
+// যাতে parent card-এর re-render এই বাটনের hover-কে প্রভাবিত না করে
+function ViewButton({ onClick }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        padding: "7px 14px",
+        borderRadius: 7,
+        fontSize: 13,
+        cursor: "pointer",
+        fontFamily: FONT,
+        background: hov ? V.green2 : V.green,
+        color: "#fff",
+        border: `1px solid ${V.green}`,
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        transition: ".15s",
+      }}
+    >
+      <i className="ti ti-eye" />{" "}
+      <span className="h-card-btn-text">দেখুন</span>
+    </button>
   );
 }
 

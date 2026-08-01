@@ -42,8 +42,10 @@ function HCard({ c, onClick }) {
   const tl = TL_DOT[c.traffic_light]||TL_DOT.yellow;
   return (
     <div onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      style={{ background:C.card, border:`1px solid ${hov?C.border2:C.border}`, borderRadius:10,
-        borderLeft:`3px solid ${cc}`, padding:'14px 18px', display:'flex', alignItems:'center',
+      style={{ background:C.card,
+        borderTop:`1px solid ${hov?C.border2:C.border}`, borderRight:`1px solid ${hov?C.border2:C.border}`, borderBottom:`1px solid ${hov?C.border2:C.border}`,
+        borderRadius:10,
+        borderLeft: hov ? '3px solid transparent' : `3px solid ${cc}`, padding:'14px 18px', display:'flex', alignItems:'center',
         gap:14, cursor:'pointer', transition:'.2s', boxShadow:hov?shadowMd:shadow,
         transform:hov?'translateX(2px)':'none' }}>
       <div style={{ width:30,height:30,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0,background:cb,color:cc }}>{c.category}</div>

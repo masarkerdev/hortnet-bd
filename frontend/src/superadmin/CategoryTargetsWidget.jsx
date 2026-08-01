@@ -22,6 +22,7 @@ export default function CategoryTargetsWidget() {
 
   const [centers, setCenters] = useState([]);
   const [slug, setSlug] = useState('');
+  const [regionFilter, setRegionFilter] = useState('');
   const [fy, setFy] = useState(curFY);
   const [values, setValues] = useState({});
   const [loading, setLoading] = useState(true);
@@ -52,6 +53,16 @@ export default function CategoryTargetsWidget() {
       setValues(next);
     });
   }, [slug, fy]);
+
+  const regions = [...new Set(centers.map((c) => c.dae_region).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'bn'));
+  const filteredCenters = regionFilter ? centers.filter((c) => c.dae_region === regionFilter) : centers;
+
+  useEffect(() => {
+    // অঞ্চল বদলালে, বর্তমান নির্বাচিত সেন্টার সেই অঞ্চলে না থাকলে প্রথমটা select করি
+    if (filteredCenters.length && !filteredCenters.some((c) => c.slug === slug)) {
+      setSlug(filteredCenters[0].slug);
+    }
+  }, [regionFilter, centers]);
 
   const grandTotal = MOTHER_CATEGORIES.reduce((s, mc) => s + (Number(values[mc]) || 0), 0);
   const filledCount = MOTHER_CATEGORIES.filter((mc) => (Number(values[mc]) || 0) > 0).length;
@@ -100,10 +111,17 @@ export default function CategoryTargetsWidget() {
       {!collapsed && (
         <div style={{ padding:20 }}>
           <div style={{ display:'flex', gap:12, marginBottom:18, flexWrap:'wrap' }}>
+            <div style={{ width:180 }}>
+              <label style={{ display:'block', fontSize:13, color:C.muted, marginBottom:6, fontWeight:500 }}>DAE অঞ্চল</label>
+              <select value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} style={inp}>
+                <option value="">সব অঞ্চল</option>
+                {regions.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
             <div style={{ flex:1, minWidth:200 }}>
               <label style={{ display:'block', fontSize:13, color:C.muted, marginBottom:6, fontWeight:500 }}>সেন্টার</label>
               <select value={slug} onChange={(e) => setSlug(e.target.value)} style={inp}>
-                {centers.map((c) => <option key={c.slug} value={c.slug}>{c.name_bn}</option>)}
+                {filteredCenters.map((c) => <option key={c.slug} value={c.slug}>{c.name_bn}</option>)}
               </select>
             </div>
             <div style={{ width:160 }}>

@@ -80,16 +80,17 @@ export default function SaTargetSummary() {
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%',borderCollapse:'collapse' }}>
             <thead><tr>
-              {['Center','Cat','অর্থবছরের লক্ষ্যমাত্রা','চলতি মাসের লক্ষ্যমাত্রা','চলতি মাসের অর্জন','অগ্রগতি','অবস্থা'].map(h=>(
+              {['নং','Center','Cat','অর্থবছরের লক্ষ্যমাত্রা','চলতি মাসের লক্ষ্যমাত্রা','চলতি মাসের অর্জন','অগ্রগতি','অবস্থা'].map(h=>(
                 <th key={h} style={{ padding:'10px 14px',textAlign:'left',fontSize:13,color:C.muted,fontWeight:600,background:C.card2,borderBottom:`1px solid ${C.border}`,whiteSpace:'nowrap' }}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
-              {[...filteredOk].sort((a,b)=>{ const ap=a.monthly_prod_target>0?a.monthly_prod_achieved/a.monthly_prod_target:0; const bp=b.monthly_prod_target>0?b.monthly_prod_achieved/b.monthly_prod_target:0; return bp-ap; }).map(c=>{
+              {[...filteredOk].sort((a,b)=>{ const ap=a.monthly_prod_target>0?a.monthly_prod_achieved/a.monthly_prod_target:0; const bp=b.monthly_prod_target>0?b.monthly_prod_achieved/b.monthly_prod_target:0; return bp-ap; }).map((c,idx)=>{
                 const pct=c.monthly_prod_target>0?Math.min(Math.round((c.monthly_prod_achieved/c.monthly_prod_target)*100),200):null;
                 const col=pct===null?C.muted:pcColor(pct);
                 return(
                   <tr key={c.slug} onMouseEnter={e=>e.currentTarget.style.background=C.green3} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <td style={{ padding:'12px 14px',color:C.muted,fontSize:13,borderBottom:`1px solid ${C.border}` }}>{toBn(idx+1)}</td>
                     <td style={{ padding:'12px 14px',borderBottom:`1px solid ${C.border}` }}>
                       <div style={{ fontWeight:600,fontSize:15,color:C.text,cursor:'pointer' }} onClick={()=>navigate(`/superadmin/center/${c.slug}`)}>{c.name_bn}</div>
                       <div style={{ fontSize:11,color:C.muted }}>{c.district||''}</div>
