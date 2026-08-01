@@ -319,6 +319,8 @@ router.get("/center/:slug", saAuth, async (req, res) => {
         name_bn: tenant.name_bn,
         name_en: tenant.name_en,
         location: tenant.location,
+        district: tenant.district,
+        thana: tenant.thana,
         currency: tenant.currency,
         category: tenant.category,
       },

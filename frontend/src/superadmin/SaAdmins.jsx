@@ -418,8 +418,9 @@ export default function SaAdmins() {
           .adm-header { width: 100%; }
           .adm-avatar { width: 38px !important; height: 38px !important; font-size: 15px !important; }
           .adm-info { min-width: 0 !important; width: 100% !important; }
-          .adm-actions { width: 100%; flex-wrap: wrap !important; }
-          .adm-actions button { flex: 1 1 auto !important; min-width: calc(50% - 6px) !important; justify-content: center; }
+          .adm-actions { width: 100%; flex-wrap: nowrap !important; justify-content: space-between !important; gap: 4px !important; }
+          .adm-actions button { flex: 1 1 0 !important; min-width: 0 !important; padding: 6px 4px !important; font-size: 10.5px !important; justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .adm-actions span { flex-shrink: 0 !important; padding: 3px 6px !important; font-size: 10px !important; }
         }
       `}</style>
       {/* Tab navigation */}
@@ -1108,8 +1109,8 @@ export default function SaAdmins() {
                       <span
                         style={{
                           fontSize: 11,
-                          background: "#1e293b",
-                          color: "#94a3b8",
+                          background: "#e8edf3",
+                          color: "#1e3a5f",
                           padding: "2px 8px",
                           borderRadius: 6,
                         }}

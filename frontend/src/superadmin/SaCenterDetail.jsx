@@ -1621,7 +1621,9 @@ export default function SaCenterDetail() {
           {d.center?.name_bn} — বিস্তারিত
         </div>
         <div style={{ fontSize: 13, color: V.muted, marginTop: 2 }}>
-          📍 {d.center?.location} • ক্যাটাগরি {d.center?.category}
+          📍 {d.center?.thana || d.center?.district
+            ? `${d.center?.thana ? `উপজেলাঃ ${d.center.thana}` : ""}${d.center?.thana && d.center?.district ? " " : ""}${d.center?.district ? `জেলাঃ ${d.center.district}` : ""}`
+            : d.center?.location} • ক্যাটাগরি {d.center?.category}
         </div>
       </div>
 
