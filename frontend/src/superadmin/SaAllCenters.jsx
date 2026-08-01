@@ -213,6 +213,17 @@ export default function SaAllCenters() {
 
   return (
     <div style={{ fontFamily: FONT }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .ac-card { flex-direction: column !important; align-items: stretch !important; padding: 12px 14px !important; gap: 12px !important; }
+          .ac-header { width: 100%; }
+          .ac-rank { width: 26px !important; height: 26px !important; font-size: 10px !important; }
+          .ac-info { min-width: 0 !important; width: 100% !important; }
+          .ac-info > div:first-child { font-size: 15px !important; white-space: normal !important; }
+          .ac-actions { width: 100%; flex-wrap: wrap !important; }
+          .ac-actions button { flex: 1 1 auto !important; min-width: calc(50% - 6px) !important; justify-content: center; }
+        }
+      `}</style>
       {isDir && (
         <div
           style={{
@@ -245,6 +256,7 @@ export default function SaAllCenters() {
           return (
             <div
               key={c.id}
+              className="ac-card"
               style={{
                 background: C.card,
                 border: `1px solid ${C.border}`,
@@ -257,7 +269,9 @@ export default function SaAllCenters() {
                 boxShadow: shadow,
               }}
             >
+              <div className="ac-header" style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
               <div
+                className="ac-rank"
                 style={{
                   width: 30,
                   height: 30,
@@ -274,7 +288,7 @@ export default function SaAllCenters() {
               >
                 {c.category}
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="ac-info" style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>
                   {c.name_bn}
                 </div>
@@ -291,7 +305,8 @@ export default function SaAllCenters() {
                   </span>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+              </div>
+              <div className="ac-actions" style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                 <button
                   onClick={() => navigate(`/superadmin/center/${c.slug}`)}
                   style={{

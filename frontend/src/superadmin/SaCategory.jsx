@@ -41,19 +41,21 @@ function HCard({ c, onClick }) {
   const cb = { A:C.catAb, B:C.catBb, C:C.catCb }[c.category]||C.catBb;
   const tl = TL_DOT[c.traffic_light]||TL_DOT.yellow;
   return (
-    <div onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+    <div className="hc-card" onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       style={{ background:C.card,
         borderTop:`1px solid ${hov?C.border2:C.border}`, borderRight:`1px solid ${hov?C.border2:C.border}`, borderBottom:`1px solid ${hov?C.border2:C.border}`,
         borderRadius:10,
         borderLeft: hov ? '3px solid transparent' : `3px solid ${cc}`, padding:'14px 18px', display:'flex', alignItems:'center',
         gap:14, cursor:'pointer', transition:'.2s', boxShadow:hov?shadowMd:shadow,
         transform:hov?'translateX(2px)':'none' }}>
-      <div style={{ width:30,height:30,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0,background:cb,color:cc }}>{c.category}</div>
-      <div style={{ flex:1,minWidth:0 }}>
-        <div style={{ fontSize:16,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:C.text }}>{c.name_bn}</div>
-        <div style={{ fontSize:13,color:C.muted,marginTop:2 }}>📍 {c.location||c.name_en}</div>
+      <div className="hc-header" style={{ display:'flex', alignItems:'center', gap:14, flex:1, minWidth:0 }}>
+        <div className="hc-rank" style={{ width:30,height:30,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0,background:cb,color:cc }}>{c.category}</div>
+        <div className="hc-info" style={{ flex:1,minWidth:0 }}>
+          <div style={{ fontSize:16,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:C.text }}>{c.name_bn}</div>
+          <div style={{ fontSize:13,color:C.muted,marginTop:2 }}>📍 {c.location||c.name_en}</div>
+        </div>
       </div>
-      <div style={{ display:'flex',gap:20,flexShrink:0 }}>
+      <div className="hc-stats" style={{ display:'flex',gap:20,flexShrink:0 }}>
         {[
           { v:fmtK(c.total_revenue), l:'বিক্রয়', col:C.green },
           { v:fmtN(c.total_produced), l:'উৎপাদন', col:C.purple },
@@ -70,10 +72,25 @@ function HCard({ c, onClick }) {
           <div style={{ fontSize:14,color:C.muted }}>{toBn(c.perf_score||0)}</div>
         </div>
       </div>
-      <button onClick={e=>{e.stopPropagation();onClick();}}
-        style={{ padding:'7px 14px',borderRadius:7,fontSize:13,cursor:'pointer',fontFamily:FONT,background:'#3b6d11',color:'#fff',border:'1px solid #3b6d11',display:'flex',alignItems:'center',gap:4,flexShrink:0 }}>
-        👁 দেখুন
-      </button>
+      <div className="hc-actions" style={{ flexShrink:0 }}>
+        <button onClick={e=>{e.stopPropagation();onClick();}} className="hc-btn"
+          style={{ padding:'7px 14px',borderRadius:7,fontSize:13,cursor:'pointer',fontFamily:FONT,background:'#3b6d11',color:'#fff',border:'1px solid #3b6d11',display:'flex',alignItems:'center',gap:4,flexShrink:0 }}>
+          👁 <span className="hc-btn-text">দেখুন</span>
+        </button>
+      </div>
+      <style>{`
+        @media (max-width: 640px) {
+          .hc-card { flex-direction: column !important; align-items: stretch !important; padding: 12px 14px !important; gap: 12px !important; flex-wrap: nowrap !important; }
+          .hc-header { width: 100%; }
+          .hc-rank { width: 26px !important; height: 26px !important; font-size: 10px !important; }
+          .hc-info { min-width: 0 !important; width: 100% !important; }
+          .hc-info > div:first-child { font-size: 15px !important; white-space: normal !important; }
+          .hc-stats { display: flex !important; flex-wrap: wrap !important; width: 100% !important; gap: 10px 20px !important; padding: 10px 0 !important; border-top: 1px solid ${C.border}; border-bottom: 1px solid ${C.border}; }
+          .hc-stats > div { min-width: 60px !important; }
+          .hc-actions { width: 100%; display: flex; justify-content: flex-end; }
+          .hc-btn { padding: 7px 16px !important; border-radius: 20px !important; font-size: 12.5px !important; }
+        }
+      `}</style>
     </div>
   );
 }

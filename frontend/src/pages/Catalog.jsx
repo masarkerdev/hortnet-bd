@@ -398,6 +398,24 @@ export default function Catalog() {
             >
               🔐 লগিন
             </button>
+            <button
+              onClick={() => {
+                navigate("/superadmin/login");
+                setMobileMenu(false);
+              }}
+              style={{
+                background: "transparent",
+                color: "#fff",
+                border: "1px solid rgba(255,255,255,0.3)",
+                padding: 8,
+                borderRadius: 8,
+                fontSize: 14,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              সুপার অ্যাডমিন
+            </button>
           </div>
         )}
       </header>

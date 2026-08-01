@@ -84,6 +84,8 @@ function HCard({ c, onClick }) {
         fontFamily: FONT,
       }}
     >
+      {/* h-card-header — rank ও info একসাথে (mobile-এ card column হলেও পাশাপাশি থাকবে) */}
+      <div className="h-card-header" style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
       {/* h-card-rank */}
       <div
         className="h-card-rank"
@@ -130,6 +132,7 @@ function HCard({ c, onClick }) {
           <i className="ti ti-map-pin" style={{ fontSize: 10 }} />{" "}
           {c.location || c.name_en}
         </div>
+      </div>
       </div>
       {/* h-card-stats */}
       <div
@@ -370,25 +373,33 @@ export default function SaOverview() {
         @media (max-width: 640px) {
           .kpi-value { font-size: 20px !important; }
           .h-card {
-            padding: 10px 12px !important;
-            gap: 10px !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            padding: 12px 14px !important;
+            gap: 12px !important;
             flex-wrap: nowrap !important;
           }
-          .h-card-rank { width: 24px !important; height: 24px !important; font-size: 10px !important; }
-          .h-card-info { min-width: 70px !important; max-width: 90px !important; }
-          .h-card-info > div:first-child { font-size: 13px !important; }
-          .h-card-info > div:last-child { font-size: 11px !important; }
+          .h-card-header { width: 100%; }
+          .h-card-rank { width: 26px !important; height: 26px !important; font-size: 10px !important; }
+          .h-card-info { min-width: 0 !important; max-width: none !important; width: 100% !important; }
+          .h-card-info > div:first-child { font-size: 15px !important; white-space: normal !important; }
+          .h-card-info > div:last-child { font-size: 11.5px !important; }
           .h-card-stats {
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            gap: 14px !important;
-            max-width: 38vw;
-            scrollbar-width: none;
+            display: flex !important;
+            flex-wrap: wrap !important;
+            overflow-x: visible !important;
+            max-width: none !important;
+            width: 100% !important;
+            gap: 10px 20px !important;
+            padding: 10px 0 !important;
+            border-top: 1px solid ${V.border};
+            border-bottom: 1px solid ${V.border};
           }
           .h-card-stats::-webkit-scrollbar { display: none; }
-          .h-card-stats > div { min-width: 44px; }
-          .h-card-actions button { padding: 6px 8px !important; font-size: 11px !important; }
-          .h-card-btn-text { display: none; }
+          .h-card-stats > div { min-width: 70px !important; }
+          .h-card-actions { width: 100% !important; }
+          .h-card-actions button { width: 100% !important; justify-content: center !important; padding: 9px 8px !important; font-size: 13px !important; }
+          .h-card-btn-text { display: inline !important; }
         }
       `}</style>
 

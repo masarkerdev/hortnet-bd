@@ -412,6 +412,16 @@ export default function SaAdmins() {
 
   return (
     <div style={{ fontFamily: FONT }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .adm-card { flex-direction: column !important; align-items: stretch !important; padding: 12px 14px !important; gap: 12px !important; }
+          .adm-header { width: 100%; }
+          .adm-avatar { width: 38px !important; height: 38px !important; font-size: 15px !important; }
+          .adm-info { min-width: 0 !important; width: 100% !important; }
+          .adm-actions { width: 100%; flex-wrap: wrap !important; }
+          .adm-actions button { flex: 1 1 auto !important; min-width: calc(50% - 6px) !important; justify-content: center; }
+        }
+      `}</style>
       {/* Tab navigation */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
         {[
@@ -526,6 +536,7 @@ export default function SaAdmins() {
                   return (
                     <div
                       key={a.id}
+                      className="adm-card"
                       style={{
                         background: C.card,
                         border: `1px solid ${C.border}`,
@@ -538,7 +549,9 @@ export default function SaAdmins() {
                         boxShadow: shadow,
                       }}
                     >
+                      <div className="adm-header" style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
                       <div
+                        className="adm-avatar"
                         style={{
                           width: 44,
                           height: 44,
@@ -556,7 +569,7 @@ export default function SaAdmins() {
                       >
                         {(a.person_name || a.name || "A")[0].toUpperCase()}
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="adm-info" style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{
                             fontSize: 15,
@@ -606,7 +619,9 @@ export default function SaAdmins() {
                           </div>
                         )}
                       </div>
+                      </div>
                       <div
+                        className="adm-actions"
                         style={{
                           display: "flex",
                           alignItems: "center",
@@ -1029,6 +1044,7 @@ export default function SaAdmins() {
               {centerUsers.map((u) => (
                 <div
                   key={`${u.center_slug}-${u.id}`}
+                  className="adm-card"
                   style={{
                     background: C.card,
                     border: `1px solid ${C.border}`,
@@ -1040,7 +1056,9 @@ export default function SaAdmins() {
                     boxShadow: C.shadow,
                   }}
                 >
+                  <div className="adm-header" style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
                   <div
+                    className="adm-avatar"
                     style={{
                       width: 44,
                       height: 44,
@@ -1058,7 +1076,7 @@ export default function SaAdmins() {
                   >
                     {u.name.charAt(0).toUpperCase()}
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div className="adm-info" style={{ flex: 1 }}>
                     <div
                       style={{ fontSize: 14, fontWeight: 600, color: C.text }}
                     >
@@ -1112,7 +1130,8 @@ export default function SaAdmins() {
                       </span>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  </div>
+                  <div className="adm-actions" style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                     <button
                       onClick={() => openCuEdit(u)}
                       style={{
