@@ -628,11 +628,24 @@ function InvoiceModal({ sale, onClose, office, location, phone, autoPrint }) {
       title={`চালান — ${sale.invoice_no}`}
       wide
     >
-      <div id="invoice-print" style={{ padding: "0 20px" }}>
+      <div id="invoice-print" style={{ padding: "20px 20px 0" }}>
           <style>{`
             #invoice-print table.tbl th,
             #invoice-print table.tbl td {
               border: 1px solid var(--bd);
+            }
+            #invoice-print table.tbl thead th {
+              background: #eceeef !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+              color-adjust: exact;
+            }
+            #invoice-print table.tbl tbody td:first-child {
+              background: #f4f5f6 !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+              color-adjust: exact;
+              text-align: center;
             }
           `}</style>
           <div className="print-copy">
