@@ -629,25 +629,20 @@ function InvoiceModal({ sale, onClose, office, location, phone, autoPrint }) {
       wide
     >
       <div id="invoice-print" style={{ padding: "0 20px" }}>
+          <style>{`
+            #invoice-print table.tbl th,
+            #invoice-print table.tbl td {
+              border: 1px solid var(--bd);
+            }
+          `}</style>
           <div className="print-copy">
-            <div
-              style={{
-                textAlign: "right",
-                fontSize: 11,
-                fontWeight: 600,
-                color: "#888",
-                marginBottom: 6,
-              }}
-            >
-              গ্রাহক কপি / অফিস কপি
-            </div>
             <div
               style={{
                 position: "relative",
                 borderBottom: "3px solid var(--g600)",
-                paddingBottom: 12,
+                paddingBottom: 16,
                 marginBottom: 14,
-                minHeight: 60,
+                minHeight: 72,
               }}
             >
               <img
@@ -657,12 +652,12 @@ function InvoiceModal({ sale, onClose, office, location, phone, autoPrint }) {
                   position: "absolute",
                   left: 0,
                   top: 0,
-                  width: 56,
-                  height: 56,
+                  width: 72,
+                  height: 72,
                   objectFit: "contain",
                 }}
               />
-              <div style={{ textAlign: "center", padding: "0 64px" }}>
+              <div style={{ textAlign: "center", padding: "0 80px" }}>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>
                   গণপ্রজাতন্ত্রী বাংলাদেশ সরকার
                 </div>
@@ -684,6 +679,18 @@ function InvoiceModal({ sale, onClose, office, location, phone, autoPrint }) {
                     </>
                   )}
                 </div>
+              </div>
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  bottom: 2,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#888",
+                }}
+              >
+                গ্রাহক কপি / অফিস কপি
               </div>
             </div>
             <div className="mb-3 flex justify-between text-[13px]">
