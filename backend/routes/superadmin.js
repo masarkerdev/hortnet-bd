@@ -1322,9 +1322,14 @@ router.get("/report/stock-summary", saAuth, async (req, res) => {
     const { category } = req.query;
     const tenants = await getTenants();
     const { getPool } = require("../config/poolManager");
+    const allowedSlugs =
+      req.saUser.role !== "director" && req.saUser.assignedCenters?.length > 0
+        ? new Set(req.saUser.assignedCenters)
+        : null;
     const results = [];
     for (const [slug, tenant] of Object.entries(tenants)) {
       if (!tenant.active || !tenant.db_url) continue;
+      if (allowedSlugs && !allowedSlugs.has(slug)) continue;
       try {
         const db = getPool(tenant.db_url, slug);
         let q = `SELECT s.name_bn, s.variety, s.unit_price, s.current_stock, s.seedling_code, c.name_bn AS category_bn FROM seedlings s LEFT JOIN categories c ON s.category_id = c.id WHERE s.is_active = true`;
@@ -1364,12 +1369,17 @@ router.get("/report/production-summary", saAuth, async (req, res) => {
     const { fy, center } = req.query;
     const tenants = await getTenants();
     const { getPool } = require("../config/poolManager");
+    const allowedSlugs =
+      req.saUser.role !== "director" && req.saUser.assignedCenters?.length > 0
+        ? new Set(req.saUser.assignedCenters)
+        : null;
     const results = [];
     const fyYear = parseInt(fy) || new Date().getFullYear();
     const startDate = `${fyYear}-07-01`;
     const endDate = `${fyYear + 1}-06-30`;
     for (const [slug, tenant] of Object.entries(tenants)) {
       if (!tenant.active || !tenant.db_url) continue;
+      if (allowedSlugs && !allowedSlugs.has(slug)) continue;
       if (center && slug !== center) continue;
       try {
         const db = getPool(tenant.db_url, slug);
@@ -1381,7 +1391,7 @@ router.get("/report/production-summary", saAuth, async (req, res) => {
             s.current_stock
           FROM seedlings s
           LEFT JOIN categories c ON s.category_id = c.id
-          LEFT JOIN production_batches pb ON pb.seedling_id = s.id AND COALESCE(pb.sowing_date, pb.propagation_date, pb.created_at::date) BETWEEN $1 AND $2
+          LEFT JOIN production_batches pb ON pb.seedling_id = s.id AND pb.is_approved=true AND COALESCE(pb.sowing_date, pb.propagation_date, pb.created_at::date) BETWEEN $1 AND $2
           WHERE s.is_active = true
           GROUP BY c.name_bn, s.name_bn, s.variety, s.current_stock
           ORDER BY c.name_bn, s.name_bn

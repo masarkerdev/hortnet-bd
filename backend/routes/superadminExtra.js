@@ -796,12 +796,17 @@ router.get("/report/yearly-revenue", saAuth, async (req, res) => {
     const curFY = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
     const years = [curFY - 3, curFY - 2, curFY - 1, curFY];
     const tenants = await getTenants();
+    const allowedSlugs =
+      req.saUser.role !== "director" && req.saUser.assignedCenters?.length > 0
+        ? new Set(req.saUser.assignedCenters)
+        : null;
 
     const results = [];
     const centerMap = {}; // slug -> { name, byYear: { fy_year: total } }
 
     for (const [slug, tenant] of Object.entries(tenants)) {
       if (!tenant.active || !tenant.db_url) continue;
+      if (allowedSlugs && !allowedSlugs.has(slug)) continue;
       centerMap[slug] = {
         name: (tenant.name_bn || "").replace("হর্টিকালচার সেন্টার,", "").trim() || tenant.name_bn,
         byYear: {},
@@ -815,6 +820,7 @@ router.get("/report/yearly-revenue", saAuth, async (req, res) => {
       let anyManual = false;
       for (const [slug, tenant] of Object.entries(tenants)) {
         if (!tenant.active || !tenant.db_url) continue;
+        if (allowedSlugs && !allowedSlugs.has(slug)) continue;
         try {
           const db = getPool(tenant.db_url, slug);
           const override = await db.query(
@@ -828,11 +834,11 @@ router.get("/report/yearly-revenue", saAuth, async (req, res) => {
           } else {
             const [salesR, incomeR] = await Promise.all([
               db.query(
-                `SELECT COALESCE(SUM(total_amount),0) AS total FROM sales WHERE sale_date >= $1 AND sale_date <= $2`,
+                `SELECT COALESCE(SUM(total_amount),0) AS total FROM sales WHERE is_approved=true AND sale_date >= $1 AND sale_date <= $2`,
                 [fyStart, fyEnd]
               ),
               db.query(
-                `SELECT COALESCE(SUM(amount),0) AS total FROM other_income WHERE income_date >= $1 AND income_date <= $2`,
+                `SELECT COALESCE(SUM(amount),0) AS total FROM other_income WHERE is_approved=true AND income_date >= $1 AND income_date <= $2`,
                 [fyStart, fyEnd]
               ),
             ]);
@@ -879,6 +885,10 @@ router.get("/report/income-report", saAuth, async (req, res) => {
 
   try {
     const tenants = await getTenants();
+    const allowedSlugs =
+      req.saUser.role !== "director" && req.saUser.assignedCenters?.length > 0
+        ? new Set(req.saUser.assignedCenters)
+        : null;
     const buckets = {};
     GOV_CATEGORIES_SA.forEach((g) => { buckets[g.label] = { current: 0, prev: 0 }; });
     const incomeBuckets = {}; // অন্যান্য আয়-এর জন্য dynamic bucket
@@ -886,6 +896,7 @@ router.get("/report/income-report", saAuth, async (req, res) => {
 
     for (const [slug, tenant] of Object.entries(tenants)) {
       if (!tenant.active || !tenant.db_url) continue;
+      if (allowedSlugs && !allowedSlugs.has(slug)) continue;
       try {
         const db = getPool(tenant.db_url, slug);
         const centerName = (tenant.name_bn || "").replace("হর্টিকালচার সেন্টার,", "").trim() || tenant.name_bn;
@@ -894,24 +905,24 @@ router.get("/report/income-report", saAuth, async (req, res) => {
             `SELECT c.name_bn, COALESCE(SUM(si.total_price),0) AS total
              FROM sales_items si JOIN sales s ON si.sale_id=s.id
              JOIN seedlings sd ON si.seedling_id=sd.id LEFT JOIN categories c ON sd.category_id=c.id
-             WHERE s.sale_date >= $1 AND s.sale_date < $2 GROUP BY c.name_bn`,
+             WHERE s.is_approved=true AND s.sale_date >= $1 AND s.sale_date < $2 GROUP BY c.name_bn`,
             [monthStart, monthEndExclusive]
           ),
           db.query(
             `SELECT c.name_bn, COALESCE(SUM(si.total_price),0) AS total
              FROM sales_items si JOIN sales s ON si.sale_id=s.id
              JOIN seedlings sd ON si.seedling_id=sd.id LEFT JOIN categories c ON sd.category_id=c.id
-             WHERE s.sale_date >= $1 AND s.sale_date < $2 GROUP BY c.name_bn`,
+             WHERE s.is_approved=true AND s.sale_date >= $1 AND s.sale_date < $2 GROUP BY c.name_bn`,
             [fyStart, monthStart]
           ),
           db.query(
             `SELECT COALESCE(NULLIF(description,''), category, 'অন্যান্য আয়') AS label, COALESCE(SUM(amount),0) AS total
-             FROM other_income WHERE income_date >= $1 AND income_date < $2 GROUP BY label`,
+             FROM other_income WHERE is_approved=true AND income_date >= $1 AND income_date < $2 GROUP BY label`,
             [monthStart, monthEndExclusive]
           ).catch(() => ({ rows: [] })),
           db.query(
             `SELECT COALESCE(NULLIF(description,''), category, 'অন্যান্য আয়') AS label, COALESCE(SUM(amount),0) AS total
-             FROM other_income WHERE income_date >= $1 AND income_date < $2 GROUP BY label`,
+             FROM other_income WHERE is_approved=true AND income_date >= $1 AND income_date < $2 GROUP BY label`,
             [fyStart, monthStart]
           ).catch(() => ({ rows: [] })),
         ]);
@@ -1009,6 +1020,13 @@ function bucketCategorySA(name) {
 
 // GET /api/superadmin/report/income-report-center/:slug?fy=2026&month=6 — নির্দিষ্ট এক center-এর সম্পূর্ণ রিপোর্ট (Center App-এর মতোই)
 router.get("/report/income-report-center/:slug", saAuth, async (req, res) => {
+  if (
+    req.saUser.role !== "director" &&
+    req.saUser.assignedCenters?.length > 0 &&
+    !req.saUser.assignedCenters.includes(req.params.slug)
+  ) {
+    return res.status(403).json({ success: false, message: "এই সেন্টারের তথ্য দেখার অনুমতি নেই।" });
+  }
   const fy = parseInt(req.query.fy) || (new Date().getMonth() >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1);
   const month = parseInt(req.query.month) || new Date().getMonth() + 1;
   const fyStart = `${fy}-07-01`;
