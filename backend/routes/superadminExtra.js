@@ -566,8 +566,16 @@ router.get("/report/target-summary", saAuth, async (req, res) => {
     let totalTarget = 0,
       totalAchieved = 0;
 
+    // ভূমিকা অনুযায়ী শুধু নির্দিষ্ট (assigned) center-গুলোর মধ্যেই সীমাবদ্ধ রাখি
+    // (director হলে সব center, নাহলে শুধু assignedCenters)
+    const allowedSlugs =
+      req.saUser.role !== "director" && req.saUser.assignedCenters?.length > 0
+        ? new Set(req.saUser.assignedCenters)
+        : null;
+
     for (const [slug, tenant] of Object.entries(tenants)) {
       if (!tenant.active || !tenant.db_url) continue;
+      if (allowedSlugs && !allowedSlugs.has(slug)) continue;
       try {
         const db = getPool(tenant.db_url, slug);
         const targetRows = await db.query(
@@ -577,7 +585,7 @@ router.get("/report/target-summary", saAuth, async (req, res) => {
         );
         const achievedRows = await db.query(
           `SELECT COALESCE(SUM(CASE WHEN production_type='seed' THEN produced_quantity ELSE COALESCE(success_quantity,produced_quantity) END),0) AS total FROM production_batches
-           WHERE COALESCE(propagation_date, sowing_date, created_at::date) >= $1
+           WHERE is_approved=true AND COALESCE(propagation_date, sowing_date, created_at::date) >= $1
              AND COALESCE(propagation_date, sowing_date, created_at::date) <= $2`,
           [fyStart, fyEnd],
         );

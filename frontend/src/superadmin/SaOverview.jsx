@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import saApi from "./saApi";
+import { useSa } from "./SaAuth";
 
 const FONT = "'Noto Sans Bengali','Segoe UI',sans-serif";
 const toBn = (n) => String(n).replace(/[0-9]/g, (d) => "০১২৩৪৫৬৭৮৯"[d]);
@@ -273,6 +274,7 @@ function KpiCard({ label, value, sub, borderColor, valueColor }) {
 
 export default function SaOverview() {
   const navigate = useNavigate();
+  const { sa } = useSa();
   const { handleBadges, search } = useOutletContext() || {};
   const [allStats, setAllStats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -474,7 +476,7 @@ export default function SaOverview() {
             }}
           >
             <div style={{ fontSize: 13, color: V.muted, marginBottom: 6 }}>
-              মোট লক্ষ্যমাত্রা (সব সেন্টার)
+              মোট লক্ষ্যমাত্রা {sa?.role !== "director" && sa?.assignedCenters?.length > 0 ? "(আপনার সেন্টারসমূহ)" : "(সব সেন্টার)"}
             </div>
             <div
               className="kpi-value"
