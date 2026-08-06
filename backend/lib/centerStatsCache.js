@@ -65,6 +65,7 @@ async function fetchOneTenantStats(slug, tenant) {
     category: tenant.category,
     district: tenant.district,
     division: tenant.division,
+    dae_region: tenant.dae_region,
     total_revenue: parseFloat(sales.rows[0].total_revenue),
     total_invoices: parseInt(sales.rows[0].total_invoices),
     today_revenue: parseFloat(todaySales.rows[0].today_revenue),

@@ -102,7 +102,7 @@ const PAGE_TITLES = {
   "category/C": "🪴 C Category — নার্সারী তত্ত্বাবধায়ক",
   compare: "📈 তুলনামূলক রিপোর্ট",
   "target-summary": "🎯 লক্ষ্যমাত্রা সারসংক্ষেপ",
-  "district-summary": "🗺️ জেলাভিত্তিক সারসংক্ষেপ",
+  "district-summary": "🗺️ DAE অঞ্চল ভিত্তিক সারসংক্ষেপ",
   "all-centers": "⚙️ সব Center পরিচালনা",
   admins: "👥 Admin পরিচালনা",
   notices: "📢 নোটিশ বোর্ড",
@@ -179,7 +179,7 @@ const NAV_SECTIONS = [
       {
         path: "district-summary",
         icon: "ti-map-pin",
-        text: "জেলাভিত্তিক সারসংক্ষেপ",
+        text: "DAE অঞ্চল ভিত্তিক সারসংক্ষেপ",
         perm: "districtSummary",
       },
     ],
