@@ -92,20 +92,24 @@ export default function SaDistrictSummary(){
   // বাংলাদেশের প্রকৃত মানচিত্রে (৪৩৭.৮×৬০১.২ coordinate space) প্রতিটা DAE 
   // অঞ্চলের আনুমানিক বাস্তব ভৌগোলিক অবস্থান
   const REGION_POS = {
-    'রংপুর অঞ্চল': { x: 145, y: 100 },
-    'দিনাজপুর অঞ্চল': { x: 80, y: 130 },
-    'রাজশাহী অঞ্চল': { x: 110, y: 250 },
-    'ময়মনসিংহ অঞ্চল': { x: 230, y: 220 },
     'ঢাকা অঞ্চল': { x: 235, y: 340 },
-    'সিলেট অঞ্চল': { x: 355, y: 205 },
+    'ময়মনসিংহ অঞ্চল': { x: 230, y: 220 },
     'কুমিল্লা অঞ্চল': { x: 300, y: 375 },
-    'খুলনা অঞ্চল': { x: 110, y: 445 },
-    'বরিশাল অঞ্চল': { x: 205, y: 445 },
-    'পটুয়াখালী অঞ্চল': { x: 190, y: 510 },
     'চট্টগ্রাম অঞ্চল': { x: 330, y: 450 },
     'রাঙ্গামাটি অঞ্চল': { x: 360, y: 500 },
+    'সিলেট অঞ্চল': { x: 355, y: 205 },
+    'রাজশাহী অঞ্চল': { x: 130, y: 280 },
+    'বগুড়া অঞ্চল': { x: 145, y: 200 },
+    'রংপুর অঞ্চল': { x: 145, y: 100 },
+    'দিনাজপুর অঞ্চল': { x: 80, y: 130 },
+    'খুলনা অঞ্চল': { x: 110, y: 445 },
+    'যশোর অঞ্চল': { x: 95, y: 390 },
+    'বরিশাল অঞ্চল': { x: 205, y: 445 },
+    'ফরিদপুর অঞ্চল': { x: 195, y: 380 },
   };
-  const regionEntries = Object.entries(byRegion).filter(([rg])=>REGION_POS[rg]);
+  // সব ১৪টা অফিসিয়াল অঞ্চলই মানচিত্রে দেখাবে, যেই অঞ্চলে এখনো কোনো center 
+  // নেই (০টা), সেটাও দেখাবে (শুধু data-তে থাকা অঞ্চল না)
+  const regionEntries = Object.keys(REGION_POS).map(rg => [rg, byRegion[rg] || { centers: [] }]);
   const maxRegionCount = Math.max(...regionEntries.map(([,d])=>d.centers.length), 1);
 
   return(
@@ -150,8 +154,12 @@ export default function SaDistrictSummary(){
               })}
             </svg>
           </div>
-          {selectedRegion && byRegion[selectedRegion] ? (
+          {selectedRegion && byRegion[selectedRegion]?.centers.length ? (
             <GroupCard name={selectedRegion} subtitle="" centers={byRegion[selectedRegion].centers} stats={calcStats(byRegion[selectedRegion].centers)} navigate={navigate}/>
+          ) : selectedRegion ? (
+            <div style={{textAlign:'center',padding:'30px 0',color:C.muted,fontSize:13,background:C.card,border:`1px solid ${C.border}`,borderRadius:12}}>
+              <strong style={{color:C.text}}>{selectedRegion}</strong>-এ এখনো কোনো সেন্টার নেই
+            </div>
           ) : (
             <div style={{textAlign:'center',padding:'20px 0',color:C.muted,fontSize:13}}>
               মানচিত্রে কোনো অঞ্চলে ক্লিক করে সেই অঞ্চলের center-সমূহ দেখুন
