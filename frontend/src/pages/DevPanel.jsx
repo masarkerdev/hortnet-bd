@@ -518,9 +518,28 @@ function Panel({ dev, onLogout }) {
               <div style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>🔑 Password Reset</div>
               <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, padding:20 }}>
                 <div style={{ marginBottom:14 }}>
-                  <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>Admin Email</label>
-                  <input value={resetEmail} onChange={e=>setResetEmail(e.target.value)} placeholder="email@example.com" style={inp}/>
+                  <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>যেই Admin-এর password reset করবেন</label>
+                  <select value={resetEmail} onChange={e=>setResetEmail(e.target.value)} style={inp}>
+                    <option value="">-- Admin বেছে নিন --</option>
+                    {admins.map(a=>(
+                      <option key={a.id} value={a.email}>{a.name} — {a.email} ({a.role})</option>
+                    ))}
+                  </select>
                 </div>
+                {resetEmail && (() => {
+                  const selected = admins.find(a => a.email === resetEmail);
+                  if (!selected) return null;
+                  return (
+                    <div style={{ background:'#0d2b17', border:`1px solid ${V.green}`, borderRadius:8, padding:'12px 14px', marginBottom:14 }}>
+                      <div style={{ fontSize:11, color:V.muted, marginBottom:4 }}>নিশ্চিত করুন — এই admin-এর password reset হচ্ছে:</div>
+                      <div style={{ fontSize:14, fontWeight:700, color:'#fff' }}>{selected.name}</div>
+                      <div style={{ fontSize:12, color:V.blue }}>{selected.email}</div>
+                      <div style={{ fontSize:11, color:V.muted, marginTop:2 }}>
+                        Role: {selected.role} · {selected.is_active ? '✅ সক্রিয়' : '❌ বন্ধ'}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div style={{ marginBottom:16 }}>
                   <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>নতুন Password</label>
                   <input type="text" value={resetPass} onChange={e=>setResetPass(e.target.value)} placeholder="NewPass@2026" style={inp}/>
@@ -528,8 +547,8 @@ function Panel({ dev, onLogout }) {
                 <div style={{ background:'#2d1a00', border:`1px solid ${V.amber}`, borderRadius:8, padding:'10px 12px', fontSize:12, color:V.amber, marginBottom:14 }}>
                   ⚠️ এই action audit log-এ রেকর্ড হবে।
                 </div>
-                <button onClick={resetPassword}
-                  style={{ width:'100%', padding:'10px', background:V.red, border:'none', borderRadius:8, color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:FONT }}>
+                <button onClick={resetPassword} disabled={!resetEmail}
+                  style={{ width:'100%', padding:'10px', background:V.red, border:'none', borderRadius:8, color:'#fff', fontSize:14, fontWeight:700, cursor:resetEmail?'pointer':'not-allowed', fontFamily:FONT, opacity:resetEmail?1:0.5 }}>
                   🔑 Password Reset করুন
                 </button>
               </div>
