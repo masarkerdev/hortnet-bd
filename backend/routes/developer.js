@@ -237,11 +237,22 @@ router.put("/center-admins/:slug", devAuth, async (req, res) => {
 
     const db = getPool(tenant.db_url, slug);
 
+    // email আসলেই বদলেছে কিনা যাচাই করি (পুরনো মান নিয়ে)
+    const oldRow = await db.query("SELECT email FROM users WHERE role='admin' LIMIT 1");
+    const emailChanged = oldRow.rows.length && oldRow.rows[0].email !== email;
+
     if (password) {
       const hash = await bcrypt.hash(password, 10);
+      // Dev Panel থেকে password পরিবর্তন হলে, পরবর্তী login-এ পাসওয়ার্ড 
+      // পরিবর্তন বাধ্যতামূলক করি (নিরাপত্তার জন্য)
       await db.query(
-        "UPDATE users SET name=$1, email=$2, password=$3 WHERE role='admin'",
+        "UPDATE users SET name=$1, email=$2, password=$3, must_change_password=true WHERE role='admin'",
         [name, email, hash]
+      );
+    } else if (emailChanged) {
+      await db.query(
+        "UPDATE users SET name=$1, email=$2, must_change_password=true WHERE role='admin'",
+        [name, email]
       );
     } else {
       await db.query(

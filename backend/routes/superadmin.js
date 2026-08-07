@@ -1226,11 +1226,22 @@ router.put(
       const { getPool } = require("../config/poolManager");
       const bcrypt = require("bcryptjs");
       const db = getPool(tenant.db_url, slug);
+      // email আসলেই বদলেছে কিনা যাচাই করি (পুরনো মান নিয়ে)
+      const oldRow = await db.query("SELECT email FROM users WHERE id=$1", [id]);
+      const emailChanged = oldRow.rows.length && oldRow.rows[0].email !== email;
+      // email বা password — যেকোনো একটা বদলালেই পরবর্তী login-এ পাসওয়ার্ড 
+      // পরিবর্তন বাধ্যতামূলক করি (নিরাপত্তার জন্য) — কিছুই না বদলালে 
+      // (শুধু role/name edit) আগে থেকে থাকা অবস্থা অপরিবর্তিত রাখি
       if (password) {
         const hash = await bcrypt.hash(password, 10);
         await db.query(
-          "UPDATE users SET name=$1, email=$2, role=$3, password=$4 WHERE id=$5",
+          "UPDATE users SET name=$1, email=$2, role=$3, password=$4, must_change_password=true WHERE id=$5",
           [name, email, role, hash, id],
+        );
+      } else if (emailChanged) {
+        await db.query(
+          "UPDATE users SET name=$1, email=$2, role=$3, must_change_password=true WHERE id=$4",
+          [name, email, role, id],
         );
       } else {
         await db.query(
@@ -1306,7 +1317,12 @@ router.post(
       const bcrypt = require("bcryptjs");
       const db = getPool(tenant.db_url, slug);
       const hash = await bcrypt.hash(new_password, 10);
-      await db.query("UPDATE users SET password=$1 WHERE id=$2", [hash, id]);
+      // Super Admin কর্তৃক password reset হলে, পরবর্তী login-এ পাসওয়ার্ড 
+      // পরিবর্তন বাধ্যতামূলক করি (নিরাপত্তার জন্য)
+      await db.query(
+        "UPDATE users SET password=$1, must_change_password=true WHERE id=$2",
+        [hash, id],
+      );
       res.json({ success: true, message: "Password reset হয়েছে।" });
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });
