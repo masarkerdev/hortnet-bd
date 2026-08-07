@@ -63,6 +63,42 @@ function GroupCard({name, subtitle, centers, stats, navigate}) {
   );
 }
 
+// নির্বাচিত অঞ্চলের স্টক/উৎপাদন/বিক্রয় — একটা ছোট horizontal bar chart
+function RegionMiniChart({ stats, regionName }) {
+  const bars = [
+    { label: 'মোট স্টক', value: stats.stock, fmt: fmtN(stats.stock), color: '#d97706' },
+    { label: 'মোট উৎপাদন', value: stats.prod, fmt: fmtN(stats.prod), color: '#7c3aed' },
+    { label: 'মোট বিক্রয়', value: stats.rev, fmt: fmtK(stats.rev), color: '#16a34a' },
+  ];
+  const max = Math.max(...bars.map(b => b.value), 1);
+  return (
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:'16px 18px', marginBottom:14, boxShadow:shadow }}>
+      <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:12 }}>
+        📊 {regionName} — সারসংক্ষেপ
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {bars.map(b => (
+          <div key={b.label}>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:11.5, color:C.muted, marginBottom:3 }}>
+              <span>{b.label}</span>
+              <span style={{ fontWeight:700, color:b.color }}>{b.fmt}</span>
+            </div>
+            <div style={{ height:8, borderRadius:4, background:C.card2, overflow:'hidden' }}>
+              <div style={{
+                height:'100%',
+                width:`${Math.max((b.value/max)*100, 3)}%`,
+                borderRadius:4,
+                background:b.color,
+                transition:'width .4s ease',
+              }}/>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function SaDistrictSummary(){
   const navigate=useNavigate();
   const [rows,setRows]=useState([]);
@@ -195,7 +231,10 @@ export default function SaDistrictSummary(){
             </div>
           </div>
           {selectedRegion && byRegion[selectedRegion]?.centers.length ? (
-            <GroupCard name={selectedRegion} subtitle="" centers={byRegion[selectedRegion].centers} stats={calcStats(byRegion[selectedRegion].centers)} navigate={navigate}/>
+            <>
+              <RegionMiniChart stats={calcStats(byRegion[selectedRegion].centers)} regionName={selectedRegion} />
+              <GroupCard name={selectedRegion} subtitle="" centers={byRegion[selectedRegion].centers} stats={calcStats(byRegion[selectedRegion].centers)} navigate={navigate}/>
+            </>
           ) : selectedRegion ? (
             <div style={{textAlign:'center',padding:'30px 0',color:C.muted,fontSize:13,background:C.card,border:`1px solid ${C.border}`,borderRadius:12}}>
               <strong style={{color:C.text}}>{selectedRegion}</strong>-এ এখনো কোনো সেন্টার নেই
