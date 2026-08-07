@@ -67,7 +67,8 @@ export default function SaDistrictSummary(){
   const navigate=useNavigate();
   const [rows,setRows]=useState([]);
   const [loading,setLoading]=useState(true);
-  const [view,setView]=useState('district');
+  const [view,setView]=useState('region');
+  const [hoverRegion,setHoverRegion]=useState(null);
   const [selectedRegion,setSelectedRegion]=useState(null);
   useEffect(()=>{saApi.get('/stats-all').then(r=>setRows(r.data?.data||[])).finally(()=>setLoading(false));},[]);
   const ok=rows.filter(c=>c.status==='ok'||c.total_revenue!=null);
@@ -117,7 +118,7 @@ export default function SaDistrictSummary(){
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:10}}>
         <div style={{fontSize:17,fontWeight:700,color:C.text}}>🗺️ DAE অঞ্চল ভিত্তিক সারসংক্ষেপ</div>
         <div style={{display:'flex',gap:6}}>
-          {[['district','জেলা'],['division','বিভাগ'],['region','🗺️ DAE অঞ্চল']].map(([t,l])=>(
+          {[['region','🗺️ DAE অঞ্চল'],['district','জেলা'],['division','বিভাগ']].map(([t,l])=>(
             <button key={t} onClick={()=>{setView(t);setSelectedRegion(null);}} style={{padding:'7px 16px',borderRadius:7,fontSize:13,cursor:'pointer',fontFamily:FONT,border:view===t?'none':`1px solid ${C.border}`,background:view===t?C.accent:'#fff',color:view===t?'#fff':C.muted,fontWeight:view===t?600:400}}>
               {l}
             </button>
@@ -135,24 +136,63 @@ export default function SaDistrictSummary(){
           <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
             🗺️ বাংলাদেশের প্রকৃত বিভাগ-সীমানা মানচিত্র — একটি অঞ্চলে ক্লিক করে সেই অঞ্চলের center-সমূহ দেখুন
           </div>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:20,marginBottom:16,boxShadow:shadow}}>
-            <svg viewBox="0 0 437.80637 601.16034" style={{width:'100%',maxWidth:400,display:'block',margin:'0 auto'}}>
+          <div style={{
+            backgroundImage:'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.5) 100%), url(/map-background.webp)',
+            backgroundSize:'cover',
+            backgroundPosition:'center',
+            border:`1px solid ${C.border}`,
+            borderRadius:14,
+            padding:'28px 20px 20px',
+            marginBottom:16,
+            boxShadow:'0 4px 16px rgba(0,0,0,0.08)',
+            position:'relative',
+          }}>
+            <style>{`
+              .dae-region-marker circle { transition: r .18s ease, fill .18s ease, stroke-width .18s ease; }
+              .dae-region-marker:hover circle { filter: brightness(1.12); }
+            `}</style>
+            <svg viewBox="0 0 437.80637 601.16034" style={{width:'100%',maxWidth:400,display:'block',margin:'0 auto',filter:'drop-shadow(0 2px 6px rgba(0,0,0,0.12))'}}>
+              <defs>
+                <filter id="markerShadow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feDropShadow dx="0" dy="1.5" stdDeviation="1.8" floodColor="#1a3d0a" floodOpacity="0.35"/>
+                </filter>
+              </defs>
               {BD_DIVISIONS.map(dv=>(
-                <path key={dv.id} d={dv.d} fill="#eef5ec" stroke="#c7ddc0" strokeWidth="1.2"/>
+                <path key={dv.id} d={dv.d} fill="#eef5ecc0" stroke="#8fb583" strokeWidth="1.1"/>
               ))}
               {regionEntries.map(([rg,data])=>{
                 const pos=REGION_POS[rg];
                 const isSel=selectedRegion===rg;
-                const r = 12 + (data.centers.length/maxRegionCount)*13;
+                const isHov=hoverRegion===rg;
+                const count=data.centers.length;
+                const r = count ? 12 + (count/maxRegionCount)*13 : 8;
+                const fillCol = isSel ? C.accent : count ? '#3b6d11e0' : '#9aa79488';
                 return (
-                  <g key={rg} onClick={()=>setSelectedRegion(isSel?null:rg)} style={{cursor:'pointer'}}>
-                    <circle cx={pos.x} cy={pos.y} r={r} fill={isSel?C.accent:'#3b6d11cc'} stroke={isSel?'#2a4d0c':C.accent} strokeWidth={isSel?2.5:1.3} />
-                    <text x={pos.x} y={pos.y+4} textAnchor="middle" fontSize={11} fontWeight={700} fill="#fff" style={{pointerEvents:'none'}}>{toBn(data.centers.length)}</text>
-                    <text x={pos.x} y={pos.y+r+13} textAnchor="middle" fontSize={10.5} fontWeight={isSel?700:500} fill={isSel?C.accent:C.text} style={{pointerEvents:'none'}}>{rg.replace(' অঞ্চল','')}</text>
+                  <g key={rg} className="dae-region-marker" filter="url(#markerShadow)"
+                     onClick={()=>setSelectedRegion(isSel?null:rg)}
+                     onMouseEnter={()=>setHoverRegion(rg)}
+                     onMouseLeave={()=>setHoverRegion(null)}
+                     style={{cursor:'pointer'}}>
+                    <circle cx={pos.x} cy={pos.y} r={isSel||isHov?r+2:r} fill={fillCol} stroke={isSel?'#2a4d0c':'#fff'} strokeWidth={isSel?2.5:1.6} />
+                    <text x={pos.x} y={pos.y+4} textAnchor="middle" fontSize={11} fontWeight={700} fill="#fff" style={{pointerEvents:'none'}}>{toBn(count)}</text>
+                    <g style={{pointerEvents:'none'}}>
+                      <rect x={pos.x-38} y={pos.y+r+3} width={76} height={15} rx={7} fill="rgba(255,255,255,0.88)"/>
+                      <text x={pos.x} y={pos.y+r+13.5} textAnchor="middle" fontSize={10} fontWeight={isSel?700:600} fill={isSel?C.accent:'#33422f'}>{rg.replace(' অঞ্চল','')}</text>
+                    </g>
                   </g>
                 );
               })}
             </svg>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:14,marginTop:10,fontSize:10.5,color:'#33422f',background:'rgba(255,255,255,0.7)',borderRadius:8,padding:'5px 10px',width:'fit-content',margin:'10px auto 0'}}>
+              <span style={{display:'flex',alignItems:'center',gap:4}}>
+                <span style={{width:10,height:10,borderRadius:'50%',background:'#3b6d11e0',display:'inline-block'}}/>
+                সেন্টার আছে (বৃত্তের আকার = সংখ্যা)
+              </span>
+              <span style={{display:'flex',alignItems:'center',gap:4}}>
+                <span style={{width:8,height:8,borderRadius:'50%',background:'#9aa79488',display:'inline-block'}}/>
+                কোনো সেন্টার নেই
+              </span>
+            </div>
           </div>
           {selectedRegion && byRegion[selectedRegion]?.centers.length ? (
             <GroupCard name={selectedRegion} subtitle="" centers={byRegion[selectedRegion].centers} stats={calcStats(byRegion[selectedRegion].centers)} navigate={navigate}/>
