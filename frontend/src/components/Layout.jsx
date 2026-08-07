@@ -235,8 +235,8 @@ const SECTIONS = [
     ],
   },
   {
-    en: "ADMIN",
-    bn: "প্রশাসন",
+    en: "USER",
+    bn: "ইউজার ও সেটিংস",
     collapsible: true,
     items: [
       {
@@ -280,7 +280,7 @@ function fyOptions() {
   return arr;
 }
 
-// প্রথম login-এ বাধ্যতামূলক পাসওয়ার্ড পরিবর্তন — এই স্ক্রিন না পার হলে 
+// প্রথম login-এ বাধ্যতামূলক পাসওয়ার্ড পরিবর্তন — এই স্ক্রিন না পার হলে
 // বাকি App-এর কোনো অংশে যাওয়া যাবে না
 // eye-icon সহ password input — চাপলে পাসওয়ার্ড দেখা/লুকানো যাবে
 function PasswordField({ value, onChange, placeholder }) {
@@ -386,8 +386,7 @@ function WelcomeModal({ user, onContinue }) {
             left: 0,
             right: 0,
             height: 5,
-            background:
-              "linear-gradient(90deg, var(--sa), #97bc62, var(--sa))",
+            background: "linear-gradient(90deg, var(--sa), #97bc62, var(--sa))",
             backgroundSize: "200% 100%",
             animation: "hc-shimmer 2.5s linear infinite",
           }}
@@ -401,16 +400,29 @@ function WelcomeModal({ user, onContinue }) {
         >
           🌿
         </div>
-        <div className="mb-1 text-[19px] font-bold leading-snug" style={{ color: "var(--sa)" }}>
+        <div
+          className="mb-1 text-[19px] font-bold leading-snug"
+          style={{ color: "var(--sa)" }}
+        >
           {greeting}, {designation} {firstName}!
         </div>
-        <div className="mb-3 text-[14px] font-semibold" style={{ color: "var(--tp)" }}>
+        <div
+          className="mb-3 text-[14px] font-semibold"
+          style={{ color: "var(--tp)" }}
+        >
           HortNet-BD-এ আপনাকে স্বাগতম।
         </div>
-        <div className="mb-1.5 text-[13.5px] leading-relaxed" style={{ color: "var(--tp)" }}>
-          বাংলাদেশের উদ্যানতত্ত্ব সেবাকে আরও স্মার্ট, দ্রুত ও কার্যকর করতে আপনার সহযাত্রী হতে পেরে আমরা আনন্দিত।
+        <div
+          className="mb-1.5 text-[13.5px] leading-relaxed"
+          style={{ color: "var(--tp)" }}
+        >
+          বাংলাদেশের উদ্যানতত্ত্ব সেবাকে আরও স্মার্ট, দ্রুত ও কার্যকর করতে আপনার
+          সহযাত্রী হতে পেরে আমরা আনন্দিত।
         </div>
-        <div className="mb-6 text-[13.5px] leading-relaxed" style={{ color: "var(--tp)" }}>
+        <div
+          className="mb-6 text-[13.5px] leading-relaxed"
+          style={{ color: "var(--tp)" }}
+        >
           আপনার আজকের কর্মদিবস হোক সফল ও ফলপ্রসূ।
         </div>
         <button
@@ -472,10 +484,16 @@ function ForcePasswordChange() {
         style={{ background: "var(--card)", borderColor: "var(--bd)" }}
       >
         <div className="mb-1 text-center text-2xl">🔐</div>
-        <div className="mb-1 text-center text-[17px] font-bold" style={{ color: "var(--sa)" }}>
+        <div
+          className="mb-1 text-center text-[17px] font-bold"
+          style={{ color: "var(--sa)" }}
+        >
           পাসওয়ার্ড পরিবর্তন আবশ্যক
         </div>
-        <div className="mb-5 text-center text-[13px]" style={{ color: "var(--st)" }}>
+        <div
+          className="mb-5 text-center text-[13px]"
+          style={{ color: "var(--st)" }}
+        >
           নিরাপত্তার জন্য, প্রথমবার ব্যবহারের আগে আপনার পাসওয়ার্ড পরিবর্তন করুন
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -529,7 +547,9 @@ export default function Layout() {
   const [openSection, setOpenSection] = useState(() => {
     // পেজ লোড হওয়ার সময়, বর্তমান route যেই বিভাগে আছে, সেটাই automatic খোলা থাকবে
     const active = SECTIONS.find((sec) =>
-      sec.items.some((it) => loc.pathname === it.to || loc.pathname.startsWith(it.to + "/")),
+      sec.items.some(
+        (it) => loc.pathname === it.to || loc.pathname.startsWith(it.to + "/"),
+      ),
     );
     return active ? active.en : null;
   });
@@ -546,11 +566,15 @@ export default function Layout() {
   // ব্যক্তিগত custom_permissions থাকলে সেটাই ব্যবহার হবে, না থাকলে role-ভিত্তিক default
   let customPerms = null;
   try {
-    customPerms = user?.custom_permissions ? JSON.parse(user.custom_permissions) : null;
+    customPerms = user?.custom_permissions
+      ? JSON.parse(user.custom_permissions)
+      : null;
   } catch (e) {
     customPerms = null;
   }
-  const allowed = Array.isArray(customPerms) ? customPerms : (ACCESS[user?.role] || ["dash"]);
+  const allowed = Array.isArray(customPerms)
+    ? customPerms
+    : ACCESS[user?.role] || ["dash"];
   const can = (k) => allowed.includes(k);
   const [profileOpen, setProfileOpen] = useState(false);
   const [recycleCount, setRecycleCount] = useState(0);
@@ -560,9 +584,12 @@ export default function Layout() {
   const [dailyTips, setDailyTips] = useState([]);
 
   useEffect(() => {
-    api.get("/daily-tip").then((r) => {
-      if (r.data?.success) setDailyTips(r.data.tips || []);
-    }).catch(() => {});
+    api
+      .get("/daily-tip")
+      .then((r) => {
+        if (r.data?.success) setDailyTips(r.data.tips || []);
+      })
+      .catch(() => {});
   }, []);
 
   const [unseenBudgetNotice, setUnseenBudgetNotice] = useState(false);
@@ -576,7 +603,11 @@ export default function Layout() {
         .then((r) => {
           if (r.data?.success) {
             const d = r.data.data;
-            setPendingCount((d.sales?.length || 0) + (d.production?.length || 0) + (d.income?.length || 0));
+            setPendingCount(
+              (d.sales?.length || 0) +
+                (d.production?.length || 0) +
+                (d.income?.length || 0),
+            );
           }
         })
         .catch(() => {});
@@ -735,7 +766,9 @@ export default function Layout() {
   if (user?.must_change_password) {
     return (
       <>
-        {justLoggedIn && <WelcomeModal user={user} onContinue={dismissWelcome} />}
+        {justLoggedIn && (
+          <WelcomeModal user={user} onContinue={dismissWelcome} />
+        )}
         <ForcePasswordChange />
       </>
     );
@@ -776,7 +809,9 @@ export default function Layout() {
             return (
               <div key={sec.en} className="mb-3">
                 <div
-                  onClick={isCollapsible ? () => toggleSection(sec.en) : undefined}
+                  onClick={
+                    isCollapsible ? () => toggleSection(sec.en) : undefined
+                  }
                   className="flex items-center justify-between px-3 py-2 mb-1.5 rounded-xl"
                   style={{
                     color: isOpen ? "#fff" : "var(--st)",
@@ -786,17 +821,23 @@ export default function Layout() {
                     boxShadow: isOpen ? "0 2px 6px rgba(0,0,0,0.15)" : "none",
                     cursor: isCollapsible ? "pointer" : "default",
                     userSelect: "none",
-                    transition: "background .18s ease, box-shadow .18s ease, color .18s ease",
+                    transition:
+                      "background .18s ease, box-shadow .18s ease, color .18s ease",
                   }}
                   onMouseEnter={(e) => {
-                    if (!isOpen && isCollapsible) e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+                    if (!isOpen && isCollapsible)
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.06)";
                   }}
                   onMouseLeave={(e) => {
-                    if (!isOpen) e.currentTarget.style.background = "transparent";
+                    if (!isOpen)
+                      e.currentTarget.style.background = "transparent";
                   }}
                 >
                   <div style={{ lineHeight: 1.25 }}>
-                    <div style={{ fontSize: 16, fontWeight: 400 }}>{sec.bn}</div>
+                    <div style={{ fontSize: 16, fontWeight: 400 }}>
+                      {sec.bn}
+                    </div>
                     <div
                       style={{
                         fontSize: 9,
@@ -823,57 +864,61 @@ export default function Layout() {
                   )}
                 </div>
                 {isOpen && (
-                <div className="space-y-0.5 relative ml-2 pl-3" style={{ borderLeft: "2px solid rgba(255,255,255,0.14)" }}>
-                  {items.map((it) => (
-                    <div key={it.to} style={{ position: "relative" }}>
-                      <span
-                        style={{
-                          position: "absolute",
-                          left: -12,
-                          top: "50%",
-                          width: 10,
-                          height: 2,
-                          background: "rgba(255,255,255,0.14)",
-                          transform: "translateY(-50%)",
-                        }}
-                      />
-                      <NavLink
-                      to={it.to}
-                      end={it.end}
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] transition hover:bg-white/5"
-                      style={({ isActive }) =>
-                        isActive
-                          ? {
-                              background: "rgba(255,255,255,0.1)",
-                              color: "#fff",
-                              fontWeight: 600,
-                              borderLeft: "2px solid var(--sa)",
-                            }
-                          : { color: "var(--st)" }
-                      }
-                    >
-                      <it.icon className="h-[18px] w-[18px]" />
-                      {it.label}
-                      {it.to === "/dashboard/pending-approvals" && pendingCount > 0 && (
+                  <div
+                    className="space-y-0.5 relative ml-2 pl-3"
+                    style={{ borderLeft: "2px solid rgba(255,255,255,0.14)" }}
+                  >
+                    {items.map((it) => (
+                      <div key={it.to} style={{ position: "relative" }}>
                         <span
                           style={{
-                            marginLeft: "auto",
-                            background: "#dc2626",
-                            color: "#fff",
-                            borderRadius: 10,
-                            fontSize: 10.5,
-                            fontWeight: 700,
-                            padding: "1px 7px",
+                            position: "absolute",
+                            left: -12,
+                            top: "50%",
+                            width: 10,
+                            height: 2,
+                            background: "rgba(255,255,255,0.14)",
+                            transform: "translateY(-50%)",
                           }}
+                        />
+                        <NavLink
+                          to={it.to}
+                          end={it.end}
+                          onClick={() => setOpen(false)}
+                          className="flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] transition hover:bg-white/5"
+                          style={({ isActive }) =>
+                            isActive
+                              ? {
+                                  background: "rgba(255,255,255,0.1)",
+                                  color: "#fff",
+                                  fontWeight: 600,
+                                  borderLeft: "2px solid var(--sa)",
+                                }
+                              : { color: "var(--st)" }
+                          }
                         >
-                          {pendingCount}
-                        </span>
-                      )}
-                    </NavLink>
-                    </div>
-                  ))}
-                </div>
+                          <it.icon className="h-[18px] w-[18px]" />
+                          {it.label}
+                          {it.to === "/dashboard/pending-approvals" &&
+                            pendingCount > 0 && (
+                              <span
+                                style={{
+                                  marginLeft: "auto",
+                                  background: "#dc2626",
+                                  color: "#fff",
+                                  borderRadius: 10,
+                                  fontSize: 10.5,
+                                  fontWeight: 700,
+                                  padding: "1px 7px",
+                                }}
+                              >
+                                {pendingCount}
+                              </span>
+                            )}
+                        </NavLink>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             );
@@ -914,7 +959,9 @@ export default function Layout() {
           >
             <IcMenu className="h-5 w-5" />
           </button>
-          <h1 className="text-base sm:text-xl font-bold tracking-tight">{title}</h1>
+          <h1 className="text-base sm:text-xl font-bold tracking-tight">
+            {title}
+          </h1>
 
           {dailyTips.length > 0 && (
             <>
@@ -940,8 +987,17 @@ export default function Layout() {
                   position: "relative",
                 }}
               >
-                <span style={{ fontSize: 15, flexShrink: 0, zIndex: 1 }}>💡</span>
-                <div style={{ flex: 1, overflow: "hidden", position: "relative", height: 20 }}>
+                <span style={{ fontSize: 15, flexShrink: 0, zIndex: 1 }}>
+                  💡
+                </span>
+                <div
+                  style={{
+                    flex: 1,
+                    overflow: "hidden",
+                    position: "relative",
+                    height: 20,
+                  }}
+                >
                   <span
                     style={{
                       position: "absolute",
@@ -1195,9 +1251,15 @@ export default function Layout() {
                     localStorage.getItem("seen_budget_notices") || "[]",
                   );
                   const newSeen = [
-                    ...new Set([...seenBudget, ...budgetNotices.map((n) => n.id)]),
+                    ...new Set([
+                      ...seenBudget,
+                      ...budgetNotices.map((n) => n.id),
+                    ]),
                   ];
-                  localStorage.setItem("seen_budget_notices", JSON.stringify(newSeen));
+                  localStorage.setItem(
+                    "seen_budget_notices",
+                    JSON.stringify(newSeen),
+                  );
                   setUnseenBudgetNotice(false);
                 } catch {}
               }}
