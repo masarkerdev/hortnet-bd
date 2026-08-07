@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
   role                    VARCHAR(30)  NOT NULL DEFAULT 'viewer',
   phone                   VARCHAR(20),
   is_active               BOOLEAN DEFAULT true,
+  must_change_password    BOOLEAN DEFAULT true,
   pending_password        TEXT,
   password_request_status TEXT,
   custom_permissions      TEXT,

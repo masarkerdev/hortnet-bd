@@ -2182,6 +2182,7 @@ router.post("/auth/verify-otp", async (req, res) => {
         name: user.rows[0].name,
         email: user.rows[0].email,
         role: user.rows[0].role,
+        must_change_password: user.rows[0].must_change_password === true,
       },
     });
   } catch (err) {

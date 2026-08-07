@@ -280,6 +280,116 @@ function fyOptions() {
   return arr;
 }
 
+// প্রথম login-এ বাধ্যতামূলক পাসওয়ার্ড পরিবর্তন — এই স্ক্রিন না পার হলে 
+// বাকি App-এর কোনো অংশে যাওয়া যাবে না
+function ForcePasswordChange() {
+  const { user, updateUser, logout } = useAuth();
+  const [oldPw, setOldPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setErr("");
+    if (newPw.length < 6) {
+      setErr("নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।");
+      return;
+    }
+    if (newPw !== confirmPw) {
+      setErr("নতুন পাসওয়ার্ড দুই জায়গায় মিলছে না।");
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await api.put("/auth/change-password", {
+        old_password: oldPw,
+        new_password: newPw,
+      });
+      if (r.data?.success) {
+        updateUser({ must_change_password: false });
+      } else {
+        setErr(r.data?.message || "পাসওয়ার্ড পরিবর্তন করা যায়নি।");
+      }
+    } catch (e2) {
+      setErr(e2?.response?.data?.message || "সমস্যা হয়েছে, আবার চেষ্টা করুন।");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center px-4"
+      style={{ background: "var(--bg)" }}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl border p-6"
+        style={{ background: "var(--card)", borderColor: "var(--bd)" }}
+      >
+        <div className="mb-1 text-center text-2xl">🔐</div>
+        <div className="mb-1 text-center text-[16px] font-bold" style={{ color: "var(--tx)" }}>
+          পাসওয়ার্ড পরিবর্তন আবশ্যক
+        </div>
+        <div className="mb-5 text-center text-[13px]" style={{ color: "var(--st)" }}>
+          নিরাপত্তার জন্য, প্রথমবার ব্যবহারের আগে আপনার পাসওয়ার্ড পরিবর্তন করুন
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            type="password"
+            placeholder="বর্তমান (প্রাথমিক) পাসওয়ার্ড"
+            value={oldPw}
+            onChange={(e) => setOldPw(e.target.value)}
+            required
+            className="w-full rounded-lg border px-3 py-2.5 text-[14px]"
+            style={{ borderColor: "var(--bd)" }}
+          />
+          <input
+            type="password"
+            placeholder="নতুন পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)"
+            value={newPw}
+            onChange={(e) => setNewPw(e.target.value)}
+            required
+            className="w-full rounded-lg border px-3 py-2.5 text-[14px]"
+            style={{ borderColor: "var(--bd)" }}
+          />
+          <input
+            type="password"
+            placeholder="নতুন পাসওয়ার্ড আবার লিখুন"
+            value={confirmPw}
+            onChange={(e) => setConfirmPw(e.target.value)}
+            required
+            className="w-full rounded-lg border px-3 py-2.5 text-[14px]"
+            style={{ borderColor: "var(--bd)" }}
+          />
+          {err && (
+            <div className="text-[12.5px]" style={{ color: "#dc2626" }}>
+              {err}
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full rounded-lg py-2.5 text-[14px] font-semibold text-white"
+            style={{ background: "var(--sa)", opacity: busy ? 0.7 : 1 }}
+          >
+            {busy ? "পরিবর্তন হচ্ছে…" : "পাসওয়ার্ড পরিবর্তন করুন"}
+          </button>
+          <button
+            type="button"
+            onClick={logout}
+            className="w-full text-center text-[12.5px]"
+            style={{ color: "var(--st)" }}
+          >
+            লগআউট করুন
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -490,6 +600,10 @@ export default function Layout() {
 
   const title = TITLES[loc.pathname] || "";
   const initials = (user?.name || "U").trim().slice(0, 2).toUpperCase();
+
+  if (user?.must_change_password) {
+    return <ForcePasswordChange />;
+  }
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>

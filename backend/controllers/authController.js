@@ -52,7 +52,7 @@ const login = async (req, res) => {
 const getProfile = async (req, res) => {
     try {
         const result = await db.query(
-            'SELECT id, name, email, role, custom_permissions, created_at FROM users WHERE id = $1', [req.user.id]
+            'SELECT id, name, email, role, custom_permissions, must_change_password, created_at FROM users WHERE id = $1', [req.user.id]
         );
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -76,7 +76,7 @@ const changePassword = async (req, res) => {
         }
 
         const hashed = await bcrypt.hash(new_password, 10);
-        await db.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, req.user.id]);
+        await db.query('UPDATE users SET password = $1, must_change_password = false WHERE id = $2', [hashed, req.user.id]);
 
         res.json({ success: true, message: 'পাসওয়ার্ড পরিবর্তন হয়েছে।' });
     } catch (err) {

@@ -30,8 +30,8 @@ const createUser = async (req, res) => {
         const hashed = await bcrypt.hash(password, 10);
         const permsStr = Array.isArray(custom_permissions) ? JSON.stringify(custom_permissions) : null;
         const result = await db.query(
-            `INSERT INTO users (name, email, password, role, phone, custom_permissions)
-             VALUES ($1, $2, $3, $4, $5, $6)
+            `INSERT INTO users (name, email, password, role, phone, custom_permissions, must_change_password)
+             VALUES ($1, $2, $3, $4, $5, $6, true)
              RETURNING id, name, email, role, phone, custom_permissions, created_at`,
             [name, email, hashed, role, phone || null, permsStr]
         );

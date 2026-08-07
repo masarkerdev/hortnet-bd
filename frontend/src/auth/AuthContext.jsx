@@ -46,8 +46,17 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  // পাসওয়ার্ড পরিবর্তনের পর local user state আপডেট করার জন্য (পুরো পেজ reload ছাড়াই)
+  function updateUser(patch) {
+    setUser((prev) => {
+      const next = { ...prev, ...patch };
+      sessionStorage.setItem('hc_me', JSON.stringify(next));
+      return next;
+    });
+  }
+
   return (
-    <AuthContext.Provider value={{ token, user, loading, sendOtp, verifyOtp, logout }}>
+    <AuthContext.Provider value={{ token, user, loading, sendOtp, verifyOtp, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
