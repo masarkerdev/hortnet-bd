@@ -407,9 +407,11 @@ function WelcomeModal({ user, onContinue }) {
         <div className="mb-3 text-[14px] font-semibold" style={{ color: "var(--tx)" }}>
           HortNet-BD-এ আপনাকে স্বাগতম।
         </div>
-        <div className="mb-6 text-[13px] leading-relaxed" style={{ color: "var(--st)" }}>
-          বাংলাদেশের উদ্যানতত্ত্ব সেবাকে আরও স্মার্ট, দ্রুত ও কার্যকর করতে আপনার
-          সহযাত্রী হতে পেরে আমরা আনন্দিত। আপনার আজকের কর্মদিবস হোক সফল ও ফলপ্রসূ।
+        <div className="mb-1.5 text-[13.5px] leading-relaxed" style={{ color: "var(--tx)" }}>
+          বাংলাদেশের উদ্যানতত্ত্ব সেবাকে আরও স্মার্ট, দ্রুত ও কার্যকর করতে আপনার সহযাত্রী হতে পেরে আমরা আনন্দিত।
+        </div>
+        <div className="mb-6 text-[13.5px] leading-relaxed" style={{ color: "var(--tx)" }}>
+          আপনার আজকের কর্মদিবস হোক সফল ও ফলপ্রসূ।
         </div>
         <button
           onClick={onContinue}
