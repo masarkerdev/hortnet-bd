@@ -10,6 +10,7 @@ export function AuthProvider({ children }) {
     try { return JSON.parse(sessionStorage.getItem('hc_me') || 'null'); } catch { return null; }
   });
   const [loading, setLoading] = useState(Boolean(sessionStorage.getItem('hc_tk')));
+  const [justLoggedIn, setJustLoggedIn] = useState(false); // প্রতিবার login-এর পরে স্বাগতম মোডাল দেখানোর জন্য
 
   // reload-এ token বৈধ কিনা যাচাই
   useEffect(() => {
@@ -35,6 +36,7 @@ export function AuthProvider({ children }) {
       sessionStorage.setItem('hc_me', JSON.stringify(r.data.user));
       setToken(r.data.token);
       setUser(r.data.user);
+      setJustLoggedIn(true);
     }
     return r.data;
   }
@@ -56,7 +58,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ token, user, loading, sendOtp, verifyOtp, logout, updateUser }}>
+    <AuthContext.Provider value={{ token, user, loading, sendOtp, verifyOtp, logout, updateUser, justLoggedIn, dismissWelcome: () => setJustLoggedIn(false) }}>
       {children}
     </AuthContext.Provider>
   );

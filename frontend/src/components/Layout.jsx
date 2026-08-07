@@ -282,6 +282,87 @@ function fyOptions() {
 
 // প্রথম login-এ বাধ্যতামূলক পাসওয়ার্ড পরিবর্তন — এই স্ক্রিন না পার হলে 
 // বাকি App-এর কোনো অংশে যাওয়া যাবে না
+// eye-icon সহ password input — চাপলে পাসওয়ার্ড দেখা/লুকানো যাবে
+function PasswordField({ value, onChange, placeholder }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        type={show ? "text" : "password"}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required
+        className="w-full rounded-lg border py-2.5 pl-3 pr-10 text-[14px]"
+        style={{ borderColor: "var(--bd)" }}
+      />
+      <button
+        type="button"
+        onClick={() => setShow((s) => !s)}
+        style={{
+          position: "absolute",
+          right: 10,
+          top: "50%",
+          transform: "translateY(-50%)",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: "var(--st)",
+          fontSize: 16,
+          padding: 2,
+          lineHeight: 1,
+        }}
+        tabIndex={-1}
+        aria-label={show ? "পাসওয়ার্ড লুকান" : "পাসওয়ার্ড দেখান"}
+      >
+        {show ? "🙈" : "👁️"}
+      </button>
+    </div>
+  );
+}
+
+// role-এর বাংলা/ইংরেজি প্রদর্শন-নাম — Welcome modal ও Profile modal দুটোতেই ব্যবহৃত
+const ROLE_DISPLAY_NAMES = {
+  admin: "প্রশাসক (Admin)",
+  manager: "ব্যবস্থাপক (Manager)",
+  production_officer: "উৎপাদন কর্মকর্তা (Production Officer)",
+  sales_operator: "বিক্রয় কর্মকর্তা (Sales Officer)",
+  viewer: "দর্শক (Viewer)",
+};
+
+// প্রতিবার সফল login-এর পর — role নির্বিশেষে সবার জন্য — একটা স্বাগতম মোডাল
+function WelcomeModal({ user, onContinue }) {
+  const roleLabel = ROLE_DISPLAY_NAMES[user?.role] || user?.role || "";
+  return (
+    <div
+      className="fixed inset-0 z-[999] flex items-center justify-center px-4"
+      style={{ background: "rgba(0,0,0,0.5)" }}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl border p-6 text-center"
+        style={{ background: "var(--card)", borderColor: "var(--bd)" }}
+      >
+        <div className="mb-3 text-4xl">🌿</div>
+        <div className="mb-1 text-[18px] font-bold" style={{ color: "var(--sa)" }}>
+          স্বাগতম, {user?.name || "ব্যবহারকারী"}!
+        </div>
+        {roleLabel && (
+          <div className="mb-4 text-[13px]" style={{ color: "var(--st)" }}>
+            আপনি {roleLabel} হিসেবে লগইন করেছেন
+          </div>
+        )}
+        <button
+          onClick={onContinue}
+          className="w-full rounded-lg py-2.5 text-[14px] font-semibold text-white"
+          style={{ background: "var(--sa)" }}
+        >
+          ড্যাশবোর্ডে যান
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ForcePasswordChange() {
   const { user, updateUser, logout } = useAuth();
   const [oldPw, setOldPw] = useState("");
@@ -329,39 +410,27 @@ function ForcePasswordChange() {
         style={{ background: "var(--card)", borderColor: "var(--bd)" }}
       >
         <div className="mb-1 text-center text-2xl">🔐</div>
-        <div className="mb-1 text-center text-[16px] font-bold" style={{ color: "var(--tx)" }}>
+        <div className="mb-1 text-center text-[17px] font-bold" style={{ color: "var(--sa)" }}>
           পাসওয়ার্ড পরিবর্তন আবশ্যক
         </div>
         <div className="mb-5 text-center text-[13px]" style={{ color: "var(--st)" }}>
           নিরাপত্তার জন্য, প্রথমবার ব্যবহারের আগে আপনার পাসওয়ার্ড পরিবর্তন করুন
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
-          <input
-            type="password"
+          <PasswordField
             placeholder="বর্তমান (প্রাথমিক) পাসওয়ার্ড"
             value={oldPw}
-            onChange={(e) => setOldPw(e.target.value)}
-            required
-            className="w-full rounded-lg border px-3 py-2.5 text-[14px]"
-            style={{ borderColor: "var(--bd)" }}
+            onChange={setOldPw}
           />
-          <input
-            type="password"
+          <PasswordField
             placeholder="নতুন পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)"
             value={newPw}
-            onChange={(e) => setNewPw(e.target.value)}
-            required
-            className="w-full rounded-lg border px-3 py-2.5 text-[14px]"
-            style={{ borderColor: "var(--bd)" }}
+            onChange={setNewPw}
           />
-          <input
-            type="password"
+          <PasswordField
             placeholder="নতুন পাসওয়ার্ড আবার লিখুন"
             value={confirmPw}
-            onChange={(e) => setConfirmPw(e.target.value)}
-            required
-            className="w-full rounded-lg border px-3 py-2.5 text-[14px]"
-            style={{ borderColor: "var(--bd)" }}
+            onChange={setConfirmPw}
           />
           {err && (
             <div className="text-[12.5px]" style={{ color: "#dc2626" }}>
@@ -391,7 +460,7 @@ function ForcePasswordChange() {
 }
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, justLoggedIn, dismissWelcome } = useAuth();
   const navigate = useNavigate();
   const loc = useLocation();
   const [open, setOpen] = useState(false);
@@ -602,11 +671,17 @@ export default function Layout() {
   const initials = (user?.name || "U").trim().slice(0, 2).toUpperCase();
 
   if (user?.must_change_password) {
-    return <ForcePasswordChange />;
+    return (
+      <>
+        {justLoggedIn && <WelcomeModal user={user} onContinue={dismissWelcome} />}
+        <ForcePasswordChange />
+      </>
+    );
   }
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
+      {justLoggedIn && <WelcomeModal user={user} onContinue={dismissWelcome} />}
       {open && (
         <div
           className="fixed inset-0 z-30 bg-black/40 lg:hidden"
