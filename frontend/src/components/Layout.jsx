@@ -216,7 +216,7 @@ const SECTIONS = [
     ],
   },
   {
-    en: "HR",
+    en: "HRM",
     bn: "জনবল",
     collapsible: true,
     items: [
