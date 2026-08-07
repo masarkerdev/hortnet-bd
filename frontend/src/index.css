@@ -414,6 +414,19 @@
   --sa: #e0567a;
   --st: #fdedf0;
 }
+[data-theme="black"] {
+  --g50: #ececec;
+  --g100: #d4d4d4;
+  --g400: #4a4a4a;
+  --g600: #1a1a1a;
+  --g800: #0a0a0a;
+  --t50: #f0f0f0;
+  --t400: #6b6b6b;
+  --t600: #3a3a3a;
+  --sb: #0d0d0d;
+  --sa: #262626;
+  --st: #ececec;
+}
 
 /* মোবাইল ডিভাইসে পেজের নামের (h2 title) ফন্ট ছোট করা */
 @media (max-width: 640px) {

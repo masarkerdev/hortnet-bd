@@ -11,6 +11,7 @@ const THEMES = [
   { k:'orange', label:'🟠 কমলা', bg:'#fdf0e3', fg:'#a04000', dot:'#e67e22' },
   { k:'teal', label:'🟦 টিল', bg:'#e6f7f5', fg:'#0e6655', dot:'#17a589' },
   { k:'rose', label:'🌸 গোলাপি', bg:'#fdedf0', fg:'#a1284a', dot:'#e0567a' },
+  { k:'black', label:'⚫ কালো', bg:'#ececec', fg:'#1a1a1a', dot:'#1a1a1a' },
 ];
 
 export default function Settings() {
@@ -28,7 +29,7 @@ export default function Settings() {
   function setTheme(t) { setThemeState(t); document.documentElement.setAttribute('data-theme', t); localStorage.setItem('hc_theme', t); }
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div className="space-y-4" style={{ maxWidth: 720 }}>
       {/* থিম ও ডিজাইন */}
       <div className="cd">
         <div className="cdt">🎨 থিম ও ডিজাইন</div>
