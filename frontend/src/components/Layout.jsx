@@ -545,7 +545,7 @@ export default function Layout() {
                   }}
                 >
                   <div style={{ lineHeight: 1.25 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>{sec.bn}</div>
+                    <div style={{ fontSize: 16, fontWeight: 400 }}>{sec.bn}</div>
                     <div
                       style={{
                         fontSize: 9,
@@ -572,10 +572,21 @@ export default function Layout() {
                   )}
                 </div>
                 {isOpen && (
-                <div className="space-y-0.5">
+                <div className="space-y-0.5 relative ml-2 pl-3" style={{ borderLeft: "2px solid rgba(255,255,255,0.14)" }}>
                   {items.map((it) => (
-                    <NavLink
-                      key={it.to}
+                    <div key={it.to} style={{ position: "relative" }}>
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: -12,
+                          top: "50%",
+                          width: 10,
+                          height: 2,
+                          background: "rgba(255,255,255,0.14)",
+                          transform: "translateY(-50%)",
+                        }}
+                      />
+                      <NavLink
                       to={it.to}
                       end={it.end}
                       onClick={() => setOpen(false)}
@@ -583,9 +594,10 @@ export default function Layout() {
                       style={({ isActive }) =>
                         isActive
                           ? {
-                              background: "var(--sa)",
+                              background: "rgba(255,255,255,0.1)",
                               color: "#fff",
                               fontWeight: 600,
+                              borderLeft: "2px solid var(--sa)",
                             }
                           : { color: "var(--st)" }
                       }
@@ -608,6 +620,7 @@ export default function Layout() {
                         </span>
                       )}
                     </NavLink>
+                    </div>
                   ))}
                 </div>
                 )}
