@@ -321,7 +321,16 @@ function PasswordField({ value, onChange, placeholder }) {
   );
 }
 
-// role-এর বাংলা/ইংরেজি প্রদর্শন-নাম — Welcome modal ও Profile modal দুটোতেই ব্যবহৃত
+// role অনুযায়ী আনুষ্ঠানিক পদবী — Welcome modal-এ ব্যবহৃত
+const DESIGNATION_NAMES = {
+  admin: "উদ্যানতত্ত্ববিদ",
+  manager: "ব্যবস্থাপক",
+  production_officer: "উৎপাদন কর্মকর্তা",
+  sales_operator: "বিক্রয় কর্মকর্তা",
+  viewer: "পর্যবেক্ষক",
+};
+
+// role-এর বাংলা/ইংরেজি প্রদর্শন-নাম — Profile modal-এ ব্যবহৃত
 const ROLE_DISPLAY_NAMES = {
   admin: "প্রশাসক (Admin)",
   manager: "ব্যবস্থাপক (Manager)",
@@ -330,33 +339,84 @@ const ROLE_DISPLAY_NAMES = {
   viewer: "দর্শক (Viewer)",
 };
 
+// বর্তমান সময় অনুযায়ী শুভেচ্ছা বার্তা
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return "শুভ সকাল";
+  if (h >= 12 && h < 15) return "শুভ দুপুর";
+  if (h >= 15 && h < 18) return "শুভ বিকাল";
+  if (h >= 18 && h < 21) return "শুভ সন্ধ্যা";
+  return "শুভ রাত্রি";
+}
+
 // প্রতিবার সফল login-এর পর — role নির্বিশেষে সবার জন্য — একটা স্বাগতম মোডাল
 function WelcomeModal({ user, onContinue }) {
-  const roleLabel = ROLE_DISPLAY_NAMES[user?.role] || user?.role || "";
+  const designation = DESIGNATION_NAMES[user?.role] || user?.role || "";
+  const greeting = getGreeting();
+  const firstName = (user?.name || "ব্যবহারকারী").trim().split(" ")[0];
   return (
     <div
       className="fixed inset-0 z-[999] flex items-center justify-center px-4"
-      style={{ background: "rgba(0,0,0,0.5)" }}
+      style={{
+        background:
+          "radial-gradient(circle at 50% 30%, rgba(59,109,17,0.35), rgba(0,0,0,0.65))",
+        animation: "hc-welcome-fade .3s ease",
+      }}
     >
+      <style>{`
+        @keyframes hc-welcome-fade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes hc-welcome-pop { from { opacity: 0; transform: scale(.9) translateY(12px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        @keyframes hc-leaf-sway { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+        @keyframes hc-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+      `}</style>
       <div
-        className="w-full max-w-sm rounded-2xl border p-6 text-center"
-        style={{ background: "var(--card)", borderColor: "var(--bd)" }}
+        className="relative w-full max-w-sm overflow-hidden rounded-3xl border p-7 text-center"
+        style={{
+          background: "var(--card)",
+          borderColor: "var(--bd)",
+          animation: "hc-welcome-pop .4s cubic-bezier(.34,1.56,.64,1)",
+          boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+        }}
       >
-        <div className="mb-3 text-4xl">🌿</div>
-        <div className="mb-1 text-[18px] font-bold" style={{ color: "var(--sa)" }}>
-          স্বাগতম, {user?.name || "ব্যবহারকারী"}!
+        {/* উপরে সাজানো decorative gradient strip */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 5,
+            background:
+              "linear-gradient(90deg, var(--sa), #97bc62, var(--sa))",
+            backgroundSize: "200% 100%",
+            animation: "hc-shimmer 2.5s linear infinite",
+          }}
+        />
+        <div
+          className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full text-[32px]"
+          style={{
+            background: "var(--g50, #eef5ec)",
+            animation: "hc-leaf-sway 2.2s ease-in-out infinite",
+          }}
+        >
+          🌿
         </div>
-        {roleLabel && (
-          <div className="mb-4 text-[13px]" style={{ color: "var(--st)" }}>
-            আপনি {roleLabel} হিসেবে লগইন করেছেন
-          </div>
-        )}
+        <div className="mb-1 text-[19px] font-bold leading-snug" style={{ color: "var(--sa)" }}>
+          {greeting}, {designation} {firstName}!
+        </div>
+        <div className="mb-3 text-[14px] font-semibold" style={{ color: "var(--tx)" }}>
+          HortNet-BD-এ আপনাকে স্বাগতম।
+        </div>
+        <div className="mb-6 text-[13px] leading-relaxed" style={{ color: "var(--st)" }}>
+          বাংলাদেশের উদ্যানতত্ত্ব সেবাকে আরও স্মার্ট, দ্রুত ও কার্যকর করতে আপনার
+          সহযাত্রী হতে পেরে আমরা আনন্দিত। আপনার আজকের কর্মদিবস হোক সফল ও ফলপ্রসূ।
+        </div>
         <button
           onClick={onContinue}
-          className="w-full rounded-lg py-2.5 text-[14px] font-semibold text-white"
+          className="w-full rounded-xl py-3 text-[14px] font-semibold text-white transition hover:opacity-90"
           style={{ background: "var(--sa)" }}
         >
-          ড্যাশবোর্ডে যান
+          ড্যাশবোর্ডে যান →
         </button>
       </div>
     </div>
