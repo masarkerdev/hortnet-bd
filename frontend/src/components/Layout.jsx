@@ -104,6 +104,7 @@ const SECTIONS = [
   {
     en: "MAIN",
     bn: "প্রধান",
+    collapsible: false,
     items: [
       {
         to: "/dashboard",
@@ -112,23 +113,30 @@ const SECTIONS = [
         acc: "dash",
         end: true,
       },
+      {
+        to: "/dashboard/pending-approvals",
+        label: "অনুমোদনের অপেক্ষায়",
+        icon: IcClipboard,
+        acc: "pend",
+      },
     ],
   },
   {
     en: "PRODUCTION",
     bn: "উৎপাদন",
+    collapsible: true,
     items: [
-      {
-        to: "/dashboard/seedlings",
-        label: "চারা তালিকা",
-        icon: IcLeaf,
-        acc: "seed",
-      },
       {
         to: "/dashboard/production",
         label: "উৎপাদন রেজিস্টার",
         icon: IcClipboard,
         acc: "prod",
+      },
+      {
+        to: "/dashboard/seedlings",
+        label: "চারা তালিকা",
+        icon: IcLeaf,
+        acc: "seed",
       },
       {
         to: "/dashboard/mother-plants",
@@ -147,6 +155,7 @@ const SECTIONS = [
   {
     en: "INVENTORY",
     bn: "মজুদ",
+    collapsible: true,
     items: [
       {
         to: "/dashboard/stock",
@@ -171,6 +180,7 @@ const SECTIONS = [
   {
     en: "SALES",
     bn: "বিক্রয়",
+    collapsible: true,
     items: [
       {
         to: "/dashboard/sales",
@@ -195,6 +205,7 @@ const SECTIONS = [
   {
     en: "REPORTS",
     bn: "রিপোর্ট",
+    collapsible: true,
     items: [
       {
         to: "/dashboard/reports",
@@ -202,34 +213,36 @@ const SECTIONS = [
         icon: IcChart,
         acc: "rep",
       },
+    ],
+  },
+  {
+    en: "HR",
+    bn: "জনবল",
+    collapsible: true,
+    items: [
+      {
+        to: "/dashboard/employees",
+        label: "জনবল তালিকা",
+        icon: IcUsers,
+        acc: "usr",
+      },
       {
         to: "/dashboard/work-register",
         label: "কাজের বিবরণ রেজিস্টার",
         icon: IcClipboard,
         acc: "wreg",
       },
-      {
-        to: "/dashboard/pending-approvals",
-        label: "অনুমোদনের অপেক্ষায়",
-        icon: IcClipboard,
-        acc: "pend",
-      },
     ],
   },
   {
-    en: "SYSTEM",
-    bn: "সিস্টেম",
+    en: "ADMIN",
+    bn: "প্রশাসন",
+    collapsible: true,
     items: [
       {
         to: "/dashboard/users",
         label: "ব্যবহারকারী",
         icon: IcUser,
-        acc: "usr",
-      },
-      {
-        to: "/dashboard/employees",
-        label: "জনবল তালিকা",
-        icon: IcUsers,
         acc: "usr",
       },
     ],
@@ -272,6 +285,15 @@ export default function Layout() {
   const navigate = useNavigate();
   const loc = useLocation();
   const [open, setOpen] = useState(false);
+  const [openSection, setOpenSection] = useState(() => {
+    // পেজ লোড হওয়ার সময়, বর্তমান route যেই বিভাগে আছে, সেটাই automatic খোলা থাকবে
+    const active = SECTIONS.find((sec) =>
+      sec.items.some((it) => loc.pathname === it.to || loc.pathname.startsWith(it.to + "/")),
+    );
+    return active ? active.en : null;
+  });
+  const toggleSection = (en) =>
+    setOpenSection((prev) => (prev === en ? null : en)); // accordion — একটা খুললে বাকিগুলো বন্ধ
   const fys = fyOptions();
   const [fy, setFy] = useState(
     () => Number(localStorage.getItem("hc_fy")) || fys[0],
@@ -498,14 +520,35 @@ export default function Layout() {
           {SECTIONS.map((sec) => {
             const items = sec.items.filter((it) => can(it.acc || "dash"));
             if (!items.length) return null;
+            const isCollapsible = sec.collapsible !== false;
+            const isOpen = !isCollapsible || openSection === sec.en;
             return (
               <div key={sec.en} className="mb-3">
                 <div
-                  className="px-2 pb-1 text-[10px] font-semibold tracking-wider"
-                  style={{ color: "var(--sa)" }}
+                  onClick={isCollapsible ? () => toggleSection(sec.en) : undefined}
+                  className="flex items-center justify-between px-2.5 py-1.5 mb-1 rounded-lg text-[12px] font-bold tracking-wide"
+                  style={{
+                    color: isOpen ? "#fff" : "var(--st)",
+                    background: isOpen ? "var(--sa)" : "transparent",
+                    cursor: isCollapsible ? "pointer" : "default",
+                    userSelect: "none",
+                    transition: "background .15s, color .15s",
+                  }}
                 >
-                  {sec.bn} / {sec.en}
+                  <span>{sec.bn}</span>
+                  {isCollapsible && (
+                    <span
+                      style={{
+                        transition: "transform .15s",
+                        transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                        fontSize: 11,
+                      }}
+                    >
+                      ▶
+                    </span>
+                  )}
                 </div>
+                {isOpen && (
                 <div className="space-y-0.5">
                   {items.map((it) => (
                     <NavLink
@@ -544,6 +587,7 @@ export default function Layout() {
                     </NavLink>
                   ))}
                 </div>
+                )}
               </div>
             );
           })}
