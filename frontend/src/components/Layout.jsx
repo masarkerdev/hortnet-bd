@@ -526,25 +526,48 @@ export default function Layout() {
               <div key={sec.en} className="mb-3">
                 <div
                   onClick={isCollapsible ? () => toggleSection(sec.en) : undefined}
-                  className="flex items-center justify-between px-2.5 py-1.5 mb-1 rounded-lg text-[12px] font-bold tracking-wide"
+                  className="flex items-center justify-between px-3 py-2 mb-1.5 rounded-xl"
                   style={{
                     color: isOpen ? "#fff" : "var(--st)",
-                    background: isOpen ? "var(--sa)" : "transparent",
+                    background: isOpen
+                      ? "linear-gradient(135deg, var(--sa), color-mix(in srgb, var(--sa) 80%, #000))"
+                      : "transparent",
+                    boxShadow: isOpen ? "0 2px 6px rgba(0,0,0,0.15)" : "none",
                     cursor: isCollapsible ? "pointer" : "default",
                     userSelect: "none",
-                    transition: "background .15s, color .15s",
+                    transition: "background .18s ease, box-shadow .18s ease, color .18s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isOpen && isCollapsible) e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isOpen) e.currentTarget.style.background = "transparent";
                   }}
                 >
-                  <span>{sec.bn}</span>
+                  <div style={{ lineHeight: 1.25 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{sec.bn}</div>
+                    <div
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 600,
+                        letterSpacing: "0.09em",
+                        opacity: isOpen ? 0.85 : 0.55,
+                        marginTop: 1,
+                      }}
+                    >
+                      {sec.en}
+                    </div>
+                  </div>
                   {isCollapsible && (
                     <span
                       style={{
-                        transition: "transform .15s",
+                        transition: "transform .18s ease",
                         transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-                        fontSize: 11,
+                        fontSize: 12,
+                        opacity: isOpen ? 1 : 0.6,
                       }}
                     >
-                      ▶
+                      ❯
                     </span>
                   )}
                 </div>
