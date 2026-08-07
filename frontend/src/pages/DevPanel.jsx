@@ -239,6 +239,7 @@ function Panel({ dev, onLogout }) {
   const [catFilter, setCatFilter] = useState('');
   const [nameSearch, setNameSearch] = useState('');
   const [resetPass, setResetPass] = useState('');
+  const [newEmail, setNewEmail] = useState('');
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -258,10 +259,10 @@ function Panel({ dev, onLogout }) {
   }
 
   async function resetPassword() {
-    if (!resetEmail || !resetPass) { setMsg('Email ও password দিন।'); return; }
-    const r = await devApi('/reset-password', { method:'POST', body: JSON.stringify({ email:resetEmail, new_password:resetPass }) });
+    if (!resetEmail || (!resetPass && !newEmail)) { setMsg('Admin বেছে নিন এবং নতুন password অথবা নতুন email দিন।'); return; }
+    const r = await devApi('/reset-password', { method:'POST', body: JSON.stringify({ email:resetEmail, new_password:resetPass || undefined, new_email:newEmail || undefined }) });
     setMsg(r.message||r.error);
-    if (r.success) { setResetEmail(''); setResetPass(''); }
+    if (r.success) { setResetEmail(''); setResetPass(''); setNewEmail(''); }
   }
 
   async function toggleAdmin(id) {
@@ -515,7 +516,7 @@ function Panel({ dev, onLogout }) {
           {/* Password Reset */}
           {tab==='reset' && (
             <div style={{ maxWidth:400 }}>
-              <div style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>🔑 Password Reset</div>
+              <div style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>🔑 Password / Email Reset</div>
               <div style={{ background:V.card, border:`1px solid ${V.border}`, borderRadius:10, padding:20 }}>
                 <div style={{ marginBottom:14 }}>
                   <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>যেই Admin-এর password reset করবেন</label>
@@ -540,16 +541,20 @@ function Panel({ dev, onLogout }) {
                     </div>
                   );
                 })()}
+                <div style={{ marginBottom:14 }}>
+                  <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>নতুন Email (ঐচ্ছিক — শুধু email বদলাতে চাইলে)</label>
+                  <input type="email" value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder="new-email@example.com" style={inp}/>
+                </div>
                 <div style={{ marginBottom:16 }}>
-                  <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>নতুন Password</label>
+                  <label style={{ display:'block', fontSize:12, color:V.muted, marginBottom:6 }}>নতুন Password (ঐচ্ছিক — শুধু password বদলাতে চাইলে)</label>
                   <input type="text" value={resetPass} onChange={e=>setResetPass(e.target.value)} placeholder="NewPass@2026" style={inp}/>
                 </div>
                 <div style={{ background:'#2d1a00', border:`1px solid ${V.amber}`, borderRadius:8, padding:'10px 12px', fontSize:12, color:V.amber, marginBottom:14 }}>
                   ⚠️ এই action audit log-এ রেকর্ড হবে।
                 </div>
-                <button onClick={resetPassword} disabled={!resetEmail}
-                  style={{ width:'100%', padding:'10px', background:V.red, border:'none', borderRadius:8, color:'#fff', fontSize:14, fontWeight:700, cursor:resetEmail?'pointer':'not-allowed', fontFamily:FONT, opacity:resetEmail?1:0.5 }}>
-                  🔑 Password Reset করুন
+                <button onClick={resetPassword} disabled={!resetEmail || (!resetPass && !newEmail)}
+                  style={{ width:'100%', padding:'10px', background:V.red, border:'none', borderRadius:8, color:'#fff', fontSize:14, fontWeight:700, cursor:(resetEmail && (resetPass || newEmail))?'pointer':'not-allowed', fontFamily:FONT, opacity:(resetEmail && (resetPass || newEmail))?1:0.5 }}>
+                  🔑 আপডেট করুন
                 </button>
               </div>
             </div>

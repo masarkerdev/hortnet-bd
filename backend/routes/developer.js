@@ -98,26 +98,40 @@ router.get("/super-admins", devAuth, async (req, res) => {
   }
 });
 
-// POST /api/dev/reset-password — যেকোনো super admin-এর password reset
+// POST /api/dev/reset-password — যেকোনো super admin-এর password ও/অথবা email পরিবর্তন
 router.post("/reset-password", devAuth, async (req, res) => {
-  const { email, new_password } = req.body;
-  if (!email || !new_password)
-    return res.status(400).json({ success: false, message: "Email ও নতুন password দিন।" });
+  const { email, new_password, new_email } = req.body;
+  if (!email || (!new_password && !new_email))
+    return res.status(400).json({ success: false, message: "Email এবং নতুন password অথবা নতুন email দিন।" });
   try {
-    const hash = await bcrypt.hash(new_password, 10);
-    const r = await masterDb.query(
-      "UPDATE super_admins SET password=$1 WHERE email=$2 RETURNING id,name,email",
-      [hash, email]
-    );
+    let r;
+    if (new_password && new_email) {
+      const hash = await bcrypt.hash(new_password, 10);
+      r = await masterDb.query(
+        "UPDATE super_admins SET password=$1, email=$2 WHERE email=$3 RETURNING id,name,email",
+        [hash, new_email, email]
+      );
+    } else if (new_password) {
+      const hash = await bcrypt.hash(new_password, 10);
+      r = await masterDb.query(
+        "UPDATE super_admins SET password=$1 WHERE email=$2 RETURNING id,name,email",
+        [hash, email]
+      );
+    } else {
+      r = await masterDb.query(
+        "UPDATE super_admins SET email=$1 WHERE email=$2 RETURNING id,name,email",
+        [new_email, email]
+      );
+    }
     if (!r.rows.length)
       return res.status(404).json({ success: false, message: "Admin পাওয়া যায়নি।" });
 
     await masterDb.query(
       "INSERT INTO dev_logs (developer_id, action, details) VALUES ($1,$2,$3)",
-      [req.dev.id, "reset_password", `Reset password for: ${email}`]
+      [req.dev.id, "reset_password", `Reset password/email for: ${email}${new_email ? ` → ${new_email}` : ""}`]
     );
 
-    res.json({ success: true, message: `${r.rows[0].name}-এর password reset হয়েছে।` });
+    res.json({ success: true, message: `${r.rows[0].name}-এর তথ্য আপডেট হয়েছে।` });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
