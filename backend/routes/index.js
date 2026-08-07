@@ -2123,20 +2123,6 @@ router.post("/auth/send-otp", async (req, res) => {
         .status(401)
         .json({ success: false, message: "ইমেইল বা পাসওয়ার্ড ভুল।" });
     let otp = Math.floor(100000 + Math.random() * 900000).toString();
-    // লোকাল মোড: SMTP (GMAIL) সেট করা না থাকলে ইমেইল ছাড়াই fixed OTP = 123456
-    if (!process.env.GMAIL_USER) {
-      otp = "123456";
-      otpStore[email] = {
-        otp,
-        expires: Date.now() + 5 * 60 * 1000,
-        userId: user.id,
-      };
-      console.log("[LOCAL] OTP for " + email + " = 123456");
-      return res.json({
-        success: true,
-        message: "OTP: 123456 (লোকাল মোড — ইমেইল ছাড়া)",
-      });
-    }
     otpStore[email] = {
       otp,
       expires: Date.now() + 5 * 60 * 1000,
@@ -2216,15 +2202,6 @@ router.post("/auth/password-otp", authenticate, async (req, res) => {
         .json({ success: false, message: "ব্যবহারকারী পাওয়া যায়নি।" });
     const email = r.rows[0].email;
     let otp = Math.floor(100000 + Math.random() * 900000).toString();
-    if (!process.env.GMAIL_USER) {
-      otp = "123456";
-      otpStore["pc:" + email] = { otp, expires: Date.now() + 5 * 60 * 1000 };
-      return res.json({
-        success: true,
-        local: true,
-        message: "OTP: 123456 (লোকাল মোড — ইমেইল ছাড়া)",
-      });
-    }
     otpStore["pc:" + email] = { otp, expires: Date.now() + 5 * 60 * 1000 };
     const nodemailer = require("nodemailer");
     const transporter = nodemailer.createTransport({

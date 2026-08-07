@@ -1148,11 +1148,7 @@ function ProfileModal({ open, onClose, user, logout }) {
       const r = await api.post("/auth/password-otp");
       if (r.data?.success) {
         setOtpSent(true);
-        setMsg(
-          r.data.local
-            ? "ইমেইলে OTP পাঠানো হয়েছে (লোকাল: 123456)"
-            : "আপনার ইমেইলে OTP পাঠানো হয়েছে।",
-        );
+        setMsg("আপনার ইমেইলে OTP পাঠানো হয়েছে।");
       } else setErr(r.data?.message || "OTP পাঠানো যায়নি");
     } catch (e) {
       setErr(e?.response?.data?.message || "OTP পাঠাতে সমস্যা");
