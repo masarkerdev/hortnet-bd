@@ -29,7 +29,7 @@ export default function Settings() {
   function setTheme(t) { setThemeState(t); document.documentElement.setAttribute('data-theme', t); localStorage.setItem('hc_theme', t); }
 
   return (
-    <div className="space-y-4" style={{ maxWidth: 720 }}>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {/* থিম ও ডিজাইন */}
       <div className="cd">
         <div className="cdt">🎨 থিম ও ডিজাইন</div>
