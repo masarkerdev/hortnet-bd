@@ -8,18 +8,24 @@ const THEMES = [
   { k:'green', label:'🌿 সবুজ', bg:'#eaf3de', fg:'#3b6d11', dot:'#3b6d11' },
   { k:'blue', label:'🔵 নীল', bg:'#ebf5fb', fg:'#1a5276', dot:'#1a5276' },
   { k:'purple', label:'🟣 বেগুনি', bg:'#f4ecf7', fg:'#6c3483', dot:'#6c3483' },
+  { k:'orange', label:'🟠 কমলা', bg:'#fdf0e3', fg:'#a04000', dot:'#e67e22' },
+  { k:'teal', label:'🟦 টিল', bg:'#e6f7f5', fg:'#0e6655', dot:'#17a589' },
+  { k:'rose', label:'🌸 গোলাপি', bg:'#fdedf0', fg:'#a1284a', dot:'#e0567a' },
 ];
-const CFG_DEFAULT = { name_bn:'', name_en:'', low_stock:20, currency:'BDT', language:'bn', center_category:'B' };
 
 export default function Settings() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [theme, setThemeState] = useState(localStorage.getItem('hc_theme') || 'green');
-  const [cfg, setCfg] = useState(() => { try { return { ...CFG_DEFAULT, ...JSON.parse(localStorage.getItem('hc_cfg') || '{}') }; } catch { return CFG_DEFAULT; } });
-  const [savedMsg, setSavedMsg] = useState('');
+  const [centerCat, setCenterCat] = useState('B'); // Super Admin-এর সেট করা প্রকৃত category, backend থেকে সরাসরি
+
+  useEffect(() => {
+    api.get('/center-info').then((r) => {
+      if (r.data?.success && r.data?.data?.category) setCenterCat(r.data.data.category);
+    }).catch(() => {});
+  }, []);
 
   function setTheme(t) { setThemeState(t); document.documentElement.setAttribute('data-theme', t); localStorage.setItem('hc_theme', t); }
-  function saveCfg() { localStorage.setItem('hc_cfg', JSON.stringify(cfg)); setSavedMsg('সেটিংস সংরক্ষণ হয়েছে ✅'); setTimeout(()=>setSavedMsg(''), 2500); }
 
   return (
     <div className="space-y-4" style={{ maxWidth: 720 }}>
@@ -39,42 +45,16 @@ export default function Settings() {
         <p className="mt-3 text-[12px]" style={{ color:'var(--tm)' }}>থিম বদলালে সাথে সাথে পুরো অ্যাপে প্রয়োগ হবে ও মনে রাখা হবে।</p>
       </div>
 
-      {/* সিস্টেম সেটিংস — শুধু Admin */}
+      {/* সেন্টারের তথ্য — শুধু দেখার জন্য (Super Admin থেকে নির্ধারিত) */}
       {isAdmin && (
         <div className="cd">
-          <div className="cdt">সিস্টেম সেটিংস / System Settings</div>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="field-label">নার্সারির নাম (বাংলা)</label><input className="field-input" value={cfg.name_bn} onChange={(e)=>setCfg({...cfg,name_bn:e.target.value})}/></div>
-              <div><label className="field-label">Nursery Name (English)</label><input className="field-input" value={cfg.name_en} onChange={(e)=>setCfg({...cfg,name_en:e.target.value})}/></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="field-label">কম স্টক সীমা</label><input type="text" inputMode="decimal" className="field-input" value={cfg.low_stock} onChange={(e)=>setCfg({...cfg,low_stock:e.target.value})}/></div>
-              <div><label className="field-label">মুদ্রা / Currency</label>
-                <select className="field-input" value={cfg.currency} onChange={(e)=>setCfg({...cfg,currency:e.target.value})}>
-                  <option value="BDT">BDT (৳)</option><option value="USD">USD ($)</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="field-label">ভাষা / Language</label>
-                <select className="field-input" value={cfg.language} onChange={(e)=>setCfg({...cfg,language:e.target.value})}>
-                  <option value="bn">বাংলা</option><option value="en">English</option><option value="both">বাংলা + English</option>
-                </select>
-              </div>
-              <div><label className="field-label">সেন্টার ক্যাটাগরি</label>
-                <select className="field-input" value={cfg.center_category} onChange={(e)=>setCfg({...cfg,center_category:e.target.value})}>
-                  <option value="A">ক্যাটাগরি-এ (উপপরিচালক)</option>
-                  <option value="B">ক্যাটাগরি-বি (উদ্যানতত্ত্ববিদ)</option>
-                  <option value="C">ক্যাটাগরি-সি (নার্সারি তত্ত্বাবধায়ক)</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 pt-1">
-              <button onClick={saveCfg} className="btn-primary">✓ সেটিংস সংরক্ষণ</button>
-              {savedMsg && <span className="text-[13px]" style={{ color:'var(--g600)' }}>{savedMsg}</span>}
-            </div>
-          </div>
+          <div className="cdt">🏛️ সেন্টারের তথ্য</div>
+          <p className="text-[12.5px]" style={{ color:'var(--tm)' }}>
+            সেন্টার ক্যাটাগরি — <strong style={{ color:'var(--g600)' }}>ক্যাটাগরি-{centerCat}</strong> ({centerCat === 'A' ? 'উপপরিচালক' : centerCat === 'C' ? 'নার্সারি তত্ত্বাবধায়ক' : 'উদ্যানতত্ত্ববিদ'})
+          </p>
+          <p className="mt-1 text-[11.5px]" style={{ color:'var(--tm)' }}>
+            এই তথ্য কেন্দ্রীয়ভাবে (Super Admin) নির্ধারিত — এখান থেকে পরিবর্তনযোগ্য নয়। পরিবর্তন প্রয়োজন হলে কেন্দ্রীয় প্রশাসনের সাথে যোগাযোগ করুন।
+          </p>
         </div>
       )}
 

@@ -38,7 +38,6 @@ const CHARGE = { additional:'অতিরিক্ত দায়িত্ব',
 const EMPTY_P = { id:'', staff_type:'permanent', name_bn:'', name_en:'', designation:'', posting_type:'sanctioned', charge_type:'', charge_designation:'', employee_id:'', grade:'', prl_date:'', gender:'', join_date:'', nid:'', mobile:'', address:'', status:'active', notes:'' };
 const EMPTY_T = { id:'', staff_type:'temporary', name_bn:'', name_en:'', worker_type:'নিয়মিত', gender:'', join_date:'', nid:'', mobile:'', address:'', status:'active', notes:'' };
 
-function cfgCat() { try { return JSON.parse(localStorage.getItem('hc_cfg')||'{}').center_category; } catch { return null; } }
 function gradeOf(designation) { return POST_GRADE[designation] || ['-','']; }
 function fdate(d) { return d ? dateBn(d) : '-'; }
 
@@ -46,7 +45,7 @@ export default function Employees() {
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [center, setCenter] = useState(null);
-  const [cat, setCat] = useState(cfgCat() || 'B');
+  const [cat, setCat] = useState('B'); // /center-info থেকে সঠিক মান আসার আগ পর্যন্ত ডিফল্ট
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
