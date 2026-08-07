@@ -245,6 +245,12 @@ const SECTIONS = [
         icon: IcUser,
         acc: "usr",
       },
+      {
+        to: "/dashboard/settings",
+        label: "সেটিংস",
+        icon: IcSettings,
+        acc: "cfg",
+      },
     ],
   },
 ];
@@ -1298,21 +1304,6 @@ export default function Layout() {
                 <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 12h6M9 16h6" />
               </svg>
             </button>
-            {can("cfg") && (
-              <button
-                onClick={() => navigate("/dashboard/settings")}
-                title="সেটিংস"
-                className="rounded-lg border p-2"
-                style={{
-                  borderColor: "var(--bd)",
-                  color:
-                    loc.pathname === "/settings" ? "var(--g600)" : "var(--tm)",
-                }}
-                aria-label="সেটিংস"
-              >
-                <IcSettings className="h-[18px] w-[18px]" />
-              </button>
-            )}
             {can("bin") && (
               <button
                 onClick={() => navigate("/dashboard/recycle-bin")}

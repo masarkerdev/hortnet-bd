@@ -233,8 +233,21 @@ router.get("/categories", authenticate, async (req, res) => {
 });
 router.post("/categories", authenticate, adminOnly, async (req, res) => {
   const { name_bn, name_en } = req.body;
+  // সরকারি নির্ধারিত ১৪টা category — টপশিট/সমন্বিত রিপোর্টের সাথে নাম হুবহু 
+  // মেলাতে হবে, তাই নতুন/স্বেচ্ছাচারী নাম তৈরি করা যাবে না
+  const OFFICIAL_CATEGORIES = [
+    "ফলদ চারা", "ফলদ কলম", "শীতকালীন সবজি চারা", "গ্রীষ্মকালীন সবজি চারা",
+    "ঔষধি চারা", "মসলার চারা", "মসলার কলম", "শোভাবর্ধনকারী চারা",
+    "শোভাবর্ধনকারী কলম", "ফুলের চারা", "শীতকালীন ফুল", "গ্রীষ্মকালীন ফুল",
+    "পাম জাতীয় চারা", "অন্যান্য চারা",
+  ];
   if (!name_bn)
     return res.status(400).json({ success: false, message: "বাংলা নাম দিন।" });
+  if (!OFFICIAL_CATEGORIES.includes(name_bn))
+    return res.status(400).json({
+      success: false,
+      message: "শুধুমাত্র সরকারি নির্ধারিত category-ই যোগ করা যাবে।",
+    });
   try {
     const exists = await db.query(
       "SELECT id FROM categories WHERE name_bn=$1",

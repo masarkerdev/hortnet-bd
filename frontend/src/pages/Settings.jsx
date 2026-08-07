@@ -45,6 +45,37 @@ export default function Settings() {
         <p className="mt-3 text-[12px]" style={{ color:'var(--tm)' }}>থিম বদলালে সাথে সাথে পুরো অ্যাপে প্রয়োগ হবে ও মনে রাখা হবে।</p>
       </div>
 
+      {/* জরুরি যোগাযোগ */}
+      <div className="cd">
+        <div className="cdt">📞 জরুরি যোগাযোগ তথ্য</div>
+        <p className="mb-3 text-[12px]" style={{ color:'var(--tm)' }}>
+          কারিগরি সমস্যা বা জরুরি প্রয়োজনে যোগাযোগ করুন
+        </p>
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-3 rounded-lg border p-3" style={{ borderColor:'var(--bd)' }}>
+            <span className="text-[18px]">☎️</span>
+            <div>
+              <div className="text-[12px]" style={{ color:'var(--tm)' }}>DAE হেল্পলাইন</div>
+              <div className="text-[14px] font-semibold">[নম্বর যোগ করা হবে]</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg border p-3" style={{ borderColor:'var(--bd)' }}>
+            <span className="text-[18px]">📧</span>
+            <div>
+              <div className="text-[12px]" style={{ color:'var(--tm)' }}>সাপোর্ট ইমেইল</div>
+              <div className="text-[14px] font-semibold">[ইমেইল যোগ করা হবে]</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg border p-3" style={{ borderColor:'var(--bd)' }}>
+            <span className="text-[18px]">🛠️</span>
+            <div>
+              <div className="text-[12px]" style={{ color:'var(--tm)' }}>কারিগরি সহায়তা</div>
+              <div className="text-[14px] font-semibold">[নম্বর/ইমেইল যোগ করা হবে]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* সেন্টারের তথ্য — শুধু দেখার জন্য (Super Admin থেকে নির্ধারিত) */}
       {isAdmin && (
         <div className="cd">
@@ -64,19 +95,30 @@ export default function Settings() {
   );
 }
 
+// সরকারি নির্ধারিত ১৪টা category — টপশিট/সমন্বিত রিপোর্টের সাথে নাম হুবহু 
+// মেলাতে হবে, তাই এখানেই fixed তালিকা (free-text দিয়ে নতুন নাম তৈরির সুযোগ নেই)
+const OFFICIAL_CATEGORIES = [
+  "ফলদ চারা", "ফলদ কলম", "শীতকালীন সবজি চারা", "গ্রীষ্মকালীন সবজি চারা",
+  "ঔষধি চারা", "মসলার চারা", "মসলার কলম", "শোভাবর্ধনকারী চারা",
+  "শোভাবর্ধনকারী কলম", "ফুলের চারা", "শীতকালীন ফুল", "গ্রীষ্মকালীন ফুল",
+  "পাম জাতীয় চারা", "অন্যান্য চারা",
+];
+
 function CategoryManager() {
   const [rows, setRows] = useState([]);
   const [bn, setBn] = useState('');
-  const [en, setEn] = useState('');
   const [msg, setMsg] = useState('');
 
   function load() { api.get('/categories').then((r)=>setRows(r.data?.data||[])).catch(()=>{}); }
   useEffect(() => { load(); }, []);
 
+  const existingNames = rows.map((r) => r.name_bn);
+  const available = OFFICIAL_CATEGORIES.filter((c) => !existingNames.includes(c));
+
   async function add() {
-    if (!bn) { setMsg('বাংলা নাম দিন'); return; }
+    if (!bn) { setMsg('একটা category বেছে নিন'); return; }
     setMsg('');
-    try { await api.post('/categories', { name_bn:bn, name_en:en }); setBn(''); setEn(''); load(); }
+    try { await api.post('/categories', { name_bn:bn, name_en:'' }); setBn(''); load(); }
     catch (e) { setMsg(e?.response?.data?.message || 'সমস্যা'); }
   }
   async function del(c) { if (!(await confirm({ title: `"${c.name_bn}" ক্যাটাগরি ডিলেট করবেন?` }))) return; try { await api.delete('/categories/'+c.id); load(); } catch (e) { alert(e?.response?.data?.message || 'ডিলেট সমস্যা (এই ক্যাটাগরিতে চারা থাকতে পারে)'); } }
@@ -84,11 +126,20 @@ function CategoryManager() {
   return (
     <div className="cd">
       <div className="cdt">📂 ক্যাটাগরি ম্যানেজমেন্ট</div>
+      <p className="mb-2 text-[11.5px]" style={{ color:'var(--tm)' }}>
+        শুধুমাত্র সরকারি নির্ধারিত category-গুলোর মধ্যে থেকেই যোগ করা যাবে — সমন্বিত (টপশিট) রিপোর্টে সঠিকভাবে গণনার জন্য এটা প্রয়োজনীয়।
+      </p>
       <div className="flex flex-wrap items-end gap-2">
-        <div className="flex-1" style={{ minWidth:160 }}><label className="field-label">বাংলা নাম*</label><input className="field-input" value={bn} onChange={(e)=>setBn(e.target.value)} placeholder="যেমন: মসলা"/></div>
-        <div className="flex-1" style={{ minWidth:160 }}><label className="field-label">English Name</label><input className="field-input" value={en} onChange={(e)=>setEn(e.target.value)} placeholder="optional"/></div>
-        <button onClick={add} className="btn-primary"><IcPlus className="h-4 w-4"/> যোগ</button>
+        <div className="flex-1" style={{ minWidth:220 }}>
+          <label className="field-label">Category বেছে নিন*</label>
+          <select className="field-input" value={bn} onChange={(e)=>setBn(e.target.value)}>
+            <option value="">-- বেছে নিন --</option>
+            {available.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <button onClick={add} disabled={!available.length} className="btn-primary" style={{ opacity: available.length ? 1 : 0.5 }}><IcPlus className="h-4 w-4"/> যোগ</button>
       </div>
+      {!available.length && <div className="mt-2 text-[12px]" style={{ color:'var(--g600)' }}>সব ১৪টা সরকারি category ইতিমধ্যেই যোগ করা হয়েছে ✅</div>}
       {msg && <div className="mt-2 text-[13px]" style={{ color:'var(--r600)' }}>{msg}</div>}
       <div className="mt-3 flex flex-wrap gap-2">
         {rows.length ? rows.map((c)=>(
