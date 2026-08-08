@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import * as XLSX from "xlsx";
 import saApi from "./saApi";
 import { toBn, fmt, fmtN, V, FONT } from "./saUtils";
 
@@ -22,13 +23,15 @@ function exportCSV(rows, filename) {
   URL.revokeObjectURL(url);
 }
 
-function exportPDF(title, tableHTML) {
+function exportPDF(title, tableHTML, landscape) {
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali&display=swap" rel="stylesheet">
-    <style>body{font-family:'Noto Sans Bengali',sans-serif;font-size:11px;padding:20px}
+    <style>
+    @page { size: ${landscape ? "landscape" : "portrait"}; margin: 12mm; }
+    body{font-family:'Noto Sans Bengali',sans-serif;font-size:11px;padding:20px}
     h1{font-size:16px;color:#1a4731;margin-bottom:4px}.sub{color:#666;font-size:10px;margin-bottom:12px}
-    table{width:100%;border-collapse:collapse}th{background:#1a4731;color:#fff;padding:7px;font-size:10px;text-align:left}
-    td{padding:6px 7px;border-bottom:1px solid #e5e7eb;font-size:10px}
+    table{width:100%;border-collapse:collapse}th{background:#1a4731;color:#fff;padding:6px 5px;font-size:9px;text-align:center;border:1px solid #14532d}
+    td{padding:5px;border:1px solid #e5e7eb;font-size:9px;text-align:center}
     tr:nth-child(even)td{background:#f9fafb}</style></head><body>
     <h1>🌿 ${title}</h1>
     <div class="sub">তৈরির তারিখ: ${new Date().toLocaleDateString("bn-BD")}</div>
@@ -2092,15 +2095,146 @@ function TopsheetReport() {
     );
   }
 
-  function exportTopsheetPDF() {
-    let html = `<table><thead><tr><th>ক্র.নং</th><th>বিবরণ</th><th>লক্ষ্যমাত্রা</th><th>উৎপাদন সর্বমোট</th><th>বিতরণ সর্বমোট</th><th>নীট মজুদ</th></tr></thead><tbody>`;
+  // প্রকৃত টপশিট ফরম্যাট অনুযায়ী — multi-row header, merged cells সহ 
+  // সঠিক .xlsx ফাইল তৈরি করে (আগের মতো শুধু flat CSV না)
+  function exportTopsheetExcel() {
+    const centerName =
+      scope === "consolidated"
+        ? "সব সেন্টার একসাথে"
+        : centers.find((c) => c.slug === slug)?.name_bn || "";
+    const fyLabel = meta?.fy || `${fy}-${String(fy + 1).slice(-2)}`;
+
+    const aoa = [
+      [`টপশিট রিপোর্ট — ${centerName}`],
+      [`অর্থবছর: ${fyLabel}  |  ${MONTHS[month - 1]} পর্যন্ত`],
+      [],
+      [
+        "ক্র.নং", "বিবরণ", "বিভাগীয় লক্ষ্যমাত্রা",
+        "উৎপাদন", "", "", "", "", "",
+        "বিতরণ", "", "", "", "", "", "",
+        "নীট মজুদ",
+      ],
+      [
+        "", "", "",
+        "চলতি মাস", "পূর্বমাস পর্যন্ত", "মোট", "ডিএই চালান", "পূর্ব বছরের জের", "সর্বমোট",
+        "লক্ষ্যমাত্রা", "চলতি মাস", "পূর্বমাস পর্যন্ত", "মোট", "ডিএই চালান", "মৃত/বিনষ্ট", "সর্বমোট",
+        "",
+      ],
+    ];
     data.forEach((r, i) => {
-      html += `<tr><td>${i + 1}</td><td>${r.mother_category}</td><td>${r.divisional_target}</td><td>${r.production.grand_total}</td><td>${r.distribution.grand_total}</td><td><b>${r.net_stock}</b></td></tr>`;
+      aoa.push([
+        i + 1, r.mother_category, r.divisional_target || 0,
+        r.production.current_month, r.production.prev_months_total, r.production.subtotal,
+        r.production.dae_challan_received, r.production.prev_year_balance, r.production.grand_total,
+        r.distribution.target || 0, r.distribution.current_month, r.distribution.prev_months_total,
+        r.distribution.subtotal, r.distribution.dae_challan_sent, r.distribution.damaged,
+        r.distribution.grand_total, r.net_stock,
+      ]);
+    });
+    // সর্বমোট (grand total) সারি
+    const tot = data.reduce(
+      (acc, r) => ({
+        prod_cur: acc.prod_cur + (+r.production.current_month || 0),
+        prod_prev: acc.prod_prev + (+r.production.prev_months_total || 0),
+        prod_sub: acc.prod_sub + (+r.production.subtotal || 0),
+        prod_dae: acc.prod_dae + (+r.production.dae_challan_received || 0),
+        prod_py: acc.prod_py + (+r.production.prev_year_balance || 0),
+        prod_gt: acc.prod_gt + (+r.production.grand_total || 0),
+        dist_cur: acc.dist_cur + (+r.distribution.current_month || 0),
+        dist_prev: acc.dist_prev + (+r.distribution.prev_months_total || 0),
+        dist_sub: acc.dist_sub + (+r.distribution.subtotal || 0),
+        dist_dae: acc.dist_dae + (+r.distribution.dae_challan_sent || 0),
+        dist_dmg: acc.dist_dmg + (+r.distribution.damaged || 0),
+        dist_gt: acc.dist_gt + (+r.distribution.grand_total || 0),
+        net: acc.net + (+r.net_stock || 0),
+      }),
+      { prod_cur:0,prod_prev:0,prod_sub:0,prod_dae:0,prod_py:0,prod_gt:0,dist_cur:0,dist_prev:0,dist_sub:0,dist_dae:0,dist_dmg:0,dist_gt:0,net:0 },
+    );
+    aoa.push([
+      "", "সর্বমোট", "",
+      tot.prod_cur, tot.prod_prev, tot.prod_sub, tot.prod_dae, tot.prod_py, tot.prod_gt,
+      "", tot.dist_cur, tot.dist_prev, tot.dist_sub, tot.dist_dae, tot.dist_dmg, tot.dist_gt,
+      tot.net,
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    // header row merge — উপরের সারিগুলোর জন্য merged cell (rowSpan/colSpan-এর সমতুল্য)
+    ws["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 16 } }, // শিরোনাম
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 16 } }, // অর্থবছর লাইন
+      { s: { r: 3, c: 0 }, e: { r: 4, c: 0 } }, // ক্র.নং
+      { s: { r: 3, c: 1 }, e: { r: 4, c: 1 } }, // বিবরণ
+      { s: { r: 3, c: 2 }, e: { r: 4, c: 2 } }, // বিভাগীয় লক্ষ্যমাত্রা
+      { s: { r: 3, c: 3 }, e: { r: 3, c: 8 } }, // উৎপাদন
+      { s: { r: 3, c: 9 }, e: { r: 3, c: 15 } }, // বিতরণ
+      { s: { r: 3, c: 16 }, e: { r: 4, c: 16 } }, // নীট মজুদ
+    ];
+    ws["!cols"] = [
+      { wch: 6 }, { wch: 22 }, { wch: 14 },
+      { wch: 11 }, { wch: 14 }, { wch: 10 }, { wch: 11 }, { wch: 13 }, { wch: 11 },
+      { wch: 11 }, { wch: 11 }, { wch: 14 }, { wch: 10 }, { wch: 11 }, { wch: 11 }, { wch: 11 },
+      { wch: 11 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "টপশিট");
+    XLSX.writeFile(
+      wb,
+      `Topsheet_${scope}_${fy}_${new Date().toISOString().slice(0, 10)}.xlsx`,
+    );
+  }
+
+  function exportTopsheetPDF() {
+    let html = `<table style="font-size:9px"><thead>
+      <tr>
+        <th rowspan="2">ক্র.নং</th>
+        <th rowspan="2" style="text-align:left">বিবরণ</th>
+        <th rowspan="2" style="background:#dcfce7">বিভাগীয় লক্ষ্যমাত্রা</th>
+        <th colspan="6" style="background:#dcfce7">উৎপাদন</th>
+        <th colspan="7" style="background:#fef3c7">বিতরণ</th>
+        <th rowspan="2" style="background:#dbeafe">নীট মজুদ</th>
+      </tr>
+      <tr>
+        <th style="background:#dcfce7">চলতি মাস</th>
+        <th style="background:#dcfce7">পূর্বমাস পর্যন্ত</th>
+        <th style="background:#dcfce7">মোট</th>
+        <th style="background:#dcfce7">ডিএই চালান</th>
+        <th style="background:#dcfce7">পূর্ব বছরের জের</th>
+        <th style="background:#dcfce7;font-weight:700">সর্বমোট</th>
+        <th style="background:#fef3c7">লক্ষ্যমাত্রা</th>
+        <th style="background:#fef3c7">চলতি মাস</th>
+        <th style="background:#fef3c7">পূর্বমাস পর্যন্ত</th>
+        <th style="background:#fef3c7">মোট</th>
+        <th style="background:#fef3c7">ডিএই চালান</th>
+        <th style="background:#fef3c7">মৃত/বিনষ্ট</th>
+        <th style="background:#fef3c7;font-weight:700">সর্বমোট</th>
+      </tr>
+    </thead><tbody>`;
+    data.forEach((r, i) => {
+      html += `<tr>
+        <td>${toBn(i + 1)}</td>
+        <td style="text-align:left;font-weight:600">${r.mother_category}</td>
+        <td>${r.divisional_target ? fmtN(r.divisional_target) : "—"}</td>
+        <td>${fmtN(r.production.current_month)}</td>
+        <td>${fmtN(r.production.prev_months_total)}</td>
+        <td style="font-weight:600">${fmtN(r.production.subtotal)}</td>
+        <td>${fmtN(r.production.dae_challan_received)}</td>
+        <td>${fmtN(r.production.prev_year_balance)}</td>
+        <td style="font-weight:700">${fmtN(r.production.grand_total)}</td>
+        <td>${r.distribution.target ? fmtN(r.distribution.target) : "—"}</td>
+        <td>${fmtN(r.distribution.current_month)}</td>
+        <td>${fmtN(r.distribution.prev_months_total)}</td>
+        <td style="font-weight:600">${fmtN(r.distribution.subtotal)}</td>
+        <td>${fmtN(r.distribution.dae_challan_sent)}</td>
+        <td>${fmtN(r.distribution.damaged)}</td>
+        <td style="font-weight:700">${fmtN(r.distribution.grand_total)}</td>
+        <td style="font-weight:700">${fmtN(r.net_stock)}</td>
+      </tr>`;
     });
     html += `</tbody></table>`;
     exportPDF(
       `টপশিট রিপোর্ট — ${scope === "consolidated" ? "সব সেন্টার" : centers.find((c) => c.slug === slug)?.name_bn || ""}`,
       html,
+      true,
     );
   }
 
@@ -2209,7 +2343,7 @@ function TopsheetReport() {
         </select>
         <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
           <button
-            onClick={exportTopsheetCSV}
+            onClick={exportTopsheetExcel}
             style={{
               padding: "7px 14px",
               borderRadius: 8,
