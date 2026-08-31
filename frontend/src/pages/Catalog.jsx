@@ -1057,19 +1057,22 @@ export default function Catalog() {
                         {c.total_stock !== null && c.total_stock !== undefined && (
                           <span
                             style={{
-                              display: "flex",
+                              display: "inline-flex",
                               alignItems: "center",
                               gap: 4,
                               fontSize: 12,
-                              color: "#1a6b3a",
+                              color: "#166534",
                               fontWeight: 600,
+                              background: "#dcfce7",
+                              padding: "3px 10px",
+                              borderRadius: 20,
                             }}
                           >
                             <i
                               className="ti ti-leaf"
                               style={{ fontSize: 13 }}
                             />
-                            {toBn(c.total_stock)}টি চারা/কলম
+                            {toBn(c.total_stock)}টি মজুদ
                           </span>
                         )}
                       </div>
