@@ -127,16 +127,16 @@ const SECTIONS = [
     collapsible: true,
     items: [
       {
-        to: "/dashboard/production",
-        label: "উৎপাদন রেজিস্টার",
-        icon: IcClipboard,
-        acc: "prod",
-      },
-      {
         to: "/dashboard/seedlings",
         label: "চারা তালিকা",
         icon: IcLeaf,
         acc: "seed",
+      },
+      {
+        to: "/dashboard/production",
+        label: "উৎপাদন রেজিস্টার",
+        icon: IcClipboard,
+        acc: "prod",
       },
       {
         to: "/dashboard/mother-plants",
